@@ -1,0 +1,41 @@
+# Node
+node_modules/
+npm-debug.log
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+
+# AGY Binaries (Downloadable via Release / Installer)
+bin/agy
+bin/*.tar.*
+
+# Personal Sessions & History
+data/*.json
+data/*.jsonl
+!data/beats/
+!data/.gitkeep
+
+# Auth & Tokens
+auth/*
+!auth/.gitkeep
+
+# Logs
+logs/*
+!logs/.gitkeep
+
+# Workspace generated files (keep prompt instructions)
+workspace/*
+!workspace/.gitkeep
+!workspace/AGENTS.md
+!workspace/GEMINI.md
+!workspace/CLAUDE.md
+
+# OS / IDE
+.DS_Store
+.vscode/
+.idea/

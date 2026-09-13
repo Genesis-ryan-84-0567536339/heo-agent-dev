@@ -1,0 +1,997 @@
+#!/usr/bin/env node
+/**
+ * AGY Zalo Co-Pilot Bridge
+ * Standalone integration connecting Zalo to Google Antigravity (AGY) Engine
+ * With Group Context Awareness, Member Resolution & Strict Silence Policy
+ */
+
+const fs = require("fs");
+const path = require("path");
+const http = require("http");
+const axios = require("axios");
+const qrcode = require("qrcode-terminal");
+const { Zalo, ThreadType, LoginQRCallbackEventType, Reactions } = require("zca-js");
+const { imageSize } = require("image-size");
+
+const BASE_DIR = process.env.BASE_DIR || path.resolve(__dirname, "..");
+const DATA_DIR = process.env.DATA_DIR || path.join(BASE_DIR, "data");
+const WORKSPACE_DIR = process.env.WORKSPACE_DIR || path.join(BASE_DIR, "workspace");
+const LOG_DIR = process.env.LOG_DIR || path.join(BASE_DIR, "logs");
+const SCRIPTS_DIR = process.env.SCRIPTS_DIR || path.join(BASE_DIR, "scripts");
+const CONFIG_FILE = process.env.CONFIG_FILE || path.join(BASE_DIR, "config", "config.json");
+const SESSION_FILE = path.join(DATA_DIR, "zalo_session.json");
+const QR_PATH = path.join(WORKSPACE_DIR, "zalo_qr.png");
+const AGY_ENGINE_URL = process.env.AGY_ENGINE_URL || "http://127.0.0.1:5066";
+const OUTBOUND_PORT = parseInt(process.env.BRIDGE_PORT || "5051", 10);
+
+let config = {};
+try {
+  if (fs.existsSync(CONFIG_FILE)) {
+    config = JSON.parse(fs.readFileSync(CONFIG_FILE, "utf-8"));
+  }
+} catch (e) {
+  console.error("Warning: Could not read config file", e.message);
+}
+
+let BOSS_UID = process.env.BOSS_UID || config.boss_uid || "";
+let BOSS_NAME = process.env.BOSS_NAME || config.boss_name || "Sếp";
+let BOSS_CALLER_NAME = process.env.BOSS_CALLER_NAME || config.boss_caller_name || "Sếp";
+const QR_ONLY = process.argv.includes("--qr-only");
+
+if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+if (!fs.existsSync(WORKSPACE_DIR)) fs.mkdirSync(WORKSPACE_DIR, { recursive: true });
+if (!fs.existsSync(LOG_DIR)) fs.mkdirSync(LOG_DIR, { recursive: true });
+
+// Bộ nhớ đệm chống trùng tin nhắn (Message Deduplication Cache)
+const processedMsgIds = new Set();
+// Cache thông tin thành viên & tên nhóm
+const userCache = new Map();
+const groupCache = new Map();
+
+function log(msg) {
+  const ts = new Date().toISOString().replace(/T/, " ").replace(/\..+/, "");
+  console.log(`[${ts}] [AGY-Zalo] ${msg}`);
+}
+
+async function getUserDisplayName(api, userId) {
+  if (!userId) return "Thành viên";
+  if (String(userId) === BOSS_UID) return "${BOSS_NAME}";
+  if (userCache.has(userId)) return userCache.get(userId);
+  try {
+    const res = await api.getUserInfo(userId);
+    const profile = res?.changed_profiles?.[userId] || res?.unchanged_profiles?.[userId];
+    if (profile && (profile.displayName || profile.zaloName)) {
+      const name = profile.displayName || profile.zaloName;
+      userCache.set(userId, name);
+      return name;
+    }
+  } catch (e) {}
+  return `Thành viên (${userId})`;
+}
+
+async function getGroupDetails(api, groupId) {
+  if (!groupId) return { name: "Nhóm Zalo" };
+  if (groupCache.has(groupId)) return groupCache.get(groupId);
+  try {
+    const res = await api.getGroupInfo(groupId);
+    const info = res?.gridInfoMap?.[groupId];
+    if (info) {
+      const details = { name: info.name || "Nhóm Zalo", creatorId: info.creatorId };
+      groupCache.set(groupId, details);
+      return details;
+    }
+  } catch (e) {}
+  return { name: "Nhóm Zalo" };
+}
+
+const GROUPS_FILE = path.join(DATA_DIR, "active_groups.json");
+
+function appendGroupHistory(groupId, item) {
+  try {
+    const historyFile = path.join(DATA_DIR, `group_${groupId}.jsonl`);
+    fs.appendFileSync(historyFile, JSON.stringify(item) + "\n", "utf-8");
+  } catch (e) {}
+}
+
+function findMessageSnippet(groupId, targetMsgId) {
+  if (!targetMsgId) return "";
+  try {
+    const historyFile = path.join(DATA_DIR, `group_${groupId}.jsonl`);
+    if (!fs.existsSync(historyFile)) return "";
+    const lines = fs.readFileSync(historyFile, "utf-8").trim().split("\n");
+    for (let i = lines.length - 1; i >= 0; i--) {
+      try {
+        const item = JSON.parse(lines[i]);
+        if (item.msgId && String(item.msgId) === String(targetMsgId)) {
+          return item.text ? item.text.substring(0, 60).replace(/\n/g, " ") : "";
+        }
+      } catch (e) {}
+    }
+  } catch (err) {}
+  return "";
+}
+
+function parseReactionDetails(rIcon, rType) {
+  const mapByIcon = {
+    "/-heart": { icon: "❤️", name: "Thả tim", sentiment: "positive", meaning: "Rất thích, hài lòng, đồng tình cao" },
+    "/-strong": { icon: "👍", name: "Like", sentiment: "positive", meaning: "Đồng ý, duyệt, tán thành, đã xác nhận" },
+    ":>": { icon: "😂", name: "Haha", sentiment: "positive", meaning: "Hài hước, vui vẻ, thích thú" },
+    ":')": { icon: "🤣", name: "Cười nghiêng ngả", sentiment: "positive", meaning: "Rất buồn cười, sảng khoái" },
+    ":o": { icon: "😮", name: "Wow", sentiment: "neutral", meaning: "Bất ngờ, ngạc nhiên, ấn tượng" },
+    ":-((": { icon: "😢", name: "Buồn", sentiment: "negative", meaning: "Buồn, tiếc nuối, chưa hài lòng, có khúc mắc hoặc gặp khó khăn" },
+    ":-h": { icon: "😡", name: "Phẫn nộ", sentiment: "negative", meaning: "BÁO ĐỘNG ĐỎ: Bực tức, phản đối gay gắt, phẫn nộ, cảnh báo nghiêm trọng" },
+    "/-weak": { icon: "👎", name: "Dislike", sentiment: "negative", meaning: "BÁO ĐỘNG ĐỎ: Không thích, chê, phản đối" },
+    "/-break": { icon: "💔", name: "Tan vỡ", sentiment: "negative", meaning: "Thất vọng, hụt hẫng" },
+    "/-rose": { icon: "🌹", name: "Tặng hoa", sentiment: "positive", meaning: "Biết ơn, khen ngợi, cảm kích" },
+    "_()_": { icon: "🙏", name: "Biết ơn/Chắp tay", sentiment: "positive", meaning: "Cảm ơn chân thành, nhờ vả lịch thiệp" },
+    ":-*": { icon: "😘", name: "Hôn/Yêu", sentiment: "positive", meaning: "Yêu mến, thân thiết" },
+    "/-clap": { icon: "👏", name: "Vỗ tay", sentiment: "positive", meaning: "Tán thưởng, chúc mừng" },
+    ":handclap": { icon: "👏", name: "Vỗ tay", sentiment: "positive", meaning: "Tán thưởng, chúc mừng" }
+  };
+
+  const mapByType = {
+    5: { icon: "❤️", name: "Thả tim", sentiment: "positive", meaning: "Rất thích, hài lòng, đồng tình cao" },
+    3: { icon: "👍", name: "Like", sentiment: "positive", meaning: "Đồng ý, duyệt, tán thành, đã xác nhận" },
+    0: { icon: "😂", name: "Haha", sentiment: "positive", meaning: "Hài hước, vui vẻ, thích thú" },
+    7: { icon: "🤣", name: "Cười nghiêng ngả", sentiment: "positive", meaning: "Rất buồn cười, sảng khoái" },
+    32: { icon: "😮", name: "Wow", sentiment: "neutral", meaning: "Bất ngờ, ngạc nhiên, ấn tượng" },
+    2: { icon: "😢", name: "Buồn", sentiment: "negative", meaning: "Buồn, tiếc nuối, chưa hài lòng, có khúc mắc hoặc gặp khó khăn" },
+    20: { icon: "😡", name: "Phẫn nộ", sentiment: "negative", meaning: "BÁO ĐỘNG ĐỎ: Bực tức, phản đối gay gắt, phẫn nộ, cảnh báo nghiêm trọng" },
+    14: { icon: "👎", name: "Dislike", sentiment: "negative", meaning: "BÁO ĐỘNG ĐỎ: Không thích, chê, phản đối" },
+    4: { icon: "👎", name: "Dislike", sentiment: "negative", meaning: "BÁO ĐỘNG ĐỎ: Không thích, chê, phản đối" },
+    120: { icon: "🌹", name: "Tặng hoa", sentiment: "positive", meaning: "Biết ơn, khen ngợi, cảm kích" },
+    65: { icon: "💔", name: "Tan vỡ", sentiment: "negative", meaning: "Thất vọng, hụt hẫng" },
+    46: { icon: "👏", name: "Vỗ tay", sentiment: "positive", meaning: "Tán thưởng, chúc mừng" }
+  };
+
+  if (rIcon && mapByIcon[rIcon]) return mapByIcon[rIcon];
+  if (rType !== undefined && mapByType[rType]) return mapByType[rType];
+  return { icon: "✨", name: "Tương tác", sentiment: "neutral", meaning: "Tương tác cảm xúc" };
+}
+
+async function syncAllActiveGroups(api) {
+  try {
+    const allGroupsRes = await api.getAllGroups();
+    const groupIds = Object.keys(allGroupsRes?.gridVerMap || {});
+    const groupsData = {};
+
+    for (const gid of groupIds) {
+      try {
+        const info = await api.getGroupInfo(gid);
+        const g = info?.gridInfoMap?.[gid];
+        if (!g) continue;
+
+        const memberIds = (g.memberIds && g.memberIds.length > 0) 
+          ? g.memberIds 
+          : (g.memVerList ? g.memVerList.map(m => m.split("_")[0]) : []);
+        let memberProfiles = [];
+        try {
+          const memInfo = await api.getGroupMembersInfo(memberIds);
+          const profs = memInfo?.profiles || {};
+          memberProfiles = memberIds.map(mid => {
+            const p = profs[mid];
+            let name = p?.displayName || p?.zaloName || mid;
+            if (String(mid) === BOSS_UID) name = "${BOSS_NAME}";
+            return {
+              id: String(mid),
+              name,
+              isBoss: String(mid) === BOSS_UID
+            };
+          });
+        } catch (memErr) {
+          memberProfiles = memberIds.map(mid => ({
+            id: String(mid),
+            name: String(mid) === BOSS_UID ? "${BOSS_NAME}" : `Thành viên (${mid})`,
+            isBoss: String(mid) === BOSS_UID
+          }));
+        }
+
+        groupsData[gid] = {
+          groupId: gid,
+          groupName: g.name || "Nhóm Zalo",
+          creatorId: g.creatorId,
+          totalMember: g.totalMember || memberIds.length,
+          members: memberProfiles,
+          lastUpdated: new Date().toISOString()
+        };
+        groupCache.set(gid, { name: g.name || "Nhóm Zalo", creatorId: g.creatorId });
+        // Tự động kéo lịch sử gần nhất từ máy chủ Zalo để đảm bảo không sót tin nhắn
+        backfillGroupChatHistory(api, gid).catch(() => {});
+      } catch (e) {
+        log(`⚠️ Lỗi lấy info group ${gid}: ${e.message}`);
+      }
+    }
+
+    fs.writeFileSync(GROUPS_FILE, JSON.stringify(groupsData, null, 2), "utf-8");
+    log(`📋 Đã đồng bộ ${Object.keys(groupsData).length} nhóm Zalo vào ${GROUPS_FILE}`);
+    return groupsData;
+  } catch (err) {
+    log(`⚠️ Lỗi syncAllActiveGroups: ${err.message}`);
+    return {};
+  }
+}
+
+async function backfillGroupChatHistory(api, groupId) {
+  try {
+    const historyRes = await api.getGroupChatHistory(String(groupId), 50);
+    const msgs = historyRes?.groupMsgs || [];
+    if (!msgs || msgs.length === 0) return;
+
+    const historyFile = path.join(DATA_DIR, `group_${groupId}.jsonl`);
+    const existingMsgIds = new Set();
+    if (fs.existsSync(historyFile)) {
+      const lines = fs.readFileSync(historyFile, "utf-8").trim().split("\n");
+      for (const line of lines) {
+        try {
+          const item = JSON.parse(line);
+          if (item.msgId) existingMsgIds.add(String(item.msgId));
+        } catch (e) {}
+      }
+    }
+
+    let addedCount = 0;
+    msgs.sort((a, b) => (Number(a.data?.ts) || 0) - (Number(b.data?.ts) || 0));
+
+    for (const m of msgs) {
+      const mId = String(m.data?.msgId || m.data?.id || "");
+      if (mId && existingMsgIds.has(mId)) continue;
+
+      const uid = String(m.data?.uidFrom || "");
+      const dName = m.data?.dName || await getUserDisplayName(api, uid);
+      let content = "";
+      if (typeof m.data?.content === "string") {
+        content = m.data.content.trim();
+      } else if (m.data?.content && typeof m.data.content === "object") {
+        const c = m.data.content;
+        content = [c.title || c.description, c.href || c.url].filter(Boolean).join(" ");
+      }
+
+      if (!content && !m.data?.quote) continue;
+
+      const ts = m.data?.ts ? new Date(Number(m.data.ts)).toISOString() : new Date().toISOString();
+      const record = {
+        time: ts,
+        msgId: mId,
+        senderUid: uid,
+        senderName: dName,
+        text: content
+      };
+      appendGroupHistory(groupId, record);
+      if (mId) existingMsgIds.add(mId);
+      addedCount++;
+    }
+    if (addedCount > 0) {
+      log(`📥 [Đồng bộ lịch sử Zalo]: Đã nạp bổ sung ${addedCount} tin nhắn trước đó vào nhóm ${groupId}`);
+    }
+  } catch (err) {
+    // Bỏ qua lỗi nếu API chưa sẵn sàng
+  }
+}
+
+async function imageMetadataGetter(filePath) {
+  try {
+    const buf = await fs.promises.readFile(filePath);
+    const dims = imageSize(buf);
+    return {
+      width: dims.width || 800,
+      height: dims.height || 600,
+      size: buf.length
+    };
+  } catch (err) {
+    try {
+      const stat = fs.statSync(filePath);
+      return { width: 800, height: 600, size: stat.size };
+    } catch {
+      return { width: 800, height: 600, size: 1024 };
+    }
+  }
+}
+
+async function initZaloClient() {
+  const zalo = new Zalo({
+    selfListen: true,
+    imageMetadataGetter
+  });
+  let api = null;
+
+  if (fs.existsSync(SESSION_FILE)) {
+    try {
+      log("🔑 Nạp phiên đăng nhập Zalo lưu trữ...");
+      const sessionData = JSON.parse(fs.readFileSync(SESSION_FILE, "utf-8"));
+      api = await zalo.login(sessionData);
+      log("✅ Đăng nhập Zalo thành công bằng phiên cookie!");
+      return api;
+    } catch (err) {
+      log(`⚠️ Phiên cũ không hợp lệ: ${err.message}. Chuyển sang mã QR...`);
+    }
+  }
+
+  log("⚡ Đang tạo mã QR đăng nhập Zalo...");
+  api = await zalo.loginQR({ qrPath: QR_PATH }, async (evt) => {
+    switch (evt.type) {
+      case LoginQRCallbackEventType.QRCodeGenerated: {
+        log("📱 ĐÃ TẠO MÃ QR ĐĂNG NHẬP!");
+        if (evt.data && evt.data.code) {
+          qrcode.generate(evt.data.code, { small: true });
+        }
+        if (evt.actions && evt.actions.saveToFile) {
+          await evt.actions.saveToFile(QR_PATH);
+        } else if (evt.data && evt.data.image) {
+          fs.writeFileSync(QR_PATH, Buffer.from(evt.data.image, "base64"));
+        }
+        break;
+      }
+      case LoginQRCallbackEventType.QRCodeScanned:
+        log("👁️ Sếp đã quét mã QR! Đang chờ xác nhận trên điện thoại...");
+        break;
+      case LoginQRCallbackEventType.GotLoginInfo: {
+        log("🎉 NHẬN THÔNG TIN XÁC THỰC ZALO THÀNH CÔNG!");
+        fs.writeFileSync(SESSION_FILE, JSON.stringify(evt.data, null, 2), "utf-8");
+        log(`Đã lưu phiên làm việc vào: ${SESSION_FILE}`);
+        if (QR_ONLY) {
+          log("✅ [QR Setup] Đã xác thực Zalo thành công! Thoát chế độ thiết lập QR.");
+          setTimeout(() => process.exit(0), 1000);
+        }
+        break;
+      }
+      case LoginQRCallbackEventType.QRCodeExpired:
+        log("⏳ Mã QR hết hạn.");
+        break;
+      case LoginQRCallbackEventType.QRCodeDeclined:
+        log("❌ Từ chối đăng nhập trên điện thoại.");
+        break;
+    }
+  });
+
+  return api;
+}
+
+function splitText(text, maxLength = 1800) {
+  if (!text || text.length <= maxLength) return [text || ""];
+  const chunks = [];
+  let remaining = text;
+  while (remaining.length > maxLength) {
+    let splitIdx = remaining.lastIndexOf("\n", maxLength);
+    if (splitIdx === -1 || splitIdx < maxLength / 2) {
+      splitIdx = remaining.lastIndexOf(". ", maxLength);
+      if (splitIdx !== -1) splitIdx += 1;
+    }
+    if (splitIdx === -1 || splitIdx < maxLength / 2) {
+      splitIdx = maxLength;
+    }
+    chunks.push(remaining.substring(0, splitIdx).trim());
+    remaining = remaining.substring(splitIdx).trim();
+  }
+  if (remaining.length > 0) {
+    chunks.push(remaining);
+  }
+  return chunks;
+}
+
+const recentSentMessages = [];
+
+function trackSentMessage(res, threadId, threadType, msgText) {
+  try {
+    const mId = res?.data?.msgId || res?.message?.msgId || res?.msgId || "";
+    const cId = res?.data?.cliMsgId || res?.message?.cliMsgId || res?.cliMsgId || "";
+    if (mId || cId) {
+      recentSentMessages.push({
+        msgId: String(mId),
+        cliMsgId: String(cId || mId),
+        threadId: String(threadId),
+        threadType,
+        text: String(msgText || ""),
+        time: Date.now()
+      });
+      if (recentSentMessages.length > 60) recentSentMessages.shift();
+    }
+  } catch (e) {}
+}
+
+async function sendSafeMessage(api, payload, threadId, threadType) {
+  const msg = typeof payload === "string" ? payload : (payload.msg || "");
+  const attachments = (payload && payload.attachments) || [];
+  const quote = payload && payload.quote;
+
+  let finalRes = null;
+  // Xử lý gửi kèm file đính kèm
+  if (attachments.length > 0) {
+    if (msg.length > 1800) {
+      const chunks = splitText(msg, 1800);
+      finalRes = await api.sendMessage({ msg: chunks[0], attachments, quote }, threadId, threadType);
+      trackSentMessage(finalRes, threadId, threadType, chunks[0]);
+      for (let i = 1; i < chunks.length; i++) {
+        const subRes = await api.sendMessage({ msg: chunks[i] }, threadId, threadType);
+        trackSentMessage(subRes, threadId, threadType, chunks[i]);
+      }
+      return finalRes;
+    } else {
+      finalRes = await api.sendMessage({ msg, attachments, quote }, threadId, threadType);
+      trackSentMessage(finalRes, threadId, threadType, msg);
+      return finalRes;
+    }
+  }
+
+  // Xử lý chỉ gửi văn bản
+  if (msg.length > 1800) {
+    const chunks = splitText(msg, 1800);
+    let firstRes = null;
+    for (let i = 0; i < chunks.length; i++) {
+      const p = (i === 0 && quote) ? { msg: chunks[i], quote } : { msg: chunks[i] };
+      const res = await api.sendMessage(p, threadId, threadType);
+      trackSentMessage(res, threadId, threadType, chunks[i]);
+      if (i === 0) firstRes = res;
+    }
+    return firstRes;
+  }
+
+  finalRes = await api.sendMessage(payload, threadId, threadType);
+  trackSentMessage(finalRes, threadId, threadType, msg);
+  return finalRes;
+}
+
+async function startBridge() {
+  let api = null;
+  try {
+    api = await initZaloClient();
+  } catch (err) {
+    log(`❌ Lỗi khởi động Zalo Client: ${err.message}`);
+    process.exit(1);
+  }
+
+  let ownId = null;
+  try {
+    ownId = api.getOwnId();
+    log(`🤖 AGY Zalo Co-Pilot trực chiến! (Tài khoản ID: ${ownId})`);
+  } catch (e) {
+    log(`🤖 AGY Zalo Co-Pilot đã kết nối thành công!`);
+  }
+
+  // Khởi chạy Outbound HTTP Server (Port 5051)
+  try {
+    const server = http.createServer(async (req, res) => {
+      if (req.method === "GET" && req.url === "/api/groups") {
+        try {
+          if (fs.existsSync(GROUPS_FILE)) {
+            const content = fs.readFileSync(GROUPS_FILE, "utf-8");
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(content);
+            return;
+          }
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({}));
+        } catch (e) {
+          res.writeHead(500, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: e.message }));
+        }
+        return;
+      }
+
+      if (req.method === "POST" && req.url === "/api/send") {
+        let body = "";
+        req.on("data", chunk => body += chunk);
+        req.on("end", async () => {
+          try {
+            const payload = JSON.parse(body);
+            const { threadId, threadType, msg, attachments } = payload;
+            await sendSafeMessage(api, { msg, attachments }, String(threadId), threadType !== undefined ? threadType : ThreadType.User);
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ ok: true }));
+          } catch (err) {
+            res.writeHead(500, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ ok: false, error: err.message }));
+          }
+        });
+        return;
+      }
+
+      if (req.method === "POST" && req.url === "/api/react") {
+        let body = "";
+        req.on("data", chunk => body += chunk);
+        req.on("end", async () => {
+          try {
+            const payload = JSON.parse(body);
+            const { threadId, threadType, msgId, cliMsgId, icon } = payload;
+            let iconEnum = Reactions.LIKE;
+            const ic = String(icon || "").trim();
+            if (ic === "❤️" || ic === "HEART" || ic === "/-heart") iconEnum = Reactions.HEART;
+            else if (ic === "👍" || ic === "LIKE" || ic === "/-strong") iconEnum = Reactions.LIKE;
+            else if (ic === "😂" || ic === "HAHA" || ic === ":>") iconEnum = Reactions.HAHA;
+            else if (ic === "😮" || ic === "WOW" || ic === ":o") iconEnum = Reactions.WOW;
+            else if (ic === "😢" || ic === "CRY" || ic === ":-((") iconEnum = Reactions.CRY;
+            else if (ic === "😡" || ic === "ANGRY" || ic === ":-h") iconEnum = Reactions.ANGRY;
+            else if (ic === "🌹" || ic === "ROSE" || ic === "/-rose") iconEnum = Reactions.ROSE;
+            else if (ic === "🙏" || ic === "PRAY" || ic === "_()_") iconEnum = Reactions.PRAY;
+            else if (ic === "👏" || ic === "CLAP" || ic === "/-clap") iconEnum = Reactions.HANDCLAP;
+
+            const dest = {
+              type: threadType !== undefined ? threadType : ThreadType.User,
+              threadId: String(threadId),
+              data: {
+                msgId: String(msgId),
+                cliMsgId: String(cliMsgId || msgId)
+              }
+            };
+            await api.addReaction(iconEnum, dest);
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ ok: true }));
+          } catch (err) {
+            res.writeHead(500, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ ok: false, error: err.message }));
+          }
+        });
+        return;
+      }
+
+      if (req.method === "POST" && req.url === "/api/undo") {
+        let body = "";
+        req.on("data", chunk => body += chunk);
+        req.on("end", async () => {
+          try {
+            const payload = JSON.parse(body);
+            const { threadId, threadType } = payload;
+            const targetThreadId = String(threadId);
+            const tType = threadType !== undefined ? threadType : ThreadType.Group;
+            // Tìm tin nhắn gần nhất mà bot đã gửi trong thread này
+            const lastMsg = recentSentMessages.slice().reverse().find(m => String(m.threadId) === targetThreadId);
+            if (lastMsg && lastMsg.msgId) {
+              await api.undo({ msgId: lastMsg.msgId, cliMsgId: lastMsg.cliMsgId || lastMsg.msgId }, targetThreadId, tType);
+              const idx = recentSentMessages.indexOf(lastMsg);
+              if (idx !== -1) recentSentMessages.splice(idx, 1);
+              log(`🗑️ [Undo Message] Đã thu hồi thành công tin nhắn "${lastMsg.text?.substring(0, 40)}..." trong thread ${targetThreadId}`);
+              res.writeHead(200, { "Content-Type": "application/json" });
+              res.end(JSON.stringify({ ok: true, undoneMsgId: lastMsg.msgId }));
+              return;
+            }
+            res.writeHead(404, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ ok: false, error: "Không tìm thấy tin nhắn bot để thu hồi" }));
+          } catch (err) {
+            log(`⚠️ [Undo Error]: ${err.message}`);
+            res.writeHead(500, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ ok: false, error: err.message }));
+          }
+        });
+        return;
+      }
+      res.writeHead(404);
+      res.end();
+    });
+    server.listen(OUTBOUND_PORT, "127.0.0.1", () => {
+      log(`🚀 Zalo Outbound HTTP Server listening on http://127.0.0.1:${OUTBOUND_PORT} (/api/send, /api/react)`);
+    });
+  } catch (srvErr) {
+    log(`⚠️ Không thể mở Outbound Server: ${srvErr.message}`);
+  }
+
+  // Tự động đồng bộ các nhóm Zalo ban đầu và định kỳ 3 phút
+  syncAllActiveGroups(api).catch(() => {});
+  setInterval(() => syncAllActiveGroups(api).catch(() => {}), 180000);
+
+  // Lắng nghe tin nhắn
+  api.listener.on("message", async (msg) => {
+    try {
+      const threadId = msg.threadId;
+      const msgType = msg.type;
+      const senderUid = msg.data?.uidFrom;
+      const msgId = msg.data?.msgId || msg.data?.id;
+
+      // 1. Chống trùng tin nhắn (Deduplication)
+      if (msgId) {
+        if (processedMsgIds.has(msgId)) {
+          return;
+        }
+        processedMsgIds.add(msgId);
+        if (processedMsgIds.size > 200) {
+          const first = processedMsgIds.values().next().value;
+          processedMsgIds.delete(first);
+        }
+      }
+
+      let rawContent = "";
+      if (typeof msg.data?.content === "string") {
+        rawContent = msg.data.content.trim();
+      } else if (msg.data?.content && typeof msg.data.content === "object") {
+        const c = msg.data.content;
+        rawContent = [c.title || c.description, c.href || c.url].filter(Boolean).join(" ");
+      }
+
+      // Tự động nhận diện và chuyển hóa tin nhắn thoại (Voice Message Transcription)
+      if (rawContent.includes("voice-aac-dl.zdn.vn") || rawContent.match(/^https?:\/\/.*\.aac(\?.*)?$/i)) {
+        try {
+          const { execSync } = require("child_process");
+          const transcribed = execSync(`python3 ${path.join(SCRIPTS_DIR, transcribe_voice.py)} "${rawContent}"`, { timeout: 25000, encoding: "utf-8" }).trim();
+          if (transcribed) {
+            log(`🎙️ [Voice Transcribe] -> ${transcribed.replace(/\n/g, " ")}`);
+            if (transcribed.startsWith("[")) {
+              rawContent = transcribed;
+            } else {
+              rawContent = `[Tin nhắn thoại: "${transcribed}"]`;
+            }
+          }
+        } catch (sttErr) {
+          log(`⚠️ Không thể transcribe voice message: ${sttErr.message}`);
+        }
+      }
+
+      log(`📩 Tin nhắn: type=${msgType === ThreadType.Group ? 'Group' : '1-1'}, sender=${senderUid}, isSelf=${msg.isSelf}, thread=${threadId}, text="${rawContent.substring(0, 60)}"`);
+
+      // 2. CHẶN VÒNG LẶP TỰ TRẢ LỜI CHÍNH MÌNH (SELF-REPLY LOOP PREVENTION)
+      const isSelfMessage = Boolean(msg.isSelf || (ownId && String(senderUid) === String(ownId)));
+      if (isSelfMessage) {
+        try {
+          const mId = msg.data?.msgId || msg.data?.id || "";
+          const cId = msg.data?.cliMsgId || "";
+          if (mId) {
+            recentSentMessages.push({
+              msgId: String(mId),
+              cliMsgId: String(cId || mId),
+              threadId: String(threadId),
+              threadType: msgType,
+              text: rawContent,
+              time: Date.now()
+            });
+            if (recentSentMessages.length > 60) recentSentMessages.shift();
+          }
+        } catch (e) {}
+        if (!/^\s*@heo\b/i.test(rawContent)) {
+          return;
+        }
+        rawContent = rawContent.replace(/^\s*@heo\s*/i, "").trim();
+      }
+
+      // 3. CHAT 1-1 VỚI SẾP
+      if (msgType === ThreadType.User) {
+        if (!rawContent && !msg.data?.quote) return;
+
+        // Tự động nhận diện / gán quyền Sếp nếu chưa cấu hình BOSS_UID
+        if (!BOSS_UID && (config.auto_claim_boss !== false)) {
+          BOSS_UID = String(senderUid);
+          log(`👑 [Auto-Claim Boss] Đã tự động nhận diện Chủ sở hữu (Boss): UID=${BOSS_UID}`);
+          config.boss_uid = BOSS_UID;
+          try {
+            fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2), "utf-8");
+            log(`💾 Đã cập nhật BOSS_UID vào ${CONFIG_FILE}`);
+          } catch (e) {}
+        }
+
+        let userPrompt = rawContent;
+        if (msg.data?.quote && msg.data.quote.msg) {
+          userPrompt = `[Trích dẫn tin nhắn: "${msg.data.quote.msg}"]\n\nYêu cầu: ${rawContent || "Hãy xử lý nội dung trên"}`.trim();
+        }
+
+        log(`[1-1 ${BOSS_NAME}] "${userPrompt.substring(0, 60)}..."`);
+        appendGroupHistory("boss_1on1", {
+          time: new Date().toISOString(),
+          msgId: String(msgId || ""),
+          senderUid: BOSS_UID,
+          senderName: "${BOSS_NAME}",
+          text: userPrompt
+        });
+        await api.sendTypingEvent(threadId, ThreadType.User).catch(() => {});
+
+        // Lệnh tra cứu hoặc chuyển đổi model nhanh
+        if (/^\/(model|status)\b/i.test(userPrompt.trim())) {
+          try {
+            const stResp = await axios.get(`${AGY_ENGINE_URL}/api/model_status`, { timeout: 5000 });
+            const st = stResp.data;
+            const statusMsg = (
+              `📊 [BÁO CÁO HẠ TẦNG AI - TRẠNG THÁI MODEL]\n\n` +
+              `🔹 Mô hình hiện tại: ${st.active_model}\n` +
+              `🔹 Chế độ dự phòng: ${st.is_fallback ? '⚠️ ĐANG BẬT (Fallback Claude Sonnet 4.6 do Gemini chạm quota)' : '✅ BÌNH THƯỜNG (Gemini 3.8 Flash chuẩn)'}\n` +
+              (st.is_fallback ? `⏳ Cooldown còn lại: ${st.cooldown_remaining_seconds}s trước khi auto-probe hồi phục về Gemini\n` : '') +
+              `📈 Thống kê: ${st.total_failovers} lần failover, ${st.total_recoveries} lần hồi phục thành công.`
+            );
+            await sendSafeMessage(api, { msg: statusMsg, quote: msg.data }, threadId, ThreadType.User);
+            return;
+          } catch (e) {}
+        }
+
+        if (/^\/(use|switch)\s+(sonnet|gemini)\b/i.test(userPrompt.trim())) {
+          const target = userPrompt.toLowerCase().includes("sonnet") ? "sonnet" : "gemini";
+          try {
+            const swResp = await axios.post(`${AGY_ENGINE_URL}/api/switch_model`, { model: target }, { timeout: 5000 });
+            const sw = swResp.data;
+            await sendSafeMessage(api, {
+              msg: `✅ Dạ Sếp, đã chuyển mô hình hoạt động sang: ${sw.active_model}`,
+              quote: msg.data
+            }, threadId, ThreadType.User);
+            return;
+          } catch (e) {}
+        }
+
+        await api.sendTypingEvent(threadId, ThreadType.User).catch(() => {});
+        const typingInterval = setInterval(() => {
+          api.sendTypingEvent(threadId, ThreadType.User).catch(() => {});
+        }, 4000);
+
+        let isDone = false;
+        const progressTimer = setTimeout(async () => {
+          if (!isDone) {
+            try {
+              let interimMsg = "";
+              if (/bài|báo cáo|kế hoạch|tiểu luận|tài liệu|soạn|viết|docx|doc/i.test(userPrompt)) {
+                interimMsg = "Dạ Sếp đợi em một xíu xiu nhen, phần tài liệu này em đang soạn thảo và rà soát kỹ cho chuẩn chỉ, xong em gửi Sếp liền ạ! ✨";
+              } else if (/tính|sheet|excel|bảng|số liệu|xlsx/i.test(userPrompt)) {
+                interimMsg = "Dạ Sếp đợi em một xíu nhen, em đang ráp công thức và đối soát bảng số liệu cho chuẩn xác, sắp xong rồi ạ! 📊";
+              } else {
+                interimMsg = "Dạ Sếp đợi em một xíu xiu nha, phần này em đang xử lý thêm chút nữa, xong em báo cáo Sếp liền ạ! ✨";
+              }
+              await sendSafeMessage(api, { msg: interimMsg, quote: msg.data }, threadId, ThreadType.User);
+              log(`[1-1 ${BOSS_NAME}] Đã chủ động nhắn báo đang xử lý: "${interimMsg.substring(0, 45)}..."`);
+            } catch (e) {}
+          }
+        }, 15000);
+
+        const secondTimer = setTimeout(async () => {
+          if (!isDone) {
+            try {
+              const secondMsg = "Dạ Sếp ơi em vẫn đang xử lý nốt các khâu cuối đây ạ, sắp xong rồi Sếp nha! 🏃‍♀️💨";
+              await sendSafeMessage(api, { msg: secondMsg, quote: msg.data }, threadId, ThreadType.User);
+            } catch (e) {}
+          }
+        }, 60000);
+
+        try {
+          const resp = await axios.post(`${AGY_ENGINE_URL}/api/chat`, {
+            session_id: `zalo_user_${threadId}`,
+            prompt: userPrompt,
+            sender_name: "${BOSS_NAME}",
+            is_group: false,
+            is_boss: true,
+            sender_uid: BOSS_UID
+          }, { timeout: 300000 });
+
+          const data = resp.data;
+          if (data && data.ok) {
+            const answer = data.answer || "Dạ em đã hoàn thành.";
+            const files = data.files || [];
+
+            let sentRes = null;
+            if (files.length > 0) {
+              sentRes = await sendSafeMessage(api, {
+                msg: answer,
+                attachments: files,
+                quote: msg.data
+              }, threadId, ThreadType.User);
+              log(`[1-1 ${BOSS_NAME}] Đã gửi phản hồi kèm ${files.length} file đính kèm!`);
+            } else {
+              sentRes = await sendSafeMessage(api, {
+                msg: answer,
+                quote: msg.data
+              }, threadId, ThreadType.User);
+              log(`[1-1 ${BOSS_NAME}] Đã gửi phản hồi thành công.`);
+            }
+
+            const sentMsgId = sentRes?.data?.msgId || sentRes?.msgId || "";
+            // Lưu phản hồi của bot vào lịch sử 1-1 với Sếp
+            appendGroupHistory("boss_1on1", {
+              time: new Date().toISOString(),
+              msgId: String(sentMsgId),
+              senderUid: String(ownId || "bot"),
+              senderName: "Em Heo",
+              text: answer
+            });
+          }
+        } catch (apiErr) {
+          log(`[1-1 ${BOSS_NAME}] Lỗi AGY Engine: ${apiErr.message}`);
+          await sendSafeMessage(api, {
+            msg: `Dạ Sếp ơi, hệ thống em bị gián đoạn kết nối chút xíu: ${apiErr.message}. Em đang kiểm tra lại ngay ạ!`,
+            quote: msg.data
+          }, threadId, ThreadType.User).catch(() => {});
+        } finally {
+          isDone = true;
+          clearTimeout(progressTimer);
+          clearTimeout(secondTimer);
+          clearInterval(typingInterval);
+        }
+        return;
+      }
+
+      // 4. CHAT NHÓM (GROUP CHAT)
+      if (msgType === ThreadType.Group) {
+        // Lấy tên người gửi và tên nhóm thời gian thực
+        const senderName = await getUserDisplayName(api, senderUid);
+        const groupDetails = await getGroupDetails(api, threadId);
+
+        // Âm thầm lưu lịch sử nhóm vào file để ghi nhớ ngữ cảnh và hỗ trợ Sếp
+        appendGroupHistory(threadId, {
+          time: new Date().toISOString(),
+          msgId: String(msgId || ""),
+          senderUid: String(senderUid),
+          senderName,
+          text: rawContent
+        });
+
+        // ĐIỀU KIỆN KÍCH HOẠT TRONG GROUP CHAT:
+        // 1. Tag menu Zalo chính thức (@) trỏ vào tài khoản bot
+        const mentions = msg.data?.mentions || [];
+        const isMentioned = ownId && mentions.some(m => String(m.uid) === String(ownId));
+        // 2. Quote tin nhắn của Bot
+        const quoteUid = msg.data?.quote?.uidFrom;
+        const isQuotingBot = ownId && String(quoteUid) === String(ownId);
+        // 3. Có gõ tag đích danh kèm @: @heo, @Heo, @hêu, @Hêu
+        const tagRegex = /@(?:heo|hêu)(?!\p{L})/iu;
+        const hasExplicitTag = tagRegex.test(rawContent);
+        // 4. Gọi Heo ở đầu câu (Heo ơi, Heo à, Heo nè, Heo cho chị hỏi, Heo giúp, Heo tính, v.v.)
+        const startCallRegex = /^\s*(?:ê|alo|nè|dạ)?\s*(?:heo|hêu)(?:\s*(?:ơi|à|nè|này|nhe|nhé|cho|giúp|giùm|hộ|làm|tìm|tính|xem|soạn|viết|tra|hỏi|biết|trả lời|báo|tổng hợp|hỗ trợ|chỉ)(?!\p{L})|\s*$)/iu;
+        const hasStartCall = startCallRegex.test(rawContent);
+        // 5. Gọi Heo ở cuối câu (..., Heo ơi?, ... hả Heo?)
+        const endCallRegex = /[,\s]+(?:heo|hêu)(?:\s*(?:ơi|à|nè|nhe|nhé))?[\s.?!]*$/iu;
+        const hasEndCall = endCallRegex.test(rawContent);
+        // 6. Cụm từ nhờ/gọi Heo trong câu
+        const midCallRegex = /(?:nhờ|kêu|bảo|gọi)\s+(?:heo|hêu)(?!\p{L})/iu;
+        const actionCallRegex = /(?:heo|hêu)\s+(?:hỗ trợ|giúp|chỉ|trả lời|nghe|thấy)(?!\p{L})/iu;
+        const hasMidCall = midCallRegex.test(rawContent) || actionCallRegex.test(rawContent);
+        // 7. Lệnh chuyên môn rõ ràng: /task, /sheet, /doc, /calc, /baocao
+        const commandRegex = /^\/(ask|task|sheet|doc|calc|baocao)\b/iu;
+        const hasCommand = commandRegex.test(rawContent);
+
+        // QUY TẮC BẤT DI BẤT DỊCH: Khi không kêu tới Heo thì Heo im lặng 100%
+        if (!isMentioned && !isQuotingBot && !hasExplicitTag && !hasStartCall && !hasEndCall && !hasMidCall && !hasCommand) {
+          return; // IM LẶNG TUYỆT ĐỐI 100%, không xen ngang cuộc trò chuyện khác!
+        }
+
+        let cleanPrompt = rawContent
+          .replace(/@(?:heo|hêu)\s*(?:ơi|ạ)?/giu, " ")
+          .replace(/^\s*(?:ê|alo|nè|dạ)?\s*(?:heo|hêu)\s*(?:ơi|à|nè|này|nhe|nhé)?\s*/giu, " ")
+          .replace(commandRegex, "")
+          .trim();
+
+        if (msg.data?.quote && msg.data.quote.msg) {
+          cleanPrompt = `[Trích dẫn tin nhắn: "${msg.data.quote.msg}"]\n\nYêu cầu: ${cleanPrompt || "Hãy xử lý nội dung trên"}`.trim();
+        }
+
+        const isBoss = Boolean(senderUid && String(senderUid) === BOSS_UID);
+        await api.sendTypingEvent(threadId, ThreadType.Group).catch(() => {});
+        const typingInterval = setInterval(() => {
+          api.sendTypingEvent(threadId, ThreadType.Group).catch(() => {});
+        }, 4000);
+
+        let isDone = false;
+        const progressTimer = setTimeout(async () => {
+          if (!isDone) {
+            try {
+              let interimMsg = "";
+              const callerName = isBoss ? "${BOSS_CALLER_NAME}" : `chị ${senderName.split(" ").slice(-1)[0] || senderName}`;
+              if (/bài|thi|tiểu luận|báo cáo|kế hoạch|tài liệu|soạn|viết|docx|doc/i.test(cleanPrompt || rawContent)) {
+                interimMsg = `Dạ ${callerName} và cả nhóm đợi em một xíu xiu nhen, phần tài liệu này em đang soạn thảo và căn chỉnh chi tiết cho chuẩn chỉ, xong cái rẹt là em gửi file vào nhóm liền đây ạ! 🥰`;
+              } else if (/tính|sheet|excel|bảng|số liệu|xlsx/i.test(cleanPrompt || rawContent)) {
+                interimMsg = `Dạ ${callerName} đợi em một xíu xiu nhen, em đang chạy bảng tính và ráp số liệu cho chuẩn, xong em gửi file vào nhóm liền ạ! 📊`;
+              } else {
+                interimMsg = `Dạ ${callerName} đợi em một xíu xiu nhen, phần này em đang xử lý kỹ xíu là gửi kết quả ngay đây ạ! 🥰`;
+              }
+              await sendSafeMessage(api, { msg: interimMsg, quote: msg.data }, threadId, ThreadType.Group);
+              log(`[Group ${groupDetails.name}] Đã chủ động nhắn báo đang xử lý: "${interimMsg.substring(0, 45)}..."`);
+            } catch (e) {}
+          }
+        }, 15000);
+
+        const secondTimer = setTimeout(async () => {
+          if (!isDone) {
+            try {
+              const secondMsg = "Dạ mọi người đợi em thêm tí xíu nhen, em vẫn đang miệt mài xử lý nốt đây ạ! 🏃‍♀️💨";
+              await sendSafeMessage(api, { msg: secondMsg, quote: msg.data }, threadId, ThreadType.Group);
+            } catch (e) {}
+          }
+        }, 60000);
+
+        try {
+          const resp = await axios.post(`${AGY_ENGINE_URL}/api/chat`, {
+            session_id: `zalo_group_${threadId}`,
+            prompt: cleanPrompt || rawContent,
+            sender_name: senderName,
+            sender_uid: String(senderUid),
+            group_id: String(threadId),
+            group_name: groupDetails.name,
+            is_boss: isBoss,
+            is_group: true
+          }, { timeout: 300000 });
+
+          const data = resp.data;
+          if (data && data.ok) {
+            const answer = data.answer || "Dạ em đã hoàn thành.";
+            const files = data.files || [];
+
+            let sentRes = null;
+            if (files.length > 0) {
+              sentRes = await sendSafeMessage(api, {
+                msg: answer,
+                attachments: files,
+                quote: msg.data
+              }, threadId, ThreadType.Group);
+              log(`[Group ${groupDetails.name}] Đã gửi kết quả kèm ${files.length} file vào nhóm!`);
+            } else {
+              sentRes = await sendSafeMessage(api, {
+                msg: answer,
+                quote: msg.data
+              }, threadId, ThreadType.Group);
+              log(`[Group ${groupDetails.name}] Đã gửi phản hồi vào nhóm.`);
+            }
+
+            const sentMsgId = sentRes?.data?.msgId || sentRes?.msgId || "";
+            // Lưu phản hồi của bot vào lịch sử nhóm
+            appendGroupHistory(threadId, {
+              time: new Date().toISOString(),
+              msgId: String(sentMsgId),
+              senderUid: String(ownId || "bot"),
+              senderName: "Em Heo",
+              text: answer
+            });
+          }
+        } catch (apiErr) {
+          log(`[Group ${groupDetails.name}] Lỗi AGY Engine: ${apiErr.message}`);
+          // Trong group nếu lỗi nội bộ thì im lặng không spam lỗi kỹ thuật ra nhóm
+        } finally {
+          isDone = true;
+          clearTimeout(progressTimer);
+          clearTimeout(secondTimer);
+          clearInterval(typingInterval);
+        }
+      }
+    } catch (err) {
+      log(`Lỗi xử lý tin nhắn: ${err.message}`);
+    }
+  });
+
+  // Lắng nghe Reaction (thả tim, like, haha, wow, buồn, phẫn nộ)
+  api.listener.on("reaction", async (reaction) => {
+    try {
+      const threadId = reaction.threadId;
+      const isGroup = reaction.isGroup;
+      const senderUid = reaction.data?.uidFrom;
+      const rData = reaction.data?.content || {};
+      const rIcon = rData.rIcon;
+      const rType = rData.rType;
+      const rMsgList = rData.rMsg || [];
+      const targetGMsgId = (rMsgList.length > 0 && rMsgList[0].gMsgID) ? String(rMsgList[0].gMsgID) : "";
+
+      const reactionInfo = parseReactionDetails(rIcon, rType);
+      const senderName = await getUserDisplayName(api, senderUid);
+      const targetChannel = isGroup ? threadId : "boss_1on1";
+      const targetPreview = findMessageSnippet(targetChannel, targetGMsgId);
+
+      const targetLog = targetPreview ? ` vào "${targetPreview}..."` : '';
+      log(`💖 [Reaction ${isGroup ? 'Group' : '1-1'} ${threadId}]: ${senderName} thả ${reactionInfo.icon} (${reactionInfo.name})${targetLog} [${reactionInfo.sentiment}]`);
+
+      const record = {
+        time: new Date().toISOString(),
+        type: "reaction",
+        senderUid: String(senderUid),
+        senderName,
+        targetMsgId: targetGMsgId,
+        targetPreview: targetPreview,
+        icon: reactionInfo.icon,
+        iconName: reactionInfo.name,
+        sentiment: reactionInfo.sentiment,
+        meaning: reactionInfo.meaning
+      };
+
+      appendGroupHistory(targetChannel, record);
+    } catch (rErr) {
+      log(`⚠️ Lỗi xử lý reaction: ${rErr.message}`);
+    }
+  });
+
+  api.listener.on("connected", () => {
+    log("🟢 Zalo WebSocket KẾT NỐI TRỰC TIẾP thành công (Live Connected)!");
+  });
+  api.listener.on("closed", (code, reason) => {
+    log(`⚠️ WebSocket đóng (${code}: ${reason}). Tự động khởi động lại...`);
+    setTimeout(() => process.exit(1), 1000);
+  });
+  api.listener.on("disconnected", () => {
+    log(`⚠️ WebSocket mất kết nối. Khôi phục sau 1s...`);
+    setTimeout(() => process.exit(1), 1000);
+  });
+  api.listener.on("error", (err) => {
+    log(`⚠️ WebSocket lỗi: ${err && err.message ? err.message : err}. Khởi động lại sau 1s...`);
+    setTimeout(() => process.exit(1), 1000);
+  });
+
+  api.listener.start({ retryOnClose: true });
+  log("👂 AGY Zalo Listener đang chạy nền (retryOnClose=true)...");
+}
+
+startBridge().catch((err) => {
+  log(`Lỗi fatal: ${err.message}`);
+});

@@ -1,0 +1,10 @@
+{
+  "boss_uid": "",
+  "boss_name": "Sếp",
+  "boss_caller_name": "Sếp",
+  "bot_name": "Bé Heo",
+  "model": "Gemini 3.8 Flash (High)",
+  "bridge_port": 5051,
+  "engine_port": 5066,
+  "auto_claim_boss": true
+}

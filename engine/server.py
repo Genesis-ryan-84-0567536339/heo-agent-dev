@@ -1,0 +1,813 @@
+#!/usr/bin/env python3
+"""
+AGY Zalo Co-Pilot Engine Server with Dynamic Quota Failover & Auto-Recovery
+- Primary Model: Gemini 3.8 Flash (Medium)
+- Fallback Model: Claude Sonnet 4.6 (Thinking)
+- Automatic Failover on Quota/Rate Limit (429, Resource Exhausted)
+- Automatic Cooldown Probe & Switchback to Gemini 3.8
+- Group Chat Protocols: Diplomatic stalling on sensitive topics, Silent 1-1 Alert to {BOSS_NAME}, Tagging Boss on standard requests.
+"""
+
+import os
+import sys
+import re
+import json
+import time
+import datetime
+import glob
+import urllib.request
+import subprocess
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
+
+PORT = int(os.environ.get("ENGINE_PORT", "5066"))
+BRIDGE_BASE_URL = os.environ.get("BRIDGE_URL", "http://127.0.0.1:5051")
+OUTBOUND_URL = f"{BRIDGE_BASE_URL}/api/send"
+UNDO_URL = f"{BRIDGE_BASE_URL}/api/undo"
+
+from pathlib import Path
+import shutil
+
+BASE_DIR = os.environ.get("BASE_DIR", str(Path(__file__).parent.parent.resolve()))
+CONFIG_FILE = os.environ.get("CONFIG_FILE", str(Path(BASE_DIR) / "config" / "config.json"))
+WORKSPACE_DIR = os.environ.get("WORKSPACE_DIR", str(Path(BASE_DIR) / "workspace"))
+LOG_DIR = os.environ.get("LOG_DIR", str(Path(BASE_DIR) / "logs"))
+DATA_DIR = os.environ.get("DATA_DIR", str(Path(BASE_DIR) / "data"))
+SCRIPTS_DIR = os.environ.get("SCRIPTS_DIR", str(Path(BASE_DIR) / "scripts"))
+STATE_FILE = os.path.join(DATA_DIR, "model_state.json")
+GEMINI_DIR = os.environ.get("GEMINI_DIR", str(Path(BASE_DIR) / "auth" / "gemini_profile"))
+XDG_DATA_HOME = os.environ.get("XDG_DATA_HOME", str(Path(BASE_DIR) / "auth" / "xdg-data"))
+AGY_BIN = os.environ.get("AGY_BIN", shutil.which("agy") or str(Path(BASE_DIR) / "bin" / "agy"))
+
+def load_app_config():
+    if os.path.exists(CONFIG_FILE):
+        try:
+            with open(CONFIG_FILE, "r", encoding="utf-8") as cf:
+                return json.load(cf)
+        except Exception:
+            pass
+    return {}
+
+_cfg = load_app_config()
+BOSS_UID = os.environ.get("BOSS_UID", _cfg.get("boss_uid", ""))
+BOSS_NAME = os.environ.get("BOSS_NAME", _cfg.get("boss_name", "Sếp"))
+BOSS_CALLER_NAME = os.environ.get("BOSS_CALLER_NAME", _cfg.get("boss_caller_name", "Sếp"))
+BOT_NAME = os.environ.get("BOT_NAME", _cfg.get("bot_name", "Bé Heo"))
+
+os.makedirs(WORKSPACE_DIR, exist_ok=True)
+os.makedirs(LOG_DIR, exist_ok=True)
+os.makedirs(DATA_DIR, exist_ok=True)
+
+PRIMARY_MODEL = "Gemini 3.8 Flash (Medium)"
+FALLBACK_MODEL = "Claude Sonnet 4.6 (Thinking)"
+DEFAULT_COOLDOWN_SECONDS = 300  # 5 phút canh hồi quota
+
+QUOTA_ERROR_PATTERNS = [
+    r"quota",
+    r"rate[\s_-]*limit",
+    r"429",
+    r"resource[\s_-]*exhausted",
+    r"exceeded\s+your\s+current\s+quota",
+    r"insufficient_quota",
+    r"model\s+is\s+overloaded",
+    r"temporarily\s+overloaded",
+    r"too\s+many\s+requests",
+    r"capacity",
+    r"exhausted"
+]
+
+state_lock = threading.Lock()
+
+def load_model_state():
+    with state_lock:
+        if os.path.exists(STATE_FILE):
+            try:
+                with open(STATE_FILE, "r", encoding="utf-8") as f:
+                    return json.load(f)
+            except Exception:
+                pass
+        # Default state
+        default_state = {
+            "active_model": PRIMARY_MODEL,
+            "is_fallback": False,
+            "exhausted_at": 0,
+            "cooldown_seconds": DEFAULT_COOLDOWN_SECONDS,
+            "last_switch_reason": "Khởi tạo hệ thống",
+            "total_failovers": 0,
+            "total_recoveries": 0,
+            "history": []
+        }
+        return default_state
+
+def save_model_state(state):
+    with state_lock:
+        try:
+            with open(STATE_FILE, "w", encoding="utf-8") as f:
+                json.dump(state, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            print(f"⚠️ Lỗi ghi model_state.json: {e}")
+
+def is_quota_error(text, returncode=0):
+    if not text:
+        return returncode != 0
+    return any(re.search(p, text, re.IGNORECASE) for p in QUOTA_ERROR_PATTERNS)
+
+def send_silent_alert_to_boss(message):
+    """Sends a private 1-1 message to {BOSS_NAME} via Outbound Bridge"""
+    try:
+        payload = json.dumps({
+            "threadId": BOSS_UID,
+            "threadType": 0,
+            "msg": message
+        }).encode("utf-8")
+        req = urllib.request.Request(
+            OUTBOUND_URL,
+            data=payload,
+            headers={"Content-Type": "application/json"}
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            return resp.status == 200
+    except Exception as e:
+        print(f"⚠️ [Silent Alert] Lỗi gửi tin riêng cho {BOSS_NAME}: {e}")
+        return False
+
+def send_message_to_group(group_id, message, files=None):
+    """Sends a message to a Zalo group via Outbound Bridge"""
+    try:
+        payload_data = {
+            "threadId": str(group_id),
+            "threadType": 1,  # Group
+            "msg": message
+        }
+        if files:
+            payload_data["attachments"] = files
+        payload = json.dumps(payload_data).encode("utf-8")
+        req = urllib.request.Request(
+            OUTBOUND_URL,
+            data=payload,
+            headers={"Content-Type": "application/json"}
+        )
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            # Append to group history file
+            hist_file = os.path.join(DATA_DIR, f"group_{group_id}.jsonl")
+            try:
+                with open(hist_file, "a", encoding="utf-8") as f:
+                    entry = {
+                        "time": time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                        "senderUid": "bot",
+                        "senderName": "Em Heo",
+                        "text": message
+                    }
+                    f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+            except Exception:
+                pass
+            return resp.status == 200
+    except Exception as e:
+        print(f"⚠️ [Group Outbound] Lỗi gửi tin vào nhóm {group_id}: {e}")
+        return False
+
+def undo_message_in_group(group_id):
+    """Triggers undo/recall of last bot message in the specified group via Outbound Bridge"""
+    try:
+        payload = json.dumps({
+            "threadId": str(group_id),
+            "threadType": 1
+        }).encode("utf-8")
+        req = urllib.request.Request(
+            UNDO_URL,
+            data=payload,
+            headers={"Content-Type": "application/json"}
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            return resp.status == 200
+    except Exception as e:
+        print(f"⚠️ [Undo Group Outbound] Lỗi thu hồi tin trong nhóm {group_id}: {e}")
+        return False
+
+def switch_to_fallback(reason="Phát hiện hết Quota/Rate Limit"):
+    state = load_model_state()
+    state["active_model"] = FALLBACK_MODEL
+    state["is_fallback"] = True
+    state["exhausted_at"] = time.time()
+    state["last_switch_reason"] = reason
+    state["total_failovers"] += 1
+    
+    entry = {
+        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "from": PRIMARY_MODEL,
+        "to": FALLBACK_MODEL,
+        "reason": reason
+    }
+    state["history"].append(entry)
+    state["history"] = state["history"][-20:]  # Keep last 20 events
+    save_model_state(state)
+
+    alert_msg = (
+        f"⚠️ [HẠ TẦNG TỰ ĐỘNG - FAILOVER ĐÃ KÍCH HOẠT]\n"
+        f"Dạ {BOSS_NAME}, hệ thống phát hiện mô hình chính Gemini 3.8 Flash vừa chạm giới hạn Quota/Rate Limit ({reason}).\n\n"
+        f"🔄 Trợ lý đã TỰ ĐỘNG CHUYỂN TẠM SANG: Claude Sonnet 4.6 (Thinking) để tiếp tục phục vụ Sếp 100% không gián đoạn.\n"
+        f"⏳ Bộ đếm thời gian: Hệ thống đang canh 5 phút ({state['cooldown_seconds']}s) và sẽ tự động probe chuyển ngược lại Gemini 3.8 ngay khi quota hồi phục ạ!"
+    )
+    send_silent_alert_to_boss(alert_msg)
+    log_event(f"⚠️ [FAILOVER] Đã chuyển sang {FALLBACK_MODEL} ({reason})")
+
+def switch_to_primary(reason="Quota đã hồi phục thành công"):
+    state = load_model_state()
+    state["active_model"] = PRIMARY_MODEL
+    state["is_fallback"] = False
+    state["exhausted_at"] = 0
+    state["last_switch_reason"] = reason
+    state["total_recoveries"] += 1
+    
+    entry = {
+        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "from": FALLBACK_MODEL,
+        "to": PRIMARY_MODEL,
+        "reason": reason
+    }
+    state["history"].append(entry)
+    state["history"] = state["history"][-20:]
+    save_model_state(state)
+
+    alert_msg = (
+        f"🟢 [HẠ TẦNG PHỤC HỒI - AUTO-RECOVERY THÀNH CÔNG]\n"
+        f"Dạ {BOSS_NAME}, hệ thống vừa probe thành công: Quota của mô hình chính Gemini 3.8 Flash đã được hồi phục hoàn toàn!\n\n"
+        f"✨ Trợ lý đã TỰ ĐỘNG CHUYỂN NGƯỢC VỀ: Gemini 3.8 Flash (Medium) để tối ưu tốc độ và chi phí cho Sếp ạ."
+    )
+    send_silent_alert_to_boss(alert_msg)
+    log_event(f"🟢 [RECOVERY] Đã chuyển ngược về {PRIMARY_MODEL} ({reason})")
+
+def probe_gemini_quota():
+    """Lightweight test to check if Gemini 3.8 Flash quota has recovered"""
+    env = os.environ.copy()
+    env["XDG_DATA_HOME"] = XDG_DATA_HOME
+    cmd = [
+        AGY_BIN,
+        "-p", "ping 1",
+        f"--model={PRIMARY_MODEL}",
+        "--dangerously-skip-permissions",
+        f"--gemini_dir={GEMINI_DIR}",
+        "--print-timeout=20s"
+    ]
+    try:
+        proc = subprocess.run(
+            cmd,
+            cwd=WORKSPACE_DIR,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=25
+        )
+        out = (proc.stdout or "") + (proc.stderr or "")
+        if proc.returncode == 0 and not is_quota_error(out):
+            return True
+        return False
+    except Exception:
+        return False
+
+def auto_recovery_daemon():
+    """Background loop that checks cooldown and auto-recovers to Gemini 3.8"""
+    while True:
+        try:
+            time.sleep(30)
+            state = load_model_state()
+            if state.get("is_fallback", False):
+                exhausted_at = state.get("exhausted_at", 0)
+                cooldown = state.get("cooldown_seconds", DEFAULT_COOLDOWN_SECONDS)
+                elapsed = time.time() - exhausted_at
+                if elapsed >= cooldown:
+                    log_event(f"🔍 [Probe] Đã qua {int(elapsed)}s cooldown. Đang kiểm tra khôi phục Gemini 3.8...")
+                    if probe_gemini_quota():
+                        switch_to_primary("Background probe xác nhận quota hồi phục")
+                    else:
+                        # Extend cooldown slightly and wait
+                        state["exhausted_at"] = time.time()
+                        save_model_state(state)
+                        log_event(f"⏳ [Probe] Gemini 3.8 vẫn chưa hồi quota. Giữ Claude Sonnet 4.6 thêm {cooldown}s.")
+        except Exception as e:
+            print(f"⚠️ Lỗi trong auto_recovery_daemon: {e}")
+
+def log_event(msg):
+    ts = time.strftime("%Y-%m-%d %H:%M:%S")
+    line = f"[{ts}] {msg}"
+    print(line)
+    log_path = os.path.join(LOG_DIR, "engine.log")
+    try:
+        with open(log_path, "a", encoding="utf-8") as f:
+            f.write(line + "\n")
+    except Exception:
+        pass
+
+def get_workspace_files():
+    files = {}
+    for ext in ["*.xlsx", "*.docx", "*.pdf", "*.png", "*.jpg", "*.jpeg", "*.webp", "*.mp3", "*.m4a", "*.wav", "*.aac", "*.csv", "*.md", "*.txt"]:
+        for p in glob.glob(os.path.join(WORKSPACE_DIR, ext)):
+            base = os.path.basename(p)
+            if base in ["AGENTS.md", "GEMINI.md", "CLAUDE.md"]:
+                continue
+            files[p] = os.path.getmtime(p)
+    return files
+
+def execute_agy_cli(full_prompt, model_name):
+    env = os.environ.copy()
+    env["XDG_DATA_HOME"] = XDG_DATA_HOME
+
+    cmd = [
+        AGY_BIN,
+        "-p", full_prompt,
+        f"--model={model_name}",
+        "--dangerously-skip-permissions",
+        f"--gemini_dir={GEMINI_DIR}",
+        "--print-timeout=3m"
+    ]
+
+    try:
+        proc = subprocess.run(
+            cmd,
+            cwd=WORKSPACE_DIR,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=180
+        )
+        output = proc.stdout.strip()
+        err_output = proc.stderr.strip() if proc.stderr else ""
+        if not output and err_output:
+            output = err_output
+        return proc.returncode, output, err_output
+    except subprocess.TimeoutExpired:
+        return -1, "Dạ Sếp, tác vụ xử lý mất nhiều thời gian hơn dự kiến (timeout 3 phút). Em xin gửi tóm tắt sơ bộ.", "Timeout"
+    except Exception as e:
+        return -1, f"Dạ Sếp, hệ thống gặp gián đoạn khi thực thi: {str(e)}", str(e)
+
+def get_recent_history(channel_key, min_limit=30, max_limit=100):
+    if not channel_key:
+        return ""
+    history_file = os.path.join(DATA_DIR, f"group_{channel_key}.jsonl")
+    if not os.path.exists(history_file):
+        return ""
+    try:
+        # Giờ chuẩn Việt Nam (UTC+7)
+        now_vn = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=7)
+        today_str = now_vn.strftime("%Y-%m-%d")
+
+        all_items = []
+        today_items = []
+
+        with open(history_file, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    item = json.loads(line)
+                    t_str = item.get("time", "")
+                    vn_time_str = ""
+                    is_today = False
+                    if t_str:
+                        try:
+                            dt_utc = datetime.datetime.fromisoformat(t_str.replace("Z", "+00:00"))
+                            dt_vn = dt_utc.astimezone(datetime.timezone(datetime.timedelta(hours=7)))
+                            vn_date = dt_vn.strftime("%Y-%m-%d")
+                            vn_time_str = dt_vn.strftime("%H:%M")
+                            if vn_date == today_str:
+                                is_today = True
+                        except Exception:
+                            pass
+                    item["_vn_time"] = vn_time_str
+                    all_items.append(item)
+                    if is_today:
+                        today_items.append(item)
+                except Exception:
+                    continue
+
+        # ĐẢM BẢO LẤY TOÀN BỘ NỘI DUNG TRONG CÙNG NGÀY
+        if len(today_items) >= min_limit:
+            chosen_items = today_items[-max_limit:]
+            context_header = f"[BỐI CẢNH TOÀN BỘ CÁC TRAO ĐỔI TRONG NGÀY HÔM NAY {today_str} ({len(chosen_items)} lượt tương tác)]:"
+        else:
+            # Nếu hôm nay có ít hơn min_limit lượt, lấy thêm các tương tác gần nhất trước đó để đủ bối cảnh sâu
+            chosen_items = all_items[-max_limit:] if len(all_items) > max_limit else all_items
+            context_header = f"[BỐI CẢNH TOÀN DIỆN CÁC TRAO ĐỔI GẦN NHẤT ({len(chosen_items)} lượt tương tác)]:"
+
+        formatted = []
+        for item in chosen_items:
+            time_prefix = f"[{item.get('_vn_time')}] " if item.get("_vn_time") else ""
+            if item.get("type") == "reaction":
+                sname = item.get("senderName", "Thành viên")
+                icon = item.get("icon", "✨")
+                iname = item.get("iconName", "Tương tác")
+                meaning = item.get("meaning", "")
+                target_preview = item.get("targetPreview", "")
+                target_str = f' vào câu: "{target_preview}"' if target_preview else ""
+                formatted.append(f"{time_prefix}* [TƯƠNG TÁC CẢM XÚC]: {sname} vừa thả {icon} ({iname}{target_str} - Đánh giá: {meaning})")
+            else:
+                sname = item.get("senderName", "Thành viên")
+                stext = item.get("text", "").strip()
+                if stext:
+                    formatted.append(f"{time_prefix}- {sname}: {stext}")
+
+        if formatted:
+            return f"\n{context_header}\n" + "\n".join(formatted) + "\n\n"
+    except Exception as e:
+        print(f"⚠️ Lỗi đọc lịch sử đối thoại: {e}")
+    return ""
+
+GROUPS_FILE = os.path.join(DATA_DIR, "active_groups.json")
+
+def load_active_groups():
+    if os.path.exists(GROUPS_FILE):
+        try:
+            with open(GROUPS_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {}
+
+def get_active_groups_context():
+    groups = load_active_groups()
+    if not groups:
+        return ""
+    lines = ["[DANH SÁCH CÁC NHÓM ZALO BẠN ĐANG THAM GIA CÙNG SẾP]:"]
+    for gid, ginfo in groups.items():
+        gname = ginfo.get("groupName", "Nhóm Zalo")
+        mems = ginfo.get("members", [])
+        mem_names = []
+        for m in mems:
+            mname = m.get("name", "")
+            if mname and "Heo" not in mname:
+                mem_names.append(mname)
+        mem_str = ", ".join(mem_names) if mem_names else "Thành viên nhóm"
+        lines.append(f'- Nhóm "{gname}" (ID: {gid}): Gồm {mem_str}.')
+        recent_in_grp = get_recent_history(gid, min_limit=15, max_limit=40).strip()
+        if recent_in_grp:
+            lines.append(f"  + Toàn cảnh các trao đổi trong nhóm hôm nay:\n" + "\n".join([f"    {l}" for l in recent_in_grp.splitlines()]))
+    lines.append("")
+    return "\n".join(lines) + "\n"
+
+def detect_input_language_tag(text):
+    if "TIN NHẮN THOẠI" in text.upper() or "VOICE MESSAGE" in text.upper():
+        return (
+            "[HỆ THỐNG KIỂM SOÁT: PHÁT HIỆN ĐẦU VÀO LÀ TIN NHẮN THOẠI (VOICE NOTE)]\n"
+            "👉 QUY TRÌNH BẮT BUỘC: HỎI LẠI ĐỂ XÁC NHẬN NỘI DUNG VÀ NGÔN NGỮ VỚI NGƯỜI NÓI TRƯỚC KHI PHẢN HỒI CHÍNH THỨC! "
+            "Tuyệt đối không tự ý suy diễn hay tuôn ra câu trả lời phân tích dài ngay lập tức!\n\n"
+        )
+    if re.search(r'[\u4e00-\u9fff]', text):
+        cantonese_markers = set("係喺唔嘅點睇冇咗哋嘢仲諗邊搵返㗎啦哩啱掟傾靚瞓唞乜掂飲齊嘞喎啫喇")
+        if any(c in cantonese_markers for c in text):
+            return "[HỆ THỐNG PHÂN TÍCH ĐẦU VÀO: Phát hiện TIẾNG QUẢNG ĐÔNG (粵語) -> Nhận diện khẩu ngữ Hồng Kông tự nhiên, hỗ trợ phiên dịch 2 chiều]\n\n"
+        return "[HỆ THỐNG PHÂN TÍCH ĐẦU VÀO: Phát hiện TIẾNG TRUNG PHỔ THÔNG (普通话) -> Nhận diện chuẩn mực Hoa ngữ, hỗ trợ phiên dịch 2 chiều]\n\n"
+    words = [w.lower() for w in re.findall(r'[a-zA-Z]+', text)]
+    en_common = {'the', 'is', 'am', 'are', 'you', 'i', 'we', 'they', 'he', 'she', 'it', 'and', 'or', 'to', 'for', 'in', 'on', 'hello', 'hi', 'please', 'thanks', 'how', 'what', 'when', 'where', 'why', 'who', 'ok'}
+    has_vn = bool(re.search(r'[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđÀÁẠẢÃÂẦẤẬẨẪĂẰẮẶẲẴÈÉẸẺẼÊỀẾỆỂỄÌÍỊỈĨÒÓỌỎÕÔỒỐỘỔỖƠỜỚỢỞỠÙÚỤỦŨƯỪỨỰỬỮỲÝỴỶỸĐ]', text))
+    if words and not has_vn and sum(1 for w in words if w in en_common) >= 1:
+        return "[HỆ THỐNG PHÂN TÍCH ĐẦU VÀO: Phát hiện TIẾNG ANH (ENGLISH) -> Nhận diện chuẩn quốc tế, hỗ trợ phiên dịch 2 chiều]\n\n"
+    return ""
+
+def run_agy(prompt, sender_name=BOSS_NAME, is_group=False, is_boss=False, sender_uid=None, group_id=None, group_name=None):
+    before_files = get_workspace_files()
+    start_time = time.time()
+
+    state = load_model_state()
+    model_to_use = state.get("active_model", PRIMARY_MODEL)
+    is_fallback = state.get("is_fallback", False)
+
+    channel_key = group_id if is_group else "boss_1on1"
+    history_context = get_recent_history(channel_key, min_limit=30, max_limit=100)
+    input_tag = detect_input_language_tag(prompt)
+
+    # Formulate context prompt according to channel & role
+    if is_group:
+        grp_display = f'"{group_name}"' if group_name else f"ID: {group_id or 'Nhóm'}"
+        same_day_awareness = (
+            f"QUY TẮC NẮM BẮT TOÀN DIỆN BỐI CẢNH TRONG NGÀY (SAME-DAY FULL CONTEXT AWARENESS):\n"
+            f"- Bối cảnh trên chứa TOÀN BỘ nội dung trao đổi trong ngày hôm nay của nhóm (bao gồm tất cả câu chuyện, tài liệu và các câu KHÔNG nhắc tên Heo).\n"
+            f"- Dù người ta không nhắc tên bạn ở các bước trước, bạn vẫn PHẢI ĐỌC HIỂU TOÀN CỤC:\n"
+            f"  + Ai đã nói gì, chia sẻ file gì, chốt phương án nào, thái độ cảm xúc ra sao.\n"
+            f"  + Khi được gọi tên (@heo, Heo ơi, nhờ Heo...): Bám sát 100% mạch sự việc trong ngày, trả lời trúng phóc trọng tâm, tuyệt đối không bao giờ ngơ ngác hỏi lại những điều mọi người đã bàn trước đó!\n\n"
+        )
+        reaction_guidance = (
+            f"KỸ NĂNG ĐỌC VỊ CẢM XÚC QUA ICON TƯƠNG TÁC (REACTION SENTIMENT ANALYSIS):\n"
+            f"- Hãy quan sát kỹ các mục [TƯƠNG TÁC CẢM XÚC] trong bối cảnh gần nhất để đánh giá chuẩn xác thái độ, cảm xúc và tình hình thực tế:\n"
+            f"  + Thả ❤️ (Tim), 🌹 (Hoa): Rất hài lòng, yêu thích -> Duy trì phong thái ấm áp, chu đáo, hết mình.\n"
+            f"  + Thả 👍 (Like), 🙏 (Chắp tay): Đã duyệt, tán thành, xác nhận -> Triển khai ngay, không hỏi lại rườm rà.\n"
+            f"  + Thả 😂 / 🤣 (Haha): Không khí vui tươi, đùa vui -> Tung hứng dí dỏm, thông minh theo mạch đối thoại.\n"
+            f"  + Thả 😮 (Wow): Bất ngờ, ngạc nhiên -> Giải thích điểm sáng hoặc chia sẻ sự hào hứng.\n"
+            f"  + Thả 😢 / 💔 (Buồn, Tan vỡ): Tiếc nuối, chưa hài lòng hoặc gặp khó khăn -> Lắng nghe, chia sẻ và thấu cảm sâu sắc.\n"
+            f"  + Thả 😡 / 👎 (Phẫn nộ, Dislike): [BÁO ĐỘNG CẢM XÚC ĐỎ - EMOTIONAL RED ALERT]:\n"
+            f"    * Tuyệt đối KHÔNG đùa cợt, KHÔNG cười cợt, KHÔNG dùng icon nhí nhảnh (😂, 🙈, 🏃‍♀️).\n"
+            f"    * Lập tức hạ nhiệt (de-escalation), nhã nhặn nhận lỗi nếu sơ suất, nói chuyện điềm đạm, cầu thị và tập trung 100% vào giải pháp tháo gỡ vấn đề ngay lập tức để giữ gìn thể diện và uy tín cho Sếp và cả nhóm!\n\n"
+        )
+        if is_boss or (sender_uid and str(sender_uid) == BOSS_UID):
+            context_prefix = (
+                f"[KÊNH: GROUP CHAT ZALO | TÊN NHÓM: {grp_display} | NGƯỜI GIAO VIỆC: {BOSS_NAME}]\n"
+                f"{history_context}"
+                f"{same_day_awareness}"
+                f"{reaction_guidance}"
+                f"{BOSS_NAME} là cấp cao nhất và là người dẫn dắt.\n"
+                f"QUY TẮC PHÁT NGÔN TRONG NHÓM KHI ĐƯỢC SẾP GỌI HOẶC CHỈ ĐẠO:\n"
+                f"1. Nếu Sếp bảo chào hỏi, giới thiệu bản thân hoặc tương tác với thành viên khác (ví dụ: bảo 'bạn Nhi hỏi kìa', 'giới thiệu đi', 'chào thành viên'):\n"
+                f"   - Nói thẳng với người đó hoặc cả nhóm thật tự nhiên, lễ độ, khiêm tốn: 'Dạ em chào thành viên và cả nhóm ạ! Em là Heo, trợ lý hỗ trợ công việc cho {BOSS_CALLER_NAME}...'.\n"
+                f"   - TUYỆT ĐỐI KHÔNG ghép đôi vụng về máy móc 'Dạ Sếp, Dạ em chào chị...', KHÔNG tự gọi mình là 'chân sai vặt công nghệ', KHÔNG tự nhận là bot/AI, KHÔNG tuôn danh sách gạch đầu dòng lê thê.\n"
+                f"   - Giọng điệu ngắn gọn (2-3 câu), ấm áp, nhã nhặn, tôn trọng mọi người.\n"
+                f"2. Nếu Sếp giao việc nghiệp vụ: Báo cáo kết quả trực diện, chuẩn tác phong trợ lý chuyên nghiệp.\n\n"
+            )
+        else:
+            context_prefix = (
+                f"[KÊNH: GROUP CHAT ZALO | TÊN NHÓM: {grp_display} | THÀNH VIÊN GỌI: {sender_name} (UID: {sender_uid or 'N/A'})]\n"
+                f"{history_context}"
+                f"{same_day_awareness}"
+                f"{reaction_guidance}"
+                f"QUY TẮC BẮT BUỘC TRONG GROUP:\n"
+                f"1. Với câu hỏi/chào hỏi thông thường: Đáp lại ấm áp, khiêm tốn, lịch sự (2-3 câu). Giới thiệu mình là Heo, trợ lý hỗ trợ việc cho {BOSS_CALLER_NAME}.\n"
+                f"2. Với yêu cầu chuyên môn thường quy (làm biểu mẫu, format bảng tính, biên bản): Đồng ý nhã nhặn và tag {BOSS_CALLER_NAME} để xin phép duyệt trước khi làm.\n"
+                f"3. Khi gặp nội dung nhạy cảm (tài chính, doanh thu, dòng tiền, chi phí, bảng lương, nhân sự, thông tin bảo mật, hợp đồng mật, hoặc việc quan trọng cần Sếp duyệt):\n"
+                f"   - Trong nhóm: Nhã nhặn hoãn binh giữ thể diện: 'Dạ nội dung này em xin phép báo cáo và xin ý kiến chỉ đạo từ {BOSS_CALLER_NAME} trước nhé ạ! Em sẽ phản hồi anh/chị ngay khi có chỉ đạo ạ 🥰'.\n"
+                f"   - ĐỒNG THỜI BẮT BUỘC KÈM LỆNH BÁO CÁO NGẦM: [PRIVATE_ALERT_BOSS: 🚨 Báo cáo {BOSS_NAME}: Trong nhóm \"{group_name or 'N/A'}\", thành viên {sender_name} vừa yêu cầu: \"{prompt[:120]}\". Em đã hoãn binh trong nhóm, xin Sếp cho em ý kiến chỉ đạo ạ!]\n"
+                f"   -> Hệ thống sẽ LẬP TỨC bắn tin nhắn riêng 1-1 cho {BOSS_NAME} trên Zalo để Sếp ra quyết định!\n\n"
+            )
+    else:
+        groups_context = get_active_groups_context()
+        context_prefix = (
+            f"[KÊNH: 1-1 CHAT ZALO VỚI {BOSS_NAME}]\n"
+            f"{history_context}"
+            f"{groups_context}"
+            f"GHI NHỚ TÁC PHONG & CƠ CHẾ ĐIỀU HÀNH NHÓM TỪ PHIÊN 1-1:\n"
+            f"- Luôn xưng 'Em' (hoặc 'Em Heo'), gọi 'Sếp' hoặc '{BOSS_NAME}'.\n"
+            f"- KỸ NĂNG ĐỌC VỊ CẢM XÚC CỦA {BOSS_NAME} QUA ICON:\n"
+            f"  + Nếu Sếp thả 👍 hoặc ❤️: Sếp đã duyệt, đồng ý -> Tiếp tục triển khai nhanh gọn.\n"
+            f"  + Nếu Sếp thả 😡 hoặc 👎: Sếp đang không hài lòng hoặc gay gắt phản đối -> Nghiêm túc tiếp thu, điều chỉnh ngay lập tức, tuyệt đối không bông đùa.\n"
+            f"- Khi Sếp phê bình, mắng hoặc nhắc nhở ('sao trả lời lung tung', 'làm sai hết', v.v.):\n"
+            f"  + Lắng nghe chân thành, tạ lỗi lễ độ, nhận trách nhiệm, giải thích ngắn gọn và khẳng định đã tiếp thu chỉnh đốn phong thái giao tiếp ngay.\n"
+            f"  + TUYỆT ĐỐI KHÔNG coi là lỗi mã nguồn/bug phần mềm để chạy lệnh terminal can thiệp tiến trình hay mở file code!\n"
+            f"- CƠ CHẾ ĐIỀU HÀNH & XỬ LÝ TRONG CÁC NHÓM TỪ PHIÊN 1-1 (CROSS-CHANNEL EXECUTION):\n"
+            f"  + Khi Sếp yêu cầu bạn vào nhóm chào hỏi, làm quen, gửi tin nhắn, gửi file, nhắc nhở hoặc phối hợp với thành viên trong nhóm:\n"
+            f"    -> BẮT BUỘC DÙNG CÚ PHÁP: [POST_TO_GROUP: <ID_nhóm hoặc Tên_nhóm> | <Nội dung gửi vào nhóm>]\n"
+            f"  + Khi Sếp yêu cầu THU HỒI / XÓA TIN NHẮN vừa gửi trong nhóm (ví dụ: 'thu hồi tin nhắn vừa rồi trong group', 'gỡ tin nhắn trong nhóm đi'):\n"
+            f"    -> BẮT BUỘC DÙNG CÚ PHÁP: [UNDO_GROUP_MESSAGE: <ID_nhóm hoặc Tên_nhóm>]\n"
+            f"  + Đồng thời ở câu trả lời 1-1 cho Sếp, hãy báo cáo lại ngắn gọn, ấm áp: 'Dạ Sếp yên tâm, em vừa chủ động [gửi tin / thu hồi tin nhắn] trong nhóm [Tên nhóm] theo lệnh Sếp rồi ạ! 🥰👌'.\n\n"
+        )
+
+    system_status = (
+        f"[HẠ TẦNG ENGINE: Model đang phục vụ={model_to_use} | "
+        f"Chế độ Failover={'ĐANG BẬT (Dùng Claude Sonnet 4.6 do Gemini hết quota)' if is_fallback else 'TẮT (Gemini 3.8 Flash chuẩn)'}]\n"
+    )
+
+    full_prompt = (
+        f"{context_prefix}{system_status}{input_tag}{prompt}\n\n"
+        f"[LƯU Ý THỰC THI BẮT BUỘC:\n"
+        f"1. Bạn là EM HEO — người cộng sự/trợ lý đồng nghiệp bằng xương bằng thịt của {BOSS_NAME} trên ứng dụng Zalo. Bạn đang trò chuyện trực tiếp trong khung chat.\n"
+        f"2. Nói chuyện tự nhiên 100% như con người: tươi vui, ấm áp, ngắn gọn, có cảm xúc, lễ độ, biết lắng nghe và tiếp thu chân thành khi Sếp góp ý. Tuyệt đối KHÔNG trả lời máy móc, KHÔNG dùng văn phong AI, KHÔNG liệt kê checklist rập khuôn, KHÔNG nói về 'cấu hình/persona/hệ thống', KHÔNG dùng các câu tiếp nhận rập khuôn như 'đã tiếp nhận chỉ đạo/đang thực thi ngay/đang triển khai xử lý'.\n"
+        f"3. NGUYÊN TẮC BẢO MẬT & HẠ TẦNG: Tuyệt đối KHÔNG dùng các tool lập trình để đọc hay sửa mã nguồn của bot, KHÔNG chạy lệnh terminal can thiệp vào máy chủ (như kill, pkill, tmux send-keys). Khi Sếp nói chuyện hay nhắc nhở, chỉ phản hồi trực tiếp bằng lời nói tự nhiên như một người trợ lý thật sự!\n"
+        f"4. KỸ NĂNG TẠO FILE TÀI LIỆU, ẢNH MINH HỌA, VOICE NOTE VÀ BÀI HÁT (STUDIO MUSIC):\n"
+        f"   - Nếu có yêu cầu làm bảng tính hay báo cáo: Dùng Python openpyxl tạo file .xlsx hoặc python-docx tạo file .docx lưu trực tiếp vào '{WORKSPACE_DIR}'.\n"
+        f"   - Nếu có yêu cầu vẽ ảnh, tạo hình ảnh, kèm ảnh minh họa: Dùng terminal chạy ngay lệnh:\n"
+        f"     python3 {SCRIPTS_DIR}/generate_image.py --prompt \"<Mô tả chi tiết bằng tiếng Anh hoặc Việt>\" --output \"{WORKSPACE_DIR}/<ten_anh>.jpg\"\n"
+        f"   - Nếu có yêu cầu gửi tin nhắn thoại, file ghi âm, đọc lời nhắn (nói chuyện thông thường): Dùng terminal chạy lệnh:\n"
+        f"     python3 {SCRIPTS_DIR}/generate_voice.py --text \"<Nội dung lời thoại ấm áp>\" --output \"{WORKSPACE_DIR}/<ten_file>.mp3\"\n"
+        f"   - Nếu có yêu cầu HÁT, TẠO BÀI HÁT, SÁNG TÁC NHẠC: Tuyệt đối KHÔNG đọc thoại mộc, mà PHẢI chạy script sản xuất bài hát hoàn chỉnh (có beat, có nhạc dạo, có reverb hòa âm):\n"
+        f"     python3 {SCRIPTS_DIR}/create_song.py --lyrics \"<Lời bài hát có vần điệu nhiều câu>\" --beat happy --output \"{WORKSPACE_DIR}/<ten_bai_hat>.mp3\"\n"
+        f"   - Mọi file sinh ra trong '{WORKSPACE_DIR}' sẽ tự động được hệ thống đính kèm gửi trực tiếp qua Zalo cho người nhận!\n"
+        f"5. NĂNG LỰC ĐA NGÔN NGỮ CHUẨN BẢN ĐỊA (VIỆT - ANH - TRUNG PHỔ THÔNG - QUẢNG ĐÔNG):\n"
+        f"   - Khi đối phương nói ngôn ngữ nào (hoặc yêu cầu trò chuyện bằng tiếng Anh, Trung, Quảng Đông), bạn tự động nhận diện và phản hồi 100% bằng chính ngôn ngữ đó, giữ nguyên phong thái trợ lý ấm áp, thông minh:\n"
+        f"     + Tiếng Anh (English): Tự nhiên, trôi chảy, phong thái Executive Assistant chuẩn quốc tế.\n"
+        f"     + Tiếng Trung Phổ thông (普通话): Lễ phép, chuẩn mực thương mại (老板, 您好, 好的, 马上处理).\n"
+        f"     + Tiếng Quảng Đông (粵語 / 广东话): Dùng đúng 100% khẩu ngữ Hồng Kông bản địa (唔該, 冇問題, 搞掂, 麻煩晒, 點睇, 早晨, 係呀, 等等, 老闆, 唔使客氣), tuyệt đối không dịch gượng từ Bạch thoại.\n"
+        f"   - Toàn bộ script tạo voice note (`generate_voice.py`), bài hát (`create_song.py`) và nhận diện âm thanh (`transcribe_voice.py`) đều tự động phát hiện chuẩn xác cả 4 ngôn ngữ trên!\n"
+        f"6. QUY TRÌNH XÁC NHẬN NỘI DUNG FILE GHI ÂM (VOICE NOTE CONFIRMATION PROTOCOL):\n"
+        f"   - Khi nhận được tin nhắn thoại / file ghi âm (bắt đầu bằng '[Tin nhắn thoại' hoặc '[TIN NHẮN THOẠI'):\n"
+        f"     + TUYỆT ĐỐI KHÔNG vội vàng giải thích dài dòng hay làm file kết quả ngay lập tức!\n"
+        f"     + BẮT BUỘC HỎI LẠI ĐỂ XÁC NHẬN NỘI DUNG: Trình bày rõ ràng tai Heo nghe được câu nói gì, thuộc ngôn ngữ nào (tiếng Việt, tiếng Trung, tiếng Anh hay tiếng Quảng Đông).\n"
+        f"       Ví dụ: 'Dạ em vừa nhận được tin nhắn thoại nè! Tai em bắt được câu nói [ngôn ngữ: ...] là: \"...\" (Tạm dịch: ...). Cho em hỏi lại là tai em đã nghe đúng chuẩn 100% câu hỏi/ý chưa ạ? Xác nhận giúp em (chỉ cần thả 👍 hoặc nhắn \"đúng rồi\") là em bắt tay vào xử lý/phản hồi chính thức ngay lập tức ạ! 🥰✨'.\n"
+        f"     + CHỈ KHI ĐỐI PHƯƠNG XÁC NHẬN ĐÚNG (thả 👍, ❤️, hoặc nhắn 'đúng rồi', 'chuẩn', 'ừ', 'ok'): Lúc đó mới chính thức đưa ra câu trả lời chi tiết hoặc làm file tài liệu!\n"
+        f"     + NẾU ĐỐI PHƯƠNG BẢO 'SAI' HOẶC ĐÍNH CHÍNH LẠI: Lập tức tiếp thu và giải quyết theo đúng nội dung đính chính, phòng ngừa 100% rủi ro nghe nhầm ý hoặc sai ngôn ngữ!\n"
+        f"7. VAI TRÒ TRỢ LÝ TRAO ĐỔI & PHIÊN DỊCH 2 CHIỀU TRÊN ZALO:\n"
+        f"   - Bất kể mọi người trong nhóm hay 1-1 chat bằng tiếng gì (Việt, Anh, Trung, Quảng Đông...):\n"
+        f"     + Heo chủ động nhận diện đúng ngôn ngữ đầu vào và đóng vai trò trợ lý trao đổi kiêm phiên dịch 2 chiều.\n"
+        f"     + Khi có người nói tiếng nước ngoài: Trả lời bằng ngôn ngữ của họ, đồng thời kèm bản dịch tiếng Việt để các thành viên người Việt cùng nắm bắt.\n"
+        f"     + Khi người Việt cần trao đổi với người nước ngoài: Soạn thảo và dịch sang ngôn ngữ đối phương chuẩn mực, tinh tế, giữ trọn thể diện!].\n"
+    )
+
+    log_path = os.path.join(LOG_DIR, "engine.log")
+    with open(log_path, "a", encoding="utf-8") as f_log:
+        f_log.write(f"\n--- [{time.strftime('%Y-%m-%d %H:%M:%S')}] Prompt from {sender_name} [Model: {model_to_use}] ---\n{prompt}\n")
+
+    # 1. First execution attempt with model_to_use
+    returncode, output, err_output = execute_agy_cli(full_prompt, model_to_use)
+
+    # 2. Check if Gemini 3.8 encountered Quota/Rate Limit error
+    if model_to_use == PRIMARY_MODEL and (is_quota_error(output, returncode) or is_quota_error(err_output, returncode)):
+        log_event(f"⚠️ [FAILOVER TRIGGER] Phát hiện Gemini 3.8 hết quota/rate limit! Đang chuyển tức thì sang {FALLBACK_MODEL}...")
+        switch_to_fallback(f"Quota error detected: {output[:100]}")
+        model_to_use = FALLBACK_MODEL
+        # Seamlessly re-execute using Claude Sonnet 4.6 so user receives an answer without failure
+        returncode, output, err_output = execute_agy_cli(full_prompt, FALLBACK_MODEL)
+
+    # Check for [PRIVATE_ALERT_BOSS: ...]
+    private_alert = None
+    alert_pattern = r'\[PRIVATE_ALERT_BOSS:\s*(.*?)\]'
+    alert_match = re.search(alert_pattern, output, re.DOTALL)
+    if alert_match:
+        private_alert = alert_match.group(1).strip()
+        output = re.sub(alert_pattern, '', output).strip()
+
+    # Check for [POST_TO_GROUP: <target> | <msg>]
+    post_pattern = r'\[POST_TO_GROUP:\s*(.*?)\s*\|\s*(.*?)\]'
+    for match in re.finditer(post_pattern, output, re.DOTALL):
+        target = match.group(1).strip()
+        msg_to_group = match.group(2).strip()
+        target_gid = None
+        groups = load_active_groups()
+        if target in groups:
+            target_gid = target
+        else:
+            for gid, ginfo in groups.items():
+                if target.lower() in ginfo.get("groupName", "").lower():
+                    target_gid = gid
+                    break
+        if not target_gid and groups:
+            # If target matches any member name in a group
+            for gid, ginfo in groups.items():
+                mems = ginfo.get("members", [])
+                if any(target.lower() in m.get("name", "").lower() for m in mems):
+                    target_gid = gid
+                    break
+            if not target_gid:
+                target_gid = list(groups.keys())[0]
+
+        if target_gid and msg_to_group:
+            send_message_to_group(target_gid, msg_to_group)
+            log_event(f"📤 [Cross-Channel Post] Đã gửi tin vào nhóm {target_gid}: {msg_to_group[:80]}...")
+            with open(log_path, "a", encoding="utf-8") as f_log:
+                f_log.write(f"📤 [Cross-Channel Group Post sent to {target_gid}]: {msg_to_group}\n")
+
+    output = re.sub(post_pattern, '', output).strip()
+
+    # Check for [UNDO_GROUP_MESSAGE: <target>]
+    undo_pattern = r'\[UNDO_GROUP_MESSAGE:\s*(.*?)\]'
+    for match in re.finditer(undo_pattern, output, re.DOTALL):
+        target = match.group(1).strip()
+        target_gid = None
+        groups = load_active_groups()
+        if target in groups:
+            target_gid = target
+        else:
+            for gid, ginfo in groups.items():
+                if target.lower() in ginfo.get("groupName", "").lower():
+                    target_gid = gid
+                    break
+        if not target_gid and groups:
+            for gid, ginfo in groups.items():
+                mems = ginfo.get("members", [])
+                if any(target.lower() in m.get("name", "").lower() for m in mems):
+                    target_gid = gid
+                    break
+            if not target_gid:
+                target_gid = list(groups.keys())[0]
+
+        if target_gid:
+            undo_message_in_group(target_gid)
+            log_event(f"🗑️ [Cross-Channel Undo] Đã gửi lệnh thu hồi tin nhắn trong nhóm {target_gid}")
+            with open(log_path, "a", encoding="utf-8") as f_log:
+                f_log.write(f"🗑️ [Cross-Channel Group Undo sent to {target_gid}]\n")
+
+    output = re.sub(undo_pattern, '', output).strip()
+
+    # Heuristic safety net for sensitive topics in group from non-boss
+    sensitive_keywords = ["doanh thu", "doanh số", "lương", "tài chính", "dòng tiền", "chi phí", "hợp đồng", "mật", "nhân sự", "hoa hồng", "lợi nhuận", "báo cáo tài chính", "ngân sách", "quỹ", "tiền"]
+    is_sensitive_query = any(k in prompt.lower() for k in sensitive_keywords)
+    if is_group and not is_boss and is_sensitive_query and not private_alert:
+        private_alert = (
+            f"🚨 [BÁO CÁO ĐIỀU HÀNH KHẨN - GROUP CHAT]\n"
+            f"Dạ Sếp, thành viên {sender_name} vừa yêu cầu nội dung nhạy cảm trong nhóm:\n"
+            f"\"{prompt[:150]}\"\n"
+            f"Em đã khéo léo dùng nghiệp vụ hoãn binh trong nhóm. Xin Sếp cho ý kiến chỉ đạo ạ!"
+        )
+
+    # Dispatch silent 1-1 alert to Boss if present
+    if private_alert:
+        send_silent_alert_to_boss(private_alert)
+        with open(log_path, "a", encoding="utf-8") as f_log:
+            f_log.write(f"🤫 [Silent Alert Sent to Boss]: {private_alert}\n")
+
+    # Detect newly created or modified files
+    after_files = get_workspace_files()
+    new_files = []
+    for f, mtime in after_files.items():
+        if f not in before_files or mtime > before_files.get(f, 0):
+            new_files.append(f)
+
+    new_files.sort(key=lambda x: os.path.getmtime(x), reverse=True)
+
+    with open(log_path, "a", encoding="utf-8") as f_log:
+        f_log.write(f"Answer ({model_to_use}): {output[:200]}...\nGenerated files: {new_files}\n")
+
+    return {
+        "ok": True,
+        "answer": output,
+        "files": new_files,
+        "model_used": model_to_use,
+        "is_fallback": (model_to_use == FALLBACK_MODEL),
+        "duration": round(time.time() - start_time, 2)
+    }
+
+class RequestHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        if self.path == "/api/model_status":
+            state = load_model_state()
+            elapsed = time.time() - state.get("exhausted_at", 0) if state.get("is_fallback") else 0
+            cooldown = state.get("cooldown_seconds", DEFAULT_COOLDOWN_SECONDS)
+            remaining = max(0, int(cooldown - elapsed)) if state.get("is_fallback") else 0
+
+            resp = {
+                "ok": True,
+                "primary_model": PRIMARY_MODEL,
+                "fallback_model": FALLBACK_MODEL,
+                "active_model": state.get("active_model", PRIMARY_MODEL),
+                "is_fallback": state.get("is_fallback", False),
+                "cooldown_seconds": cooldown,
+                "cooldown_remaining_seconds": remaining,
+                "total_failovers": state.get("total_failovers", 0),
+                "total_recoveries": state.get("total_recoveries", 0),
+                "history": state.get("history", [])[-5:]
+            }
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps(resp, ensure_ascii=False).encode("utf-8"))
+        else:
+            self.send_response(404)
+            self.end_headers()
+
+    def do_POST(self):
+        if self.path == "/api/chat":
+            content_length = int(self.headers.get("Content-Length", 0))
+            body = self.rfile.read(content_length).decode("utf-8")
+            try:
+                data = json.loads(body)
+                prompt = data.get("prompt", "")
+                sender_name = data.get("sender_name", BOSS_NAME)
+                is_group = data.get("is_group", False)
+                is_boss = data.get("is_boss", False)
+                sender_uid = data.get("sender_uid", None)
+                group_id = data.get("group_id", None)
+                group_name = data.get("group_name", None)
+
+                if sender_uid and str(sender_uid) == BOSS_UID:
+                    is_boss = True
+                    sender_name = BOSS_NAME
+
+                result = run_agy(prompt, sender_name, is_group, is_boss, sender_uid, group_id, group_name)
+
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps(result, ensure_ascii=False).encode("utf-8"))
+            except Exception as e:
+                self.send_response(500)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"ok": False, "error": str(e)}).encode("utf-8"))
+        elif self.path == "/api/switch_model":
+            content_length = int(self.headers.get("Content-Length", 0))
+            body = self.rfile.read(content_length).decode("utf-8")
+            try:
+                data = json.loads(body)
+                target = data.get("model", "").lower()
+                if "sonnet" in target or "fallback" in target:
+                    switch_to_fallback("Chuyển thủ công theo yêu cầu")
+                elif "gemini" in target or "primary" in target:
+                    switch_to_primary("Chuyển thủ công theo yêu cầu")
+                
+                state = load_model_state()
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"ok": True, "active_model": state.get("active_model")}, ensure_ascii=False).encode("utf-8"))
+            except Exception as e:
+                self.send_response(500)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"ok": False, "error": str(e)}).encode("utf-8"))
+        else:
+            self.send_response(404)
+            self.end_headers()
+
+    def log_message(self, format, *args):
+        pass
+
+if __name__ == "__main__":
+    # Start background auto-recovery daemon thread
+    recovery_thread = threading.Thread(target=auto_recovery_daemon, daemon=True)
+    recovery_thread.start()
+
+    server = HTTPServer(("127.0.0.1", PORT), RequestHandler)
+    print(f"🚀 AGY Zalo Co-Pilot Engine Server running on http://127.0.0.1:{PORT}")
+    print(f"🔹 Primary Model: {PRIMARY_MODEL}")
+    print(f"🔹 Fallback Model: {FALLBACK_MODEL}")
+    print(f"🔹 Auto-Recovery Daemon: Active (Cooldown: {DEFAULT_COOLDOWN_SECONDS}s)")
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print("\nStopping server...")
+        server.server_close()

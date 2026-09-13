@@ -1,0 +1,31 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: zalo-agy:latest
+    container_name: zalo-agy-copilot
+    restart: unless-stopped
+    ports:
+      - "5051:5051"
+      - "5066:5066"
+    volumes:
+      - ./data:/app/data
+      - ./workspace:/app/workspace
+      - ./logs:/app/logs
+      - ./auth:/app/auth
+      - ./config:/app/config
+      - ./bin:/app/bin
+    environment:
+      - BASE_DIR=/app
+      - WORKSPACE_DIR=/app/workspace
+      - DATA_DIR=/app/data
+      - LOGS_DIR=/app/logs
+      - AUTH_DIR=/app/auth
+      - CONFIG_FILE=/app/config/config.json
+      - AGY_BIN=/app/bin/agy
+      - GEMINI_DIR=/app/auth/gemini_profile
+      - XDG_DATA_HOME=/app/auth/xdg-data
+    stdin_open: true
+    tty: true
+    command: ["daemon"]
