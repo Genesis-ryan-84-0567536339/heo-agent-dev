@@ -346,6 +346,80 @@ async function initZaloClient() {
   return api;
 }
 
+function getRandomInterimMessage(isGroup, isBoss, senderName, prompt) {
+  const isDoc = /bài|thi|tiểu luận|báo cáo|kế hoạch|tài liệu|soạn|viết|docx|doc/i.test(prompt || "");
+  const isSheet = /tính|sheet|excel|bảng|số liệu|xlsx/i.test(prompt || "");
+
+  if (isGroup) {
+    if (isDoc) {
+      const options = [
+        "Dạ đợi em một chút nhen, em đang soạn xong gửi vào nhóm liền ạ! 📄✨",
+        "Dạ em đang căn chỉnh file nốt, sắp xong rồi em gửi liền nha! 👌",
+        "Dạ em đang hoàn thiện tài liệu, xong cái là em gửi ngay ạ! 🥰",
+        "Dạ đợi em xíu xiu, em soạn xong gửi vào nhóm ngay đây ạ! ✍️",
+        "Dạ em đang làm nốt phần này, xong em gửi file liền nha! ✨"
+      ];
+      return options[Math.floor(Math.random() * options.length)];
+    } else if (isSheet) {
+      const options = [
+        "Dạ em đang chạy bảng tính và ráp số liệu, xong em gửi vào nhóm liền ạ! 📊",
+        "Dạ đợi em một xíu nhen, em tính toán xong gửi file ngay ạ! 👌",
+        "Dạ em đang đối soát bảng số liệu nốt, sắp có file gửi nhóm rồi ạ! 📈",
+        "Dạ đợi em xíu, em xuất bảng tính gửi vào nhóm ngay đây ạ! ✨"
+      ];
+      return options[Math.floor(Math.random() * options.length)];
+    } else {
+      const options = [
+        "Dạ đợi em một xíu nhen, em gửi kết quả ngay ạ! ✨",
+        "Dạ em đang xử lý, sắp xong rồi nha! 👌",
+        "Dạ đợi em một chút xíu, xong em gửi liền ạ! 🥰",
+        "Dạ em đang làm nốt, có kết quả em gửi ngay ạ! ⏳"
+      ];
+      return options[Math.floor(Math.random() * options.length)];
+    }
+  } else {
+    if (isDoc) {
+      const options = [
+        "Dạ Sếp đợi em một chút, em soạn thảo xong gửi Sếp liền ạ! 📄✨",
+        "Dạ em đang rà soát nốt tài liệu, xong em gửi Sếp ngay nha! 👌",
+        "Dạ phần này em đang hoàn thiện, sắp xong rồi Sếp nha! 🥰"
+      ];
+      return options[Math.floor(Math.random() * options.length)];
+    } else if (isSheet) {
+      const options = [
+        "Dạ Sếp đợi em xíu, em đang chạy bảng tính gửi Sếp liền ạ! 📊",
+        "Dạ em đang ráp số liệu cho chuẩn, xong em gửi file Sếp ngay nha! 📈",
+        "Dạ em đang kiểm tra lại bảng số liệu, xong em gửi Sếp liền ạ! 👌"
+      ];
+      return options[Math.floor(Math.random() * options.length)];
+    } else {
+      const options = [
+        "Dạ Sếp đợi em một xíu nhen, xong em gửi Sếp liền ạ! ✨",
+        "Dạ em đang xử lý, sắp xong rồi Sếp nha! 👌",
+        "Dạ em đang làm nốt, em báo cáo Sếp ngay đây ạ! 🚀"
+      ];
+      return options[Math.floor(Math.random() * options.length)];
+    }
+  }
+}
+
+function getRandomSecondInterimMessage(isGroup, isBoss) {
+  if (isGroup) {
+    const options = [
+      "Dạ phần này hơi dài một xíu, em vẫn đang làm nốt đây ạ, sắp có rồi nha! 🏃‍♀️💨",
+      "Dạ mọi người đợi em thêm tí xíu nhen, em đang rà soát lại cho chuẩn chỉ ạ! ✨",
+      "Dạ sắp xong rồi nhen, em gửi vào nhóm ngay đây ạ! 🥰"
+    ];
+    return options[Math.floor(Math.random() * options.length)];
+  } else {
+    const options = [
+      "Dạ Sếp đợi em thêm tí xíu nhen, phần này hơi chi tiết nên em đang làm nốt ạ! 🏃‍♀️💨",
+      "Dạ em đang rà soát khâu cuối, sắp xong rồi Sếp nha! ✨"
+    ];
+    return options[Math.floor(Math.random() * options.length)];
+  }
+}
+
 function splitText(text, maxLength = 1800) {
   if (!text || text.length <= maxLength) return [text || ""];
   const chunks = [];
@@ -708,28 +782,21 @@ async function startBridge() {
         const progressTimer = setTimeout(async () => {
           if (!isDone) {
             try {
-              let interimMsg = "";
-              if (/bài|báo cáo|kế hoạch|tiểu luận|tài liệu|soạn|viết|docx|doc/i.test(userPrompt)) {
-                interimMsg = "Dạ Sếp đợi em một xíu xiu nhen, phần tài liệu này em đang soạn thảo và rà soát kỹ cho chuẩn chỉ, xong em gửi Sếp liền ạ! ✨";
-              } else if (/tính|sheet|excel|bảng|số liệu|xlsx/i.test(userPrompt)) {
-                interimMsg = "Dạ Sếp đợi em một xíu nhen, em đang ráp công thức và đối soát bảng số liệu cho chuẩn xác, sắp xong rồi ạ! 📊";
-              } else {
-                interimMsg = "Dạ Sếp đợi em một xíu xiu nha, phần này em đang xử lý thêm chút nữa, xong em báo cáo Sếp liền ạ! ✨";
-              }
+              const interimMsg = getRandomInterimMessage(false, true, BOSS_NAME, userPrompt);
               await sendSafeMessage(api, { msg: interimMsg, quote: msg.data }, threadId, ThreadType.User);
               log(`[1-1 ${BOSS_NAME}] Đã chủ động nhắn báo đang xử lý: "${interimMsg.substring(0, 45)}..."`);
             } catch (e) {}
           }
-        }, 15000);
+        }, 22000);
 
         const secondTimer = setTimeout(async () => {
           if (!isDone) {
             try {
-              const secondMsg = "Dạ Sếp ơi em vẫn đang xử lý nốt các khâu cuối đây ạ, sắp xong rồi Sếp nha! 🏃‍♀️💨";
+              const secondMsg = getRandomSecondInterimMessage(false, true);
               await sendSafeMessage(api, { msg: secondMsg, quote: msg.data }, threadId, ThreadType.User);
             } catch (e) {}
           }
-        }, 60000);
+        }, 75000);
 
         try {
           const resp = await axios.post(`${AGY_ENGINE_URL}/api/chat`, {
@@ -851,29 +918,21 @@ async function startBridge() {
         const progressTimer = setTimeout(async () => {
           if (!isDone) {
             try {
-              let interimMsg = "";
-              const callerName = isBoss ? "${BOSS_CALLER_NAME}" : `chị ${senderName.split(" ").slice(-1)[0] || senderName}`;
-              if (/bài|thi|tiểu luận|báo cáo|kế hoạch|tài liệu|soạn|viết|docx|doc/i.test(cleanPrompt || rawContent)) {
-                interimMsg = `Dạ ${callerName} và cả nhóm đợi em một xíu xiu nhen, phần tài liệu này em đang soạn thảo và căn chỉnh chi tiết cho chuẩn chỉ, xong cái rẹt là em gửi file vào nhóm liền đây ạ! 🥰`;
-              } else if (/tính|sheet|excel|bảng|số liệu|xlsx/i.test(cleanPrompt || rawContent)) {
-                interimMsg = `Dạ ${callerName} đợi em một xíu xiu nhen, em đang chạy bảng tính và ráp số liệu cho chuẩn, xong em gửi file vào nhóm liền ạ! 📊`;
-              } else {
-                interimMsg = `Dạ ${callerName} đợi em một xíu xiu nhen, phần này em đang xử lý kỹ xíu là gửi kết quả ngay đây ạ! 🥰`;
-              }
+              const interimMsg = getRandomInterimMessage(true, isBoss, senderName, cleanPrompt || rawContent);
               await sendSafeMessage(api, { msg: interimMsg, quote: msg.data }, threadId, ThreadType.Group);
               log(`[Group ${groupDetails.name}] Đã chủ động nhắn báo đang xử lý: "${interimMsg.substring(0, 45)}..."`);
             } catch (e) {}
           }
-        }, 15000);
+        }, 22000);
 
         const secondTimer = setTimeout(async () => {
           if (!isDone) {
             try {
-              const secondMsg = "Dạ mọi người đợi em thêm tí xíu nhen, em vẫn đang miệt mài xử lý nốt đây ạ! 🏃‍♀️💨";
+              const secondMsg = getRandomSecondInterimMessage(true, isBoss);
               await sendSafeMessage(api, { msg: secondMsg, quote: msg.data }, threadId, ThreadType.Group);
             } catch (e) {}
           }
-        }, 60000);
+        }, 75000);
 
         try {
           const resp = await axios.post(`${AGY_ENGINE_URL}/api/chat`, {
