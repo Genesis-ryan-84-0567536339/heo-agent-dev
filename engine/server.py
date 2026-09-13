@@ -312,12 +312,14 @@ def execute_agy_cli(full_prompt, model_name):
     env = os.environ.copy()
     env["XDG_DATA_HOME"] = XDG_DATA_HOME
 
+    msg = json.dumps({"event": "user", "message": {"content": full_prompt}}) + "\n"
     cmd = [
         AGY_BIN,
-        "-p", full_prompt,
-        f"--model={model_name}",
+        "--input-format=stream-json",
+        "--output-format=stream-json",
         "--dangerously-skip-permissions",
         f"--gemini_dir={GEMINI_DIR}",
+        f"--model={model_name}",
         "--print-timeout=3m"
     ]
 
@@ -326,21 +328,35 @@ def execute_agy_cli(full_prompt, model_name):
             cmd,
             cwd=WORKSPACE_DIR,
             env=env,
-            capture_output=True,
+            input=msg,
             text=True,
+            capture_output=True,
             timeout=180
         )
-        output = proc.stdout.strip()
-        err_output = proc.stderr.strip() if proc.stderr else ""
-        if not output and err_output:
-            output = err_output
-        return proc.returncode, output, err_output
+        final_resp = ""
+        err_msg = proc.stderr.strip() if proc.stderr else ""
+        for line in proc.stdout.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                ev = json.loads(line)
+                if ev.get("event") == "result":
+                    res = ev.get("result", {})
+                    final_resp = res.get("response", "")
+                    if not final_resp and res.get("error"):
+                        err_msg = res.get("error")
+            except Exception:
+                pass
+        if not final_resp and err_msg:
+            final_resp = err_msg
+        return proc.returncode, final_resp, err_msg
     except subprocess.TimeoutExpired:
         return -1, "Dạ Sếp, tác vụ xử lý mất nhiều thời gian hơn dự kiến (timeout 3 phút). Em xin gửi tóm tắt sơ bộ.", "Timeout"
     except Exception as e:
         return -1, f"Dạ Sếp, hệ thống gặp gián đoạn khi thực thi: {str(e)}", str(e)
 
-def get_recent_history(channel_key, min_limit=30, max_limit=100):
+def get_recent_history(channel_key, min_limit=15, max_limit=30):
     if not channel_key:
         return ""
     history_file = os.path.join(DATA_DIR, f"group_{channel_key}.jsonl")
@@ -381,14 +397,13 @@ def get_recent_history(channel_key, min_limit=30, max_limit=100):
                 except Exception:
                     continue
 
-        # ĐẢM BẢO LẤY TOÀN BỘ NỘI DUNG TRONG CÙNG NGÀY
+        # ĐẢM BẢO LẤY NỘI DUNG TRONG CÙNG NGÀY (CÓ GIỚI HẠN GỌN GÀNG ĐỂ TỐC ĐỘ XỬ LÝ NHANH NHẤT)
         if len(today_items) >= min_limit:
             chosen_items = today_items[-max_limit:]
-            context_header = f"[BỐI CẢNH TOÀN BỘ CÁC TRAO ĐỔI TRONG NGÀY HÔM NAY {today_str} ({len(chosen_items)} lượt tương tác)]:"
+            context_header = f"[BỐI CẢNH CÁC TRAO ĐỔI GẦN NHẤT TRONG HÔM NAY {today_str} ({len(chosen_items)} tương tác)]:"
         else:
-            # Nếu hôm nay có ít hơn min_limit lượt, lấy thêm các tương tác gần nhất trước đó để đủ bối cảnh sâu
             chosen_items = all_items[-max_limit:] if len(all_items) > max_limit else all_items
-            context_header = f"[BỐI CẢNH TOÀN DIỆN CÁC TRAO ĐỔI GẦN NHẤT ({len(chosen_items)} lượt tương tác)]:"
+            context_header = f"[BỐI CẢNH CÁC TRAO ĐỔI GẦN NHẤT ({len(chosen_items)} tương tác)]:"
 
         formatted = []
         for item in chosen_items:
@@ -439,9 +454,9 @@ def get_active_groups_context():
                 mem_names.append(mname)
         mem_str = ", ".join(mem_names) if mem_names else "Thành viên nhóm"
         lines.append(f'- Nhóm "{gname}" (ID: {gid}): Gồm {mem_str}.')
-        recent_in_grp = get_recent_history(gid, min_limit=15, max_limit=40).strip()
+        recent_in_grp = get_recent_history(gid, min_limit=5, max_limit=10).strip()
         if recent_in_grp:
-            lines.append(f"  + Toàn cảnh các trao đổi trong nhóm hôm nay:\n" + "\n".join([f"    {l}" for l in recent_in_grp.splitlines()]))
+            lines.append(f"  + Điểm nhanh trao đổi mới nhất:\n" + "\n".join([f"    {l}" for l in recent_in_grp.splitlines()]))
     lines.append("")
     return "\n".join(lines) + "\n"
 
@@ -473,7 +488,7 @@ def run_agy(prompt, sender_name=BOSS_NAME, is_group=False, is_boss=False, sender
     is_fallback = state.get("is_fallback", False)
 
     channel_key = group_id if is_group else "boss_1on1"
-    history_context = get_recent_history(channel_key, min_limit=30, max_limit=100)
+    history_context = get_recent_history(channel_key, min_limit=15, max_limit=30)
     input_tag = detect_input_language_tag(prompt)
 
     # Formulate context prompt according to channel & role
