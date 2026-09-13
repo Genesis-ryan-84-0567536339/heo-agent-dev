@@ -711,7 +711,27 @@ def run_agy(prompt, sender_name=BOSS_NAME, is_group=False, is_boss=False, sender
         "duration": round(time.time() - start_time, 2)
     }
 
+class QuietHTTPServer(HTTPServer):
+    def handle_error(self, request, client_address):
+        exc_type, exc_val, _ = sys.exc_info()
+        if exc_type in (BrokenPipeError, ConnectionResetError):
+            return  # Silently ignore broken socket pipes when client disconnects
+        super().handle_error(request, client_address)
+
 class RequestHandler(BaseHTTPRequestHandler):
+    def _send_json(self, data, status_code=200):
+        try:
+            payload = json.dumps(data, ensure_ascii=False).encode("utf-8")
+            self.send_response(status_code)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Content-Length", str(len(payload)))
+            self.end_headers()
+            self.wfile.write(payload)
+        except (BrokenPipeError, ConnectionResetError):
+            pass
+        except Exception as e:
+            print(f"⚠️ [Server] Error sending response: {e}")
+
     def do_GET(self):
         if self.path == "/api/model_status":
             state = load_model_state()
@@ -731,19 +751,19 @@ class RequestHandler(BaseHTTPRequestHandler):
                 "total_recoveries": state.get("total_recoveries", 0),
                 "history": state.get("history", [])[-5:]
             }
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self.end_headers()
-            self.wfile.write(json.dumps(resp, ensure_ascii=False).encode("utf-8"))
+            self._send_json(resp, 200)
         else:
-            self.send_response(404)
-            self.end_headers()
+            try:
+                self.send_response(404)
+                self.end_headers()
+            except Exception:
+                pass
 
     def do_POST(self):
         if self.path == "/api/chat":
-            content_length = int(self.headers.get("Content-Length", 0))
-            body = self.rfile.read(content_length).decode("utf-8")
             try:
+                content_length = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(content_length).decode("utf-8")
                 data = json.loads(body)
                 prompt = data.get("prompt", "")
                 sender_name = data.get("sender_name", BOSS_NAME)
@@ -758,20 +778,16 @@ class RequestHandler(BaseHTTPRequestHandler):
                     sender_name = BOSS_NAME
 
                 result = run_agy(prompt, sender_name, is_group, is_boss, sender_uid, group_id, group_name)
-
-                self.send_response(200)
-                self.send_header("Content-Type", "application/json")
-                self.end_headers()
-                self.wfile.write(json.dumps(result, ensure_ascii=False).encode("utf-8"))
+                self._send_json(result, 200)
+            except (BrokenPipeError, ConnectionResetError):
+                pass
             except Exception as e:
-                self.send_response(500)
-                self.send_header("Content-Type", "application/json")
-                self.end_headers()
-                self.wfile.write(json.dumps({"ok": False, "error": str(e)}).encode("utf-8"))
+                print(f"⚠️ [Server] Exception in /api/chat: {e}")
+                self._send_json({"ok": False, "error": str(e)}, 500)
         elif self.path == "/api/switch_model":
-            content_length = int(self.headers.get("Content-Length", 0))
-            body = self.rfile.read(content_length).decode("utf-8")
             try:
+                content_length = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(content_length).decode("utf-8")
                 data = json.loads(body)
                 target = data.get("model", "").lower()
                 if "sonnet" in target or "fallback" in target:
@@ -780,18 +796,18 @@ class RequestHandler(BaseHTTPRequestHandler):
                     switch_to_primary("Chuyển thủ công theo yêu cầu")
                 
                 state = load_model_state()
-                self.send_response(200)
-                self.send_header("Content-Type", "application/json")
-                self.end_headers()
-                self.wfile.write(json.dumps({"ok": True, "active_model": state.get("active_model")}, ensure_ascii=False).encode("utf-8"))
+                self._send_json({"ok": True, "active_model": state.get("active_model")}, 200)
+            except (BrokenPipeError, ConnectionResetError):
+                pass
             except Exception as e:
-                self.send_response(500)
-                self.send_header("Content-Type", "application/json")
-                self.end_headers()
-                self.wfile.write(json.dumps({"ok": False, "error": str(e)}).encode("utf-8"))
+                print(f"⚠️ [Server] Exception in /api/switch_model: {e}")
+                self._send_json({"ok": False, "error": str(e)}, 500)
         else:
-            self.send_response(404)
-            self.end_headers()
+            try:
+                self.send_response(404)
+                self.end_headers()
+            except Exception:
+                pass
 
     def log_message(self, format, *args):
         pass
@@ -801,7 +817,7 @@ if __name__ == "__main__":
     recovery_thread = threading.Thread(target=auto_recovery_daemon, daemon=True)
     recovery_thread.start()
 
-    server = HTTPServer(("127.0.0.1", PORT), RequestHandler)
+    server = QuietHTTPServer(("127.0.0.1", PORT), RequestHandler)
     print(f"🚀 AGY Zalo Co-Pilot Engine Server running on http://127.0.0.1:{PORT}")
     print(f"🔹 Primary Model: {PRIMARY_MODEL}")
     print(f"🔹 Fallback Model: {FALLBACK_MODEL}")
@@ -811,3 +827,4 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         print("\nStopping server...")
         server.server_close()
+
