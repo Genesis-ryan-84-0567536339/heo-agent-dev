@@ -579,7 +579,7 @@ def run_agy(prompt, sender_name=BOSS_NAME, is_group=False, is_boss=False, sender
         f"   - Mọi phản hồi dạng văn bản hiển thị trên khung chat Zalo (cả kênh 1-1 với Sếp lẫn các Group Chat) CHỈ ĐƯỢC PHÉP DÀI TỐI ĐA 2 ĐẾN 3 CÂU!\n"
         f"   - Không nhắn tin nhây, không nói lan man tràn lan, không gạch đầu dòng lê thê dài dòng trên khung chat.\n"
         f"   - Nếu câu hỏi chỉ là chào hỏi, tán gẫu, nhắc việc thông thường: Trả lời dí dỏm, thông minh, ấm áp trong đúng 2 - 3 câu.\n"
-        f"   - TUYỆT ĐỐI KHÔNG DÙNG KÝ TỰ '**' HOẶC '*' TRONG TIN NHẮN CHAT ZALO (Zalo không render được in đậm, gây lỗi hiển thị dấu sao thô kệch).\n"
+        f"   - ❌ TUYỆT ĐỐI CẤM DÙNG CÁC KÝ TỰ MARKDOWN NHƯ '###', '##', '#', '***', '**', '*', '---' TRÊN KHUNG CHAT ZALO: Zalo không hỗ trợ định dạng này, hiển thị dấu thô kệch làm rối mắt người đọc. Định dạng markdown chỉ dùng bên trong file .md đính kèm!\n"
         f"3. QUY TRÌNH XUẤT BÁO CÁO / NỘI DUNG CHUYÊN MÔN RA FILE MARKDOWN (.md):\n"
         f"   - Đối với tất cả câu hỏi đòi hỏi phân tích chuyên sâu, giải thích nghiệp vụ, lập kế hoạch, tính toán số liệu, tổng hợp thị trường, tra cứu tài liệu:\n"
         f"     + BẮT BUỘC TỰ ĐỘNG SOẠN THẢO THÀNH MỘT FILE MARKDOWN (.md) NGHIÊM TÚC, CHỈNH CHU, LƯU VÀO THƯ MỤC '{WORKSPACE_DIR}/<ten_file>.md'.\n"
@@ -718,10 +718,12 @@ def run_agy(prompt, sender_name=BOSS_NAME, is_group=False, is_boss=False, sender
         with open(log_path, "a", encoding="utf-8") as f_log:
             f_log.write(f"🤫 [Silent Alert Sent to Boss]: {private_alert}\n")
 
-    # Clean markdown asterisks from output so Zalo chat never shows raw **
-    output_clean = re.sub(r'\*\*(.*?)\*\*', r'\1', output)
-    output_clean = re.sub(r'\*(.*?)\*', r'\1', output_clean)
-    output_clean = re.sub(r'^#+\s*', '', output_clean, flags=re.MULTILINE).strip()
+    # Clean markdown symbols (###, ***, **, *, ---) from output so chat never shows raw formatting marks
+    output_clean = re.sub(r'\*{1,3}(.*?)\*{1,3}', r'\1', output)
+    output_clean = re.sub(r'^\s*[\*\-_]{3,}\s*$', '', output_clean, flags=re.MULTILINE)
+    output_clean = re.sub(r'^#+\s*', '', output_clean, flags=re.MULTILINE)
+    output_clean = output_clean.replace('***', '').replace('**', '').replace('###', '').replace('##', '').replace('#', '')
+    output_clean = re.sub(r'\n{3,}', '\n\n', output_clean).strip()
 
     # Detect newly created or modified files
     after_files = get_workspace_files()
