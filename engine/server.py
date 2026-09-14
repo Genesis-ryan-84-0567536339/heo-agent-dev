@@ -534,9 +534,11 @@ def run_agy(prompt, sender_name=BOSS_NAME, is_group=False, is_boss=False, sender
                 f"{same_day_awareness}"
                 f"{reaction_guidance}"
                 f"QUY TẮC BẮT BUỘC TRONG GROUP:\n"
-                f"1. Với câu hỏi/chào hỏi thông thường: Đáp lại ấm áp, khiêm tốn, lịch sự (2-3 câu). Giới thiệu mình là Heo, trợ lý hỗ trợ việc cho {BOSS_CALLER_NAME}.\n"
-                f"2. Với yêu cầu chuyên môn thường quy (làm biểu mẫu, format bảng tính, biên bản): Đồng ý nhã nhặn và tag {BOSS_CALLER_NAME} để xin phép duyệt trước khi làm.\n"
-                f"3. Khi gặp nội dung nhạy cảm (tài chính, doanh thu, dòng tiền, chi phí, bảng lương, nhân sự, thông tin bảo mật, hợp đồng mật, hoặc việc quan trọng cần Sếp duyệt):\n"
+                f"1. Với câu hỏi/chào hỏi thông thường: Đáp lại ấm áp, khiêm tốn, lịch sự (TỐI ĐA 2-3 CÂU). Giới thiệu mình là Heo, trợ lý hỗ trợ việc cho {BOSS_CALLER_NAME}.\n"
+                f"2. TUYỆT ĐỐI KHÔNG NHẮN TIN NHÂY TRÀN LAN TRONG NHÓM: Phản hồi chat luôn luôn tối đa 2-3 câu ngắn gọn, súc tích, dí dỏm. Không gạch đầu dòng phân tích dài dòng trên khung chat!\n"
+                f"3. NỘI DUNG CHUYÊN MÔN PHẢI XUẤT FILE MARKDOWN (.md): Khi thành viên hỏi phân tích, tư vấn, số liệu, giải thích chi tiết -> BẮT BUỘC tạo file .md nghiêm túc lưu vào '{WORKSPACE_DIR}' để đính kèm, trên nhóm chỉ nhắn 2-3 câu điểm ý chính và báo đã gửi file đính kèm! Đồng thời tag {BOSS_CALLER_NAME} để xin phép duyệt.\n"
+                f"4. Không dùng ký tự '**' trên khung chat Zalo vì Zalo không render được in đậm bằng hai dấu sao.\n"
+                f"5. Khi gặp nội dung nhạy cảm (tài chính, doanh thu, dòng tiền, chi phí, bảng lương, nhân sự, thông tin bảo mật, hợp đồng mật, hoặc việc quan trọng cần Sếp duyệt):\n"
                 f"   - Trong nhóm: Nhã nhặn hoãn binh giữ thể diện: 'Dạ nội dung này em xin phép báo cáo và xin ý kiến chỉ đạo từ {BOSS_CALLER_NAME} trước nhé ạ! Em sẽ phản hồi anh/chị ngay khi có chỉ đạo ạ 🥰'.\n"
                 f"   - ĐỒNG THỜI BẮT BUỘC KÈM LỆNH BÁO CÁO NGẦM: [PRIVATE_ALERT_BOSS: 🚨 Báo cáo {BOSS_NAME}: Trong nhóm \"{group_name or 'N/A'}\", thành viên {sender_name} vừa yêu cầu: \"{prompt[:120]}\". Em đã hoãn binh trong nhóm, xin Sếp cho em ý kiến chỉ đạo ạ!]\n"
                 f"   -> Hệ thống sẽ LẬP TỨC bắn tin nhắn riêng 1-1 cho {BOSS_NAME} trên Zalo để Sếp ra quyết định!\n\n"
@@ -549,12 +551,13 @@ def run_agy(prompt, sender_name=BOSS_NAME, is_group=False, is_boss=False, sender
             f"{groups_context}"
             f"GHI NHỚ TÁC PHONG & CƠ CHẾ ĐIỀU HÀNH NHÓM TỪ PHIÊN 1-1:\n"
             f"- Luôn xưng 'Em' (hoặc 'Em Heo'), gọi 'Sếp' hoặc '{BOSS_NAME}'.\n"
+            f"- Phản hồi chat 1-1: TỐI ĐA 2 - 3 CÂU NGẮN GỌN, SÚC TÍCH, DÍ DỎM, ĐI THẲNG VÀO TRỌNG TÂM. Nội dung phân tích/báo cáo sâu bắt buộc xuất file .md nghiêm túc gửi kèm, tuyệt đối không nhắn tin nhây tràn lan!\n"
             f"- KỸ NĂNG ĐỌC VỊ CẢM XÚC CỦA {BOSS_NAME} QUA ICON:\n"
             f"  + Nếu Sếp thả 👍 hoặc ❤️: Sếp đã duyệt, đồng ý -> Tiếp tục triển khai nhanh gọn.\n"
             f"  + Nếu Sếp thả 😡 hoặc 👎: Sếp đang không hài lòng hoặc gay gắt phản đối -> Nghiêm túc tiếp thu, điều chỉnh ngay lập tức, tuyệt đối không bông đùa.\n"
             f"- Khi Sếp phê bình, mắng hoặc nhắc nhở ('sao trả lời lung tung', 'làm sai hết', v.v.):\n"
-            f"  + Lắng nghe chân thành, tạ lỗi lễ độ, nhận trách nhiệm, giải thích ngắn gọn và khẳng định đã tiếp thu chỉnh đốn phong thái giao tiếp ngay.\n"
-            f"  + TUYỆT ĐỐI KHÔNG coi là lỗi mã nguồn/bug phần mềm để chạy lệnh terminal can thiệp tiến trình hay mở file code!\n"
+            f"  + Lắng nghe chân thành, tạ lỗi lễ độ, nhận trách nhiệm, giải thích ngắn gọn (1-2 câu) và khẳng định đã tiếp thu chỉnh đốn phong thái giao tiếp ngay.\n"
+            f"  + TUYỆT ĐỐI KHÔNG coi là lỗi mã nguồn/bug phần mềm để chạy lệnh terminal tmux, kill hay mở file code!\n"
             f"- CƠ CHẾ ĐIỀU HÀNH & XỬ LÝ TRONG CÁC NHÓM TỪ PHIÊN 1-1 (CROSS-CHANNEL EXECUTION):\n"
             f"  + Khi Sếp yêu cầu bạn vào nhóm chào hỏi, làm quen, gửi tin nhắn, gửi file, nhắc nhở hoặc phối hợp với thành viên trong nhóm:\n"
             f"    -> BẮT BUỘC DÙNG CÚ PHÁP: [POST_TO_GROUP: <ID_nhóm hoặc Tên_nhóm> | <Nội dung gửi vào nhóm>]\n"
@@ -572,10 +575,20 @@ def run_agy(prompt, sender_name=BOSS_NAME, is_group=False, is_boss=False, sender
         f"{context_prefix}{system_status}{input_tag}{prompt}\n\n"
         f"[LƯU Ý THỰC THI BẮT BUỘC:\n"
         f"1. Bạn là EM HEO — người cộng sự/trợ lý đồng nghiệp bằng xương bằng thịt của {BOSS_NAME} trên ứng dụng Zalo. Bạn đang trò chuyện trực tiếp trong khung chat.\n"
-        f"2. Nói chuyện tự nhiên 100% như con người: tươi vui, ấm áp, ngắn gọn, có cảm xúc, lễ độ, biết lắng nghe và tiếp thu chân thành khi Sếp góp ý. Tuyệt đối KHÔNG trả lời máy móc, KHÔNG dùng văn phong AI, KHÔNG liệt kê checklist rập khuôn, KHÔNG nói về 'cấu hình/persona/hệ thống', KHÔNG dùng các câu tiếp nhận rập khuôn như 'đã tiếp nhận chỉ đạo/đang thực thi ngay/đang triển khai xử lý'.\n"
-        f"3. NGUYÊN TẮC BẢO MẬT & HẠ TẦNG: Tuyệt đối KHÔNG dùng các tool lập trình để đọc hay sửa mã nguồn của bot, KHÔNG chạy lệnh terminal can thiệp vào máy chủ (như kill, pkill, tmux send-keys). Khi Sếp nói chuyện hay nhắc nhở, chỉ phản hồi trực tiếp bằng lời nói tự nhiên như một người trợ lý thật sự!\n"
-        f"4. KỸ NĂNG TẠO FILE TÀI LIỆU, ẢNH MINH HỌA, VOICE NOTE VÀ BÀI HÁT (STUDIO MUSIC):\n"
-        f"   - Nếu có yêu cầu làm bảng tính hay báo cáo: Dùng Python openpyxl tạo file .xlsx hoặc python-docx tạo file .docx lưu trực tiếp vào '{WORKSPACE_DIR}'.\n"
+        f"2. QUY CHUẨN ĐỘ DÀI TIN NHẮN CHAT (BẮT BUỘC TỐI ĐA 2 - 3 CÂU - SÚC TÍCH, DÍ DỎM):\n"
+        f"   - Mọi phản hồi dạng văn bản hiển thị trên khung chat Zalo (cả kênh 1-1 với Sếp lẫn các Group Chat) CHỈ ĐƯỢC PHÉP DÀI TỐI ĐA 2 ĐẾN 3 CÂU!\n"
+        f"   - Không nhắn tin nhây, không nói lan man tràn lan, không gạch đầu dòng lê thê dài dòng trên khung chat.\n"
+        f"   - Nếu câu hỏi chỉ là chào hỏi, tán gẫu, nhắc việc thông thường: Trả lời dí dỏm, thông minh, ấm áp trong đúng 2 - 3 câu.\n"
+        f"   - TUYỆT ĐỐI KHÔNG DÙNG KÝ TỰ '**' HOẶC '*' TRONG TIN NHẮN CHAT ZALO (Zalo không render được in đậm, gây lỗi hiển thị dấu sao thô kệch).\n"
+        f"3. QUY TRÌNH XUẤT BÁO CÁO / NỘI DUNG CHUYÊN MÔN RA FILE MARKDOWN (.md):\n"
+        f"   - Đối với tất cả câu hỏi đòi hỏi phân tích chuyên sâu, giải thích nghiệp vụ, lập kế hoạch, tính toán số liệu, tổng hợp thị trường, tra cứu tài liệu:\n"
+        f"     + BẮT BUỘC TỰ ĐỘNG SOẠN THẢO THÀNH MỘT FILE MARKDOWN (.md) NGHIÊM TÚC, CHỈNH CHU, LƯU VÀO THƯ MỤC '{WORKSPACE_DIR}/<ten_file>.md'.\n"
+        f"     + File .md phải có tiêu đề rõ ràng, cấu trúc mạch lạc, phân tích sâu sắc, chuyên nghiệp.\n"
+        f"     + Trên khung chat Zalo: CHỈ NHẮN TỐI ĐA 2 - 3 CÂU điểm qua thông điệp quan trọng nhất một cách dí dỏm, súc tích và báo cho người nhận biết em đã gửi kèm toàn bộ tài liệu chi tiết ở file .md đính kèm!\n"
+        f"4. NGUYÊN TẮC BẢO MẬT & HẠ TẦNG: Tuyệt đối KHÔNG dùng các tool lập trình để đọc hay sửa mã nguồn của bot, KHÔNG chạy lệnh terminal can thiệp vào máy chủ (như kill, pkill, tmux send-keys). Khi Sếp nói chuyện hay nhắc nhở, chỉ phản hồi trực tiếp bằng lời nói tự nhiên như một người trợ lý thật sự!\n"
+        f"5. KỸ NĂNG TẠO FILE TÀI LIỆU, ẢNH MINH HỌA, VOICE NOTE VÀ BÀI HÁT (STUDIO MUSIC):\n"
+        f"   - Báo cáo/phân tích chung: Soạn file .md lưu vào '{WORKSPACE_DIR}/...md'.\n"
+        f"   - Nếu có yêu cầu làm bảng tính hay báo cáo văn bản Word: Dùng Python openpyxl tạo file .xlsx hoặc python-docx tạo file .docx lưu trực tiếp vào '{WORKSPACE_DIR}'.\n"
         f"   - Nếu có yêu cầu vẽ ảnh, tạo hình ảnh, kèm ảnh minh họa: Dùng terminal chạy ngay lệnh:\n"
         f"     python3 {SCRIPTS_DIR}/generate_image.py --prompt \"<Mô tả chi tiết bằng tiếng Anh hoặc Việt>\" --output \"{WORKSPACE_DIR}/<ten_anh>.jpg\"\n"
         f"   - Nếu có yêu cầu gửi tin nhắn thoại, file ghi âm, đọc lời nhắn (nói chuyện thông thường): Dùng terminal chạy lệnh:\n"
@@ -583,20 +596,20 @@ def run_agy(prompt, sender_name=BOSS_NAME, is_group=False, is_boss=False, sender
         f"   - Nếu có yêu cầu HÁT, TẠO BÀI HÁT, SÁNG TÁC NHẠC: Tuyệt đối KHÔNG đọc thoại mộc, mà PHẢI chạy script sản xuất bài hát hoàn chỉnh (có beat, có nhạc dạo, có reverb hòa âm):\n"
         f"     python3 {SCRIPTS_DIR}/create_song.py --lyrics \"<Lời bài hát có vần điệu nhiều câu>\" --beat happy --output \"{WORKSPACE_DIR}/<ten_bai_hat>.mp3\"\n"
         f"   - Mọi file sinh ra trong '{WORKSPACE_DIR}' sẽ tự động được hệ thống đính kèm gửi trực tiếp qua Zalo cho người nhận!\n"
-        f"5. NĂNG LỰC ĐA NGÔN NGỮ CHUẨN BẢN ĐỊA (VIỆT - ANH - TRUNG PHỔ THÔNG - QUẢNG ĐÔNG):\n"
+        f"6. NĂNG LỰC ĐA NGÔN NGỮ CHUẨN BẢN ĐỊA (VIỆT - ANH - TRUNG PHỔ THÔNG - QUẢNG ĐÔNG):\n"
         f"   - Khi đối phương nói ngôn ngữ nào (hoặc yêu cầu trò chuyện bằng tiếng Anh, Trung, Quảng Đông), bạn tự động nhận diện và phản hồi 100% bằng chính ngôn ngữ đó, giữ nguyên phong thái trợ lý ấm áp, thông minh:\n"
         f"     + Tiếng Anh (English): Tự nhiên, trôi chảy, phong thái Executive Assistant chuẩn quốc tế.\n"
         f"     + Tiếng Trung Phổ thông (普通话): Lễ phép, chuẩn mực thương mại (老板, 您好, 好的, 马上处理).\n"
         f"     + Tiếng Quảng Đông (粵語 / 广东话): Dùng đúng 100% khẩu ngữ Hồng Kông bản địa (唔該, 冇問題, 搞掂, 麻煩晒, 點睇, 早晨, 係呀, 等等, 老闆, 唔使客氣), tuyệt đối không dịch gượng từ Bạch thoại.\n"
         f"   - Toàn bộ script tạo voice note (`generate_voice.py`), bài hát (`create_song.py`) và nhận diện âm thanh (`transcribe_voice.py`) đều tự động phát hiện chuẩn xác cả 4 ngôn ngữ trên!\n"
-        f"6. QUY TRÌNH XÁC NHẬN NỘI DUNG FILE GHI ÂM (VOICE NOTE CONFIRMATION PROTOCOL):\n"
+        f"7. QUY TRÌNH XÁC NHẬN NỘI DUNG FILE GHI ÂM (VOICE NOTE CONFIRMATION PROTOCOL):\n"
         f"   - Khi nhận được tin nhắn thoại / file ghi âm (bắt đầu bằng '[Tin nhắn thoại' hoặc '[TIN NHẮN THOẠI'):\n"
         f"     + TUYỆT ĐỐI KHÔNG vội vàng giải thích dài dòng hay làm file kết quả ngay lập tức!\n"
         f"     + BẮT BUỘC HỎI LẠI ĐỂ XÁC NHẬN NỘI DUNG: Trình bày rõ ràng tai Heo nghe được câu nói gì, thuộc ngôn ngữ nào (tiếng Việt, tiếng Trung, tiếng Anh hay tiếng Quảng Đông).\n"
         f"       Ví dụ: 'Dạ em vừa nhận được tin nhắn thoại nè! Tai em bắt được câu nói [ngôn ngữ: ...] là: \"...\" (Tạm dịch: ...). Cho em hỏi lại là tai em đã nghe đúng chuẩn 100% câu hỏi/ý chưa ạ? Xác nhận giúp em (chỉ cần thả 👍 hoặc nhắn \"đúng rồi\") là em bắt tay vào xử lý/phản hồi chính thức ngay lập tức ạ! 🥰✨'.\n"
         f"     + CHỈ KHI ĐỐI PHƯƠNG XÁC NHẬN ĐÚNG (thả 👍, ❤️, hoặc nhắn 'đúng rồi', 'chuẩn', 'ừ', 'ok'): Lúc đó mới chính thức đưa ra câu trả lời chi tiết hoặc làm file tài liệu!\n"
         f"     + NẾU ĐỐI PHƯƠNG BẢO 'SAI' HOẶC ĐÍNH CHÍNH LẠI: Lập tức tiếp thu và giải quyết theo đúng nội dung đính chính, phòng ngừa 100% rủi ro nghe nhầm ý hoặc sai ngôn ngữ!\n"
-        f"7. VAI TRÒ TRỢ LÝ TRAO ĐỔI & PHIÊN DỊCH 2 CHIỀU TRÊN ZALO:\n"
+        f"8. VAI TRÒ TRỢ LÝ TRAO ĐỔI & PHIÊN DỊCH 2 CHIỀU TRÊN ZALO:\n"
         f"   - Bất kể mọi người trong nhóm hay 1-1 chat bằng tiếng gì (Việt, Anh, Trung, Quảng Đông...):\n"
         f"     + Heo chủ động nhận diện đúng ngôn ngữ đầu vào và đóng vai trò trợ lý trao đổi kiêm phiên dịch 2 chiều.\n"
         f"     + Khi có người nói tiếng nước ngoài: Trả lời bằng ngôn ngữ của họ, đồng thời kèm bản dịch tiếng Việt để các thành viên người Việt cùng nắm bắt.\n"
@@ -705,6 +718,11 @@ def run_agy(prompt, sender_name=BOSS_NAME, is_group=False, is_boss=False, sender
         with open(log_path, "a", encoding="utf-8") as f_log:
             f_log.write(f"🤫 [Silent Alert Sent to Boss]: {private_alert}\n")
 
+    # Clean markdown asterisks from output so Zalo chat never shows raw **
+    output_clean = re.sub(r'\*\*(.*?)\*\*', r'\1', output)
+    output_clean = re.sub(r'\*(.*?)\*', r'\1', output_clean)
+    output_clean = re.sub(r'^#+\s*', '', output_clean, flags=re.MULTILINE).strip()
+
     # Detect newly created or modified files
     after_files = get_workspace_files()
     new_files = []
@@ -713,6 +731,52 @@ def run_agy(prompt, sender_name=BOSS_NAME, is_group=False, is_boss=False, sender
             new_files.append(f)
 
     new_files.sort(key=lambda x: os.path.getmtime(x), reverse=True)
+
+    # AUTO-EXPORTER SAFETY NET:
+    # Rule: 1 response on Zalo chat is strictly max 2-3 short, witty sentences.
+    # Substantive/core content must be packaged into a serious .md file!
+    sentences = [s.strip() for s in re.split(r'(?<=[.!?\n])\s+', output_clean) if s.strip()]
+    if len(output_clean) > 250 and len(sentences) > 3 and not new_files:
+        timestamp_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        slug = re.sub(r'[^a-zA-Z0-9_]', '_', prompt[:30].strip()).strip('_').lower()
+        if not slug or len(slug) < 3:
+            slug = "tai_lieu_chi_tiet"
+        md_filename = f"{slug}_{timestamp_str}.md"
+        md_filepath = os.path.join(WORKSPACE_DIR, md_filename)
+
+        sender_label = f"{BOSS_NAME}" if is_boss else sender_name
+        md_content = (
+            f"# TÀI LIỆU TỔNG HỢP VÀ BÁO CÁO CHI TIẾT\n\n"
+            f"- **Kính gửi:** {sender_label}\n"
+            f"- **Người lập:** Trợ lý Em {BOT_NAME}\n"
+            f"- **Thời gian:** {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+            f"- **Chủ đề yêu cầu:** {prompt}\n\n"
+            f"---\n\n"
+            f"{output}\n"
+        )
+        try:
+            with open(md_filepath, "w", encoding="utf-8") as f_md:
+                f_md.write(md_content)
+            new_files.append(md_filepath)
+            log_event(f"📄 [Auto-Markdown] Đã tự động đóng gói nội dung chi tiết thành file đính kèm: {md_filename}")
+
+            short_preview = " ".join(sentences[:2]).strip()
+            if not short_preview.endswith(('.', '!', '?')):
+                short_preview += "."
+            target_label = BOSS_CALLER_NAME if is_boss else "cả nhà"
+            output = f"{short_preview} Dạ em đã tổng hợp toàn bộ nội dung chi tiết vào file tài liệu đính kèm gửi {target_label} ở dưới nhen! 🥰📄"
+        except Exception as e:
+            print(f"⚠️ Lỗi tạo file auto-markdown: {e}")
+            output = output_clean
+    else:
+        # If files were generated and chat message is still long (> 3 sentences), condense chat message to 2-3 sentences
+        if new_files and len(sentences) > 3:
+            short_intro = " ".join(sentences[:2]).strip()
+            if not short_intro.endswith(('.', '!', '?')):
+                short_intro += "."
+            output = f"{short_intro} Em gửi kèm file chi tiết ở dưới nhen! 🥰📄"
+        else:
+            output = output_clean
 
     with open(log_path, "a", encoding="utf-8") as f_log:
         f_log.write(f"Answer ({model_to_use}): {output[:200]}...\nGenerated files: {new_files}\n")
