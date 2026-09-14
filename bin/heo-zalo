@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# HEO-ZALO: Lệnh điều hành toàn hệ thống cho Zalo-AGY Copilot (Bé Heo)
+# ==============================================================================
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$PROJECT_DIR"
+
+case "${1:-}" in
+    stop)
+        echo "🛑 Đang dừng Zalo-AGY Copilot..."
+        "$PROJECT_DIR/stop.sh"
+        ;;
+    status)
+        echo "📊 Kiểm tra trạng thái Zalo-AGY Copilot:"
+        if command -v docker compose &>/dev/null && [ -f "$PROJECT_DIR/docker-compose.yml" ]; then
+            docker compose ps
+        fi
+        if tmux has-session -t "agy-zalo" 2>/dev/null; then
+            echo "🟢 tmux session 'agy-zalo' đang chạy."
+        fi
+        ;;
+    logs)
+        echo "📜 Đang theo dõi nhật ký Zalo-AGY Copilot (Ctrl+C để thoát)..."
+        if command -v docker compose &>/dev/null && [ -f "$PROJECT_DIR/docker-compose.yml" ] && [ "$(docker compose ps -q 2>/dev/null | wc -l)" -gt 0 ]; then
+            docker compose logs -f --tail 50
+        elif [ -d "$PROJECT_DIR/logs" ]; then
+            tail -n 30 -f "$PROJECT_DIR/logs/zalo.log" "$PROJECT_DIR/logs/engine.log" 2>/dev/null || true
+        else
+            echo "Chưa có nhật ký hoạt động."
+        fi
+        ;;
+    tui)
+        "$PROJECT_DIR/start.sh" --tui
+        ;;
+    --bg|daemon)
+        echo "🚀 Đang khởi chạy Zalo-AGY Copilot chế độ nền (Daemon 24/7)..."
+        "$PROJECT_DIR/start.sh" daemon
+        ;;
+    *)
+        if [ -t 0 ]; then
+            "$PROJECT_DIR/start.sh" --tui
+        else
+            "$PROJECT_DIR/start.sh" daemon
+        fi
+        ;;
+esac

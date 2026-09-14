@@ -68,6 +68,23 @@ Khi khởi động lần đầu, màn hình TUI hướng dẫn bạn 4 bước �
 
 ---
 
+## 🎮 Điều Hành Nhanh Bằng Lệnh `heo-zalo`
+
+Sau khi cài đặt, hệ thống tự động đăng ký lệnh `heo-zalo` vào `PATH` toàn hệ thống để bạn có thể điều khiển Bé Heo Zalo mọi lúc mọi nơi từ bất kỳ cửa sổ terminal nào:
+
+```bash
+heo-zalo          # Khởi chạy và kết nối trực tiếp vào giao diện TUI
+heo-zalo --bg     # Khởi chạy chế độ nền (Daemon 24/7) trong Docker
+heo-zalo status   # Kiểm tra trạng thái hoạt động của container / tiến trình
+heo-zalo logs     # Xem nhật ký thời gian thực (live stream logs)
+heo-zalo stop     # Dừng an toàn toàn bộ hệ thống
+```
+
+> [!TIP]
+> **Phân định phiên bản:** Lệnh `heo-zalo` chuyên dùng để điều khiển phiên bản Zalo Copilot độc lập này, tách biệt hoàn toàn với hệ thống chỉ huy đa kênh `Agy-Assis` (gọi bằng lệnh riêng như `heo` hoặc `jarvis`).
+
+---
+
 ## 🐳 Vận Hành Bằng Docker Compose
 
 ### 1. Khởi động chạy nền 24/7 (Daemon Mode)

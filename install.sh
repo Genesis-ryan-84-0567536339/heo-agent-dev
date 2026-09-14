@@ -100,14 +100,21 @@ echo -e "  4. Mở Bảng điều khiển Live Dashboard giám sát thời gian 
 # Chạy TUI tương tác
 docker compose run --rm -it app tui
 
+# Đăng ký lối tắt lệnh heo-zalo toàn hệ thống
+chmod +x bin/heo-zalo 2>/dev/null || true
+mkdir -p "$HOME/.local/bin"
+ln -sf "$WORKDIR/bin/heo-zalo" "$HOME/.local/bin/heo-zalo"
+if sudo -n true 2>/dev/null; then
+    sudo ln -sf "$WORKDIR/bin/heo-zalo" /usr/local/bin/heo-zalo 2>/dev/null || true
+fi
+
 echo -e "\n${GREEN}==============================================================================${NC}"
 echo -e "${GREEN}✔ CÀI ĐẶT VÀ CẤU HÌNH THÀNH CÔNG!${NC}"
-echo -e "Để chạy hệ thống ở chế độ nền (Daemon 24/7):"
-echo -e "   ${CYAN}docker compose up -d${NC}"
-echo -e "\nĐể xem nhật ký trực tiếp:"
-echo -e "   ${CYAN}docker compose logs -f${NC}"
-echo -e "\nĐể mở lại giao diện điều khiển TUI:"
-echo -e "   ${CYAN}docker compose run --rm -it app tui${NC}"
-echo -e "\nĐể dừng dịch vụ:"
-echo -e "   ${CYAN}docker compose down${NC}"
+echo -e "Hệ thống đã đăng ký lệnh điều hành toàn hệ thống: ${CYAN}heo-zalo${NC}"
+echo -e "\n📌 BỘ LỆNH ĐIỀU HÀNH:"
+echo -e "   👉 ${CYAN}heo-zalo${NC}         : Khởi chạy và mở TUI tương tác trực tiếp"
+echo -e "   👉 ${CYAN}heo-zalo --bg${NC}    : Chạy ngầm 24/7 trong Docker"
+echo -e "   👉 ${CYAN}heo-zalo status${NC}  : Kiểm tra trạng thái máy chủ"
+echo -e "   👉 ${CYAN}heo-zalo logs${NC}    : Xem nhật ký hoạt động thời gian thực"
+echo -e "   👉 ${CYAN}heo-zalo stop${NC}    : Dừng toàn bộ hệ thống an toàn"
 echo -e "${GREEN}==============================================================================${NC}"
