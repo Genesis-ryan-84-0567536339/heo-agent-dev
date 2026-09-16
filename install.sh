@@ -21,19 +21,90 @@ cat << 'EOF'
 EOF
 echo -e "${NC}"
 
-echo -e "${YELLOW}>>> Bước 1/4: Kiểm tra môi trường hệ thống...${NC}"
+check_and_install_engine() {
+    # 1. Kiểm tra nếu đã có docker và docker compose
+    if command -v docker &> /dev/null; then
+        if docker compose version &> /dev/null || command -v docker-compose &> /dev/null; then
+            echo -e "${GREEN}✔ Đã phát hiện Docker và Docker Compose sẵn sàng!${NC}"
+            return 0
+        fi
+    fi
 
-if ! command -v docker &> /dev/null; then
-    echo -e "${RED}Lỗi: Máy chủ chưa cài đặt Docker. Vui lòng cài Docker trước khi tiếp tục: https://docs.docker.com/get-docker/${NC}"
-    exit 1
-fi
+    # 2. Kiểm tra nếu có Podman
+    if command -v podman &> /dev/null; then
+        echo -e "${CYAN}ℹ Phát hiện hệ thống đã cài đặt Podman ($(podman --version | head -n1)).${NC}"
+        read -r -p "👉 Bạn có muốn sử dụng Podman thay thế Docker không? [Y/n]: " use_podman < /dev/tty || use_podman="y"
+        use_podman=${use_podman:-y}
+        if [[ "$use_podman" =~ ^[Yy]$ ]]; then
+            # Kiểm tra hoặc cài đặt podman-docker & podman-compose
+            if ! command -v docker &> /dev/null || ! docker compose version &> /dev/null; then
+                echo -e "${YELLOW}>>> Cần thiết lập gói tương thích podman-docker / podman-compose...${NC}"
+                if command -v dnf &> /dev/null; then
+                    sudo dnf install -y podman-docker podman-compose || true
+                elif command -v apt-get &> /dev/null; then
+                    sudo apt-get update && sudo apt-get install -y podman-docker podman-compose || true
+                fi
+            fi
+            if command -v docker &> /dev/null; then
+                echo -e "${GREEN}✔ Podman đã được cấu hình tương thích Docker CLI!${NC}"
+                return 0
+            fi
+        fi
+    fi
 
-if ! docker compose version &> /dev/null; then
-    echo -e "${RED}Lỗi: Máy chủ chưa cài đặt Docker Compose (v2). Vui lòng cập nhật Docker Compose.${NC}"
-    exit 1
-fi
+    # 3. Nếu chưa có Docker, hỏi người dùng có muốn tự động cài đặt luôn không
+    echo -e "${YELLOW}⚠️ Chưa tìm thấy Docker trên hệ thống.${NC}"
+    read -r -p "👉 Bạn có muốn tự động cài đặt Docker ngay bây giờ không? [Y/n]: " auto_install < /dev/tty || auto_install="y"
+    auto_install=${auto_install:-y}
 
-echo -e "${GREEN}✔ Docker và Docker Compose sẵn sàng!${NC}"
+    if [[ ! "$auto_install" =~ ^[Yy]$ ]]; then
+        echo -e "${RED}Lỗi: Đã hủy cài đặt Docker. Bạn có thể tự cài thủ công tại: https://docs.docker.com/get-docker/${NC}"
+        exit 1
+    fi
+
+    echo -e "${CYAN}>>> Đang tiến hành cài đặt Docker tự động...${NC}"
+    if command -v dnf &> /dev/null; then
+        # Fedora / RHEL
+        sudo dnf -y install dnf-plugins-core || sudo dnf -y install 'dnf5-command(config-manager)' || true
+        sudo dnf config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo || true
+        sudo dnf install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin || {
+            # Fallback sang podman-docker nếu repo docker-ce xung đột
+            echo -e "${YELLOW}Không thể kéo Docker-CE repo, tiến hành kích hoạt Podman Docker...${NC}"
+            sudo dnf install -y podman-docker podman-compose
+        }
+    elif command -v apt-get &> /dev/null; then
+        # Ubuntu / Debian
+        sudo apt-get update
+        sudo apt-get install -y ca-certificates curl gnupg
+        sudo install -m 0755 -d /etc/apt/keyrings
+        curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg || true
+        sudo chmod a+r /etc/apt/keyrings/docker.gpg
+        sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin || sudo apt-get install -y docker.io docker-compose-v2
+    elif command -v pacman &> /dev/null; then
+        # Arch Linux
+        sudo pacman -Sy --noconfirm docker docker-compose
+    else
+        # Script cài đặt chính thức của Docker
+        curl -fsSL https://get.docker.com -o /tmp/get-docker.sh
+        sudo sh /tmp/get-docker.sh
+        rm -f /tmp/get-docker.sh
+    fi
+
+    # Khởi động dịch vụ Docker nếu có systemd
+    if command -v systemctl &> /dev/null; then
+        sudo systemctl enable --now docker 2>/dev/null || true
+        sudo usermod -aG docker "$USER" 2>/dev/null || true
+    fi
+
+    if ! command -v docker &> /dev/null; then
+        echo -e "${RED}Lỗi: Cài đặt Docker không thành công. Vui lòng kiểm tra lại quyền sudo hoặc cài thủ công.${NC}"
+        exit 1
+    fi
+
+    echo -e "${GREEN}✔ Cài đặt Docker thành công!${NC}"
+}
+
+check_and_install_engine
 
 # Kiểm tra thư mục hiện tại
 INSTALL_DIR="zalo-agy"

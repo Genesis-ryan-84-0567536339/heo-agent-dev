@@ -118,21 +118,34 @@ def step_agy_auth(agy_bin, config):
     token_file = os.path.join(GEMINI_DIR, "antigravity-cli", "antigravity-oauth-token")
     host_token = os.path.expanduser("~/.gemini/antigravity-cli/antigravity-oauth-token")
 
-    # Check if token exists in GEMINI_DIR or host
-    if os.path.exists(token_file) and os.path.getsize(token_file) > 10:
-        console.print(Panel("[bold green]✔ Google AGY Authentication: ĐÃ XÁC THỰC[/bold green]\n"
-                            f"Đã phát hiện token hợp lệ tại: [dim]{token_file}[/dim]",
-                            title="Bước 1: Google AGY Auth", border_style="green"))
-        return True
+    # Đảm bảo đồng bộ cấu hình từ host nếu có
+    host_cli_dir = os.path.expanduser("~/.gemini/antigravity-cli")
+    target_cli_dir = os.path.join(GEMINI_DIR, "antigravity-cli")
+    if os.path.exists(host_cli_dir) and not os.path.exists(target_cli_dir):
+        os.makedirs(target_cli_dir, exist_ok=True)
+        for fname in ["settings.json", "installation_id", "antigravity-oauth-token"]:
+            src_f = os.path.join(host_cli_dir, fname)
+            if os.path.exists(src_f):
+                shutil.copy(src_f, os.path.join(target_cli_dir, fname))
 
-    if os.path.exists(host_token) and os.path.getsize(host_token) > 10:
-        console.print(Panel("[bold green]✔ Phát hiện Google AGY token từ môi trường máy chủ![/bold green]\n"
-                            "Tiến hành đồng bộ vào cấu hình Copilot...",
-                            title="Bước 1: Google AGY Auth", border_style="green"))
-        target_dir = os.path.join(GEMINI_DIR, "antigravity-cli")
-        os.makedirs(target_dir, exist_ok=True)
-        shutil.copy(host_token, token_file)
-        return True
+    # Kiểm tra thử khả năng phản hồi trực tiếp của agy CLI
+    env = os.environ.copy()
+    env["XDG_DATA_HOME"] = XDG_DATA_HOME
+    test_cmd = [
+        agy_bin,
+        "--dangerously-skip-permissions",
+        f"--gemini_dir={GEMINI_DIR}",
+        "-p", "ping"
+    ]
+    try:
+        proc = subprocess.run(test_cmd, env=env, capture_output=True, text=True, timeout=8)
+        if proc.returncode == 0:
+            console.print(Panel("[bold green]✔ Google AGY Authentication: SẴN SÀNG HOẠT ĐỘNG[/bold green]\n"
+                                "AGY CLI đã kết nối thành công với tài khoản Google!",
+                                title="Bước 1: Google AGY Auth", border_style="green"))
+            return True
+    except Exception:
+        pass
 
     console.print(Panel(
         "[bold yellow]⚡ Yêu cầu xác thực tài khoản Google cho AGY CLI[/bold yellow]\n\n"
@@ -145,8 +158,6 @@ def step_agy_auth(agy_bin, config):
         console.print("[red]Đã hủy xác thực Google AGY. Hệ thống chưa thể hoạt động.[/red]")
         return False
 
-    env = os.environ.copy()
-    env["XDG_DATA_HOME"] = XDG_DATA_HOME
     cmd = [
         agy_bin,
         "--dangerously-skip-permissions",
@@ -156,7 +167,9 @@ def step_agy_auth(agy_bin, config):
 
     try:
         proc = subprocess.run(cmd, env=env)
-        if os.path.exists(token_file):
+        # Kiểm tra lại sau khi đăng nhập
+        verify = subprocess.run(test_cmd, env=env, capture_output=True, text=True, timeout=10)
+        if verify.returncode == 0:
             console.print("[bold green]✔ Đăng nhập Google AGY thành công![/bold green]")
             return True
         else:
@@ -165,6 +178,7 @@ def step_agy_auth(agy_bin, config):
     except Exception as e:
         console.print(f"[bold red]Lỗi khi chạy agy: {e}[/bold red]")
         return False
+
 
 def step_zalo_login():
     if os.path.exists(SESSION_FILE) and os.path.getsize(SESSION_FILE) > 20:
