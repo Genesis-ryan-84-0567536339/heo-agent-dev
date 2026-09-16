@@ -7,8 +7,30 @@ cd "$BASE_DIR"
 
 echo "🛑 Đang dừng Zalo-AGY Copilot..."
 
-if command -v docker compose &> /dev/null && [[ -f "docker-compose.yml" ]]; then
-    docker compose down
+get_docker_compose() {
+    if docker compose version &> /dev/null 2>&1; then
+        echo "docker compose"
+    elif sudo docker compose version &> /dev/null 2>&1; then
+        echo "sudo docker compose"
+    elif command -v docker-compose &> /dev/null; then
+        echo "docker-compose"
+    elif sudo command -v docker-compose &> /dev/null; then
+        echo "sudo docker-compose"
+    else
+        echo "docker compose"
+    fi
+}
+
+DOCKER_COMPOSE="$(get_docker_compose)"
+
+if [[ -f "docker-compose.yml" ]] && command -v docker &> /dev/null; then
+    $DOCKER_COMPOSE down 2>/dev/null || true
+fi
+
+# Dừng các container podman cũ nếu có
+if command -v podman &> /dev/null; then
+    podman stop zalo-agy-copilot 2>/dev/null || true
+    podman rm zalo-agy-copilot 2>/dev/null || true
 fi
 
 # Dừng cả các tiến trình native nếu có

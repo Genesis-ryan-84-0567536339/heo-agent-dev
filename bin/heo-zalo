@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # HEO-ZALO: Lệnh điều hành toàn hệ thống cho Zalo-AGY Copilot (Bé Heo)
+# Tiêu chuẩn hóa 100% trên Docker Engine & Docker Compose v2
 # ==============================================================================
 set -e
 
@@ -8,15 +9,37 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$PROJECT_DIR"
 
+get_docker_compose() {
+    if docker compose version &> /dev/null 2>&1; then
+        echo "docker compose"
+    elif sudo docker compose version &> /dev/null 2>&1; then
+        echo "sudo docker compose"
+    elif command -v docker-compose &> /dev/null; then
+        echo "docker-compose"
+    elif sudo command -v docker-compose &> /dev/null; then
+        echo "sudo docker-compose"
+    else
+        echo "docker compose"
+    fi
+}
+
+DOCKER_COMPOSE="$(get_docker_compose)"
+
 case "${1:-}" in
     stop)
         echo "🛑 Đang dừng Zalo-AGY Copilot..."
         "$PROJECT_DIR/stop.sh"
         ;;
+    restart)
+        echo "🔄 Đang khởi động lại Zalo-AGY Copilot..."
+        "$PROJECT_DIR/stop.sh"
+        sleep 1
+        "$PROJECT_DIR/start.sh" daemon
+        ;;
     status)
         echo "📊 Kiểm tra trạng thái Zalo-AGY Copilot:"
-        if command -v docker compose &>/dev/null && [ -f "$PROJECT_DIR/docker-compose.yml" ]; then
-            docker compose ps
+        if [ -f "$PROJECT_DIR/docker-compose.yml" ]; then
+            $DOCKER_COMPOSE ps 2>/dev/null || true
         fi
         if tmux has-session -t "agy-zalo" 2>/dev/null; then
             echo "🟢 tmux session 'agy-zalo' đang chạy."
@@ -24,8 +47,8 @@ case "${1:-}" in
         ;;
     logs)
         echo "📜 Đang theo dõi nhật ký Zalo-AGY Copilot (Ctrl+C để thoát)..."
-        if command -v docker compose &>/dev/null && [ -f "$PROJECT_DIR/docker-compose.yml" ] && [ "$(docker compose ps -q 2>/dev/null | wc -l)" -gt 0 ]; then
-            docker compose logs -f --tail 50
+        if [ -f "$PROJECT_DIR/docker-compose.yml" ]; then
+            $DOCKER_COMPOSE logs -f --tail 50
         elif [ -d "$PROJECT_DIR/logs" ]; then
             tail -n 30 -f "$PROJECT_DIR/logs/zalo.log" "$PROJECT_DIR/logs/engine.log" 2>/dev/null || true
         else
@@ -38,6 +61,9 @@ case "${1:-}" in
     --bg|daemon)
         echo "🚀 Đang khởi chạy Zalo-AGY Copilot chế độ nền (Daemon 24/7)..."
         "$PROJECT_DIR/start.sh" daemon
+        ;;
+    uninstall|clean)
+        "$PROJECT_DIR/uninstall.sh"
         ;;
     *)
         if [ -t 0 ]; then

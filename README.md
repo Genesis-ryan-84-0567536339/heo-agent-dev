@@ -34,16 +34,19 @@
 
 ## ⚡ Cài Đặt Nhanh 1 Lệnh Duy Nhất (One-Line Install)
 
-Chạy lệnh sau trên máy chủ Linux (Ubuntu, Debian, Fedora, CentOS... đã có Docker):
+Chạy lệnh sau trên bất kỳ máy chủ Linux nào (Ubuntu, Debian, Fedora, CentOS, Arch...) hoặc macOS / Windows WSL2:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Genesis-ryan-84-0567536339/zalo-agy/main/install.sh | bash
 ```
 
+> [!NOTE]
+> **Tiêu chuẩn hóa 100% trên Docker Engine:** Hệ thống sử dụng Docker Engine và Docker Compose v2 chính thức để đảm bảo tính tương thích và hoạt động ổn định trên mọi hệ điều hành. Nếu máy chủ chưa có Docker (hoặc đang dùng Podman giả lập), bộ cài đặt sẽ tự động thiết lập Docker CE chính thức cho bạn chỉ với 1 cú nhấn phím `Enter`.
+
 Trình cài đặt tự động:
-1. Kiểm tra môi trường Docker & Docker Compose.
+1. Kiểm tra và thiết lập môi trường Docker Engine & Docker Compose v2 tiêu chuẩn.
 2. Tải mã nguồn và chuẩn bị binary `agy`.
-3. Tự động đóng gói Docker Container.
+3. Tự động đóng gói Docker Container (`zalo-agy:latest`).
 4. Mở ngay **Terminal UI (TUI)** tương tác để bạn đăng nhập Google AGY và quét mã QR Zalo trên điện thoại.
 
 ---
@@ -73,11 +76,13 @@ Khi khởi động lần đầu, màn hình TUI hướng dẫn bạn 4 bước �
 Sau khi cài đặt, hệ thống tự động đăng ký lệnh `heo-zalo` vào `PATH` toàn hệ thống để bạn có thể điều khiển Bé Heo Zalo mọi lúc mọi nơi từ bất kỳ cửa sổ terminal nào:
 
 ```bash
-heo-zalo          # Khởi chạy và kết nối trực tiếp vào giao diện TUI
-heo-zalo --bg     # Khởi chạy chế độ nền (Daemon 24/7) trong Docker
-heo-zalo status   # Kiểm tra trạng thái hoạt động của container / tiến trình
-heo-zalo logs     # Xem nhật ký thời gian thực (live stream logs)
-heo-zalo stop     # Dừng an toàn toàn bộ hệ thống
+heo-zalo              # Khởi chạy và kết nối trực tiếp vào giao diện TUI
+heo-zalo --bg         # Khởi chạy chế độ nền (Daemon 24/7) trong Docker
+heo-zalo status       # Kiểm tra trạng thái hoạt động của container / tiến trình
+heo-zalo logs         # Xem nhật ký thời gian thực (live stream logs)
+heo-zalo restart      # Khởi động lại toàn bộ dịch vụ
+heo-zalo stop         # Dừng an toàn toàn bộ hệ thống
+heo-zalo uninstall    # Dọn dẹp và gỡ bỏ toàn bộ container, images, symlinks
 ```
 
 > [!TIP]
@@ -85,7 +90,7 @@ heo-zalo stop     # Dừng an toàn toàn bộ hệ thống
 
 ---
 
-## 🐳 Vận Hành Bằng Docker Compose
+## 🐳 Vận Hành Trực Tiếp Bằng Docker Compose
 
 ### 1. Khởi động chạy nền 24/7 (Daemon Mode)
 ```bash
@@ -99,12 +104,17 @@ docker compose logs -f
 
 ### 3. Mở lại giao diện tương tác TUI Dashboard
 ```bash
-docker compose run --rm -it app tui
+docker compose run --rm app tui
 ```
 
 ### 4. Dừng hệ thống
 ```bash
 docker compose down
+```
+
+### 5. Dọn dẹp / Gỡ bỏ hoàn toàn
+```bash
+./uninstall.sh
 ```
 
 ---
