@@ -144,32 +144,106 @@ def get_canonical_agy_model(model_name, effort="medium"):
             return m
     return "gemini-3.8-flash-medium"
 
+DEFAULT_QUOTA_STATS = {
+    "gemini-3.8-flash": {
+        "name": "Gemini 3.8 Flash",
+        "status": "healthy",
+        "status_label": "Sẵn sàng (Quota OK)",
+        "requests_count": 0,
+        "quota_errors": 0,
+        "avg_latency": 0.0,
+        "total_latency": 0.0,
+        "last_used": "Sẵn sàng",
+        "last_checked": "Hôm nay",
+        "model_id": "gemini-3.8-flash-medium"
+    },
+    "gemini-3.1-pro": {
+        "name": "Gemini 3.1 Pro",
+        "status": "healthy",
+        "status_label": "Sẵn sàng (Quota OK)",
+        "requests_count": 0,
+        "quota_errors": 0,
+        "avg_latency": 0.0,
+        "total_latency": 0.0,
+        "last_used": "Sẵn sàng",
+        "last_checked": "Hôm nay",
+        "model_id": "gemini-3.1-pro-high"
+    },
+    "claude-sonnet-4-6": {
+        "name": "Claude Sonnet 4.6",
+        "status": "healthy",
+        "status_label": "Sẵn sàng (Quota OK)",
+        "requests_count": 0,
+        "quota_errors": 0,
+        "avg_latency": 0.0,
+        "total_latency": 0.0,
+        "last_used": "Sẵn sàng",
+        "last_checked": "Hôm nay",
+        "model_id": "claude-sonnet-4-6"
+    },
+    "claude-opus-4-6": {
+        "name": "Claude Opus 4.6",
+        "status": "healthy",
+        "status_label": "Sẵn sàng (Quota OK)",
+        "requests_count": 0,
+        "quota_errors": 0,
+        "avg_latency": 0.0,
+        "total_latency": 0.0,
+        "last_used": "Sẵn sàng",
+        "last_checked": "Hôm nay",
+        "model_id": "claude-opus-4-6-thinking"
+    },
+    "gpt-oss-120b": {
+        "name": "GPT-OSS 120B",
+        "status": "healthy",
+        "status_label": "Sẵn sàng (Quota OK)",
+        "requests_count": 0,
+        "quota_errors": 0,
+        "avg_latency": 0.0,
+        "total_latency": 0.0,
+        "last_used": "Sẵn sàng",
+        "last_checked": "Hôm nay",
+        "model_id": "gpt-oss-120b-medium"
+    }
+}
+
 state_lock = threading.Lock()
 
 def load_model_state():
     with state_lock:
+        st = None
         if os.path.exists(STATE_FILE):
             try:
                 with open(STATE_FILE, "r", encoding="utf-8") as f:
                     st = json.load(f)
-                    if "effort" not in st:
-                        st["effort"] = "medium"
-                    return st
             except Exception:
                 pass
-        # Default state
-        default_state = {
-            "active_model": PRIMARY_MODEL,
-            "effort": "medium",
-            "is_fallback": False,
-            "exhausted_at": 0,
-            "cooldown_seconds": DEFAULT_COOLDOWN_SECONDS,
-            "last_switch_reason": "Khởi tạo hệ thống",
-            "total_failovers": 0,
-            "total_recoveries": 0,
-            "history": []
-        }
-        return default_state
+        if not st:
+            st = {
+                "active_model": PRIMARY_MODEL,
+                "effort": "medium",
+                "bot_paused": False,
+                "is_fallback": False,
+                "exhausted_at": 0,
+                "cooldown_seconds": DEFAULT_COOLDOWN_SECONDS,
+                "last_switch_reason": "Khởi tạo hệ thống",
+                "total_failovers": 0,
+                "total_recoveries": 0,
+                "history": [],
+                "quota_stats": {k: dict(v) for k, v in DEFAULT_QUOTA_STATS.items()}
+            }
+        else:
+            if "effort" not in st:
+                st["effort"] = "medium"
+            if "bot_paused" not in st:
+                st["bot_paused"] = False
+            if "quota_stats" not in st:
+                st["quota_stats"] = {k: dict(v) for k, v in DEFAULT_QUOTA_STATS.items()}
+            else:
+                for k, v in DEFAULT_QUOTA_STATS.items():
+                    if k not in st["quota_stats"]:
+                        st["quota_stats"][k] = dict(v)
+        return st
 
 def save_model_state(state):
     with state_lock:
@@ -178,6 +252,94 @@ def save_model_state(state):
                 json.dump(state, f, ensure_ascii=False, indent=2)
         except Exception as e:
             print(f"⚠️ Lỗi ghi model_state.json: {e}")
+
+def record_model_usage(model_name, duration, success=True, is_quota_err=False):
+    key = "gemini-3.8-flash"
+    t = (model_name or "").lower()
+    if "opus" in t:
+        key = "claude-opus-4-6"
+    elif "sonnet" in t:
+        key = "claude-sonnet-4-6"
+    elif "3.1" in t or "pro" in t:
+        key = "gemini-3.1-pro"
+    elif "gpt" in t or "oss" in t:
+        key = "gpt-oss-120b"
+    else:
+        key = "gemini-3.8-flash"
+
+    state = load_model_state()
+    stats = state.get("quota_stats", {})
+    m_stat = stats.get(key, dict(DEFAULT_QUOTA_STATS.get(key, {})))
+
+    m_stat["requests_count"] = m_stat.get("requests_count", 0) + 1
+    m_stat["total_latency"] = round(m_stat.get("total_latency", 0.0) + duration, 2)
+    m_stat["avg_latency"] = round(m_stat["total_latency"] / max(1, m_stat["requests_count"]), 1)
+    now_str = datetime.datetime.now().strftime("%H:%M:%S %d/%m")
+    m_stat["last_used"] = now_str
+    m_stat["last_checked"] = now_str
+
+    if is_quota_err:
+        m_stat["quota_errors"] = m_stat.get("quota_errors", 0) + 1
+        m_stat["status"] = "exhausted"
+        m_stat["status_label"] = "Hết Quota (Rate Limited)"
+    elif success:
+        m_stat["status"] = "healthy"
+        m_stat["status_label"] = "Sẵn sàng (Quota OK)"
+
+    stats[key] = m_stat
+    state["quota_stats"] = stats
+    save_model_state(state)
+
+def probe_model_quota_sync(model_key):
+    state = load_model_state()
+    stats = state.get("quota_stats", {})
+    entry = stats.get(model_key)
+    if not entry:
+        return
+    canonical_id = entry.get("model_id", "gemini-3.8-flash-medium")
+    env = os.environ.copy()
+    env["XDG_DATA_HOME"] = XDG_DATA_HOME
+    cmd = [
+        AGY_BIN,
+        "-p", "ping 1",
+        f"--model={canonical_id}",
+        "--dangerously-skip-permissions",
+        f"--gemini_dir={GEMINI_DIR}",
+        "--print-timeout=15s"
+    ]
+    t0 = time.time()
+    try:
+        proc = subprocess.run(cmd, cwd=WORKSPACE_DIR, env=env, capture_output=True, text=True, timeout=20)
+        out = (proc.stdout or "") + (proc.stderr or "")
+        dur = round(time.time() - t0, 1)
+        now_str = datetime.datetime.now().strftime("%H:%M:%S %d/%m")
+        if proc.returncode == 0 and not is_quota_error(out):
+            entry["status"] = "healthy"
+            entry["status_label"] = f"Sẵn sàng ({dur}s)"
+        else:
+            entry["status"] = "exhausted"
+            entry["status_label"] = "Hết Quota / Giới hạn"
+            entry["quota_errors"] = entry.get("quota_errors", 0) + 1
+        entry["last_checked"] = now_str
+    except Exception as e:
+        entry["status"] = "exhausted"
+        entry["status_label"] = "Lỗi probe"
+
+    state = load_model_state()
+    state.setdefault("quota_stats", {})[model_key] = entry
+    save_model_state(state)
+
+def probe_all_models_background():
+    def _run():
+        threads = []
+        for k in DEFAULT_QUOTA_STATS.keys():
+            t = threading.Thread(target=probe_model_quota_sync, args=(k,), daemon=True)
+            threads.append(t)
+            t.start()
+        for t in threads:
+            t.join(timeout=25)
+        log_event("📊 [Quota Monitor] Đã hoàn tất kiểm tra Quota toàn bộ các mô hình.")
+    threading.Thread(target=_run, daemon=True).start()
 
 def is_quota_error(text, returncode=0):
     if not text:
@@ -747,6 +909,7 @@ def run_agy(prompt, sender_name=BOSS_NAME, is_group=False, is_boss=False, sender
 
     # 2. Check if encountered Quota/Rate Limit error
     if is_quota_error(output, returncode) or is_quota_error(err_output, returncode):
+        record_model_usage(model_to_use, round(time.time() - start_time, 2), success=False, is_quota_err=True)
         log_event(f"⚠️ [FAILOVER TRIGGER] Phát hiện lỗi Quota/Rate Limit! Đang chuyển tức thì sang {FALLBACK_MODEL}...")
         switch_to_fallback(f"Quota error: {output[:100] or err_output[:100]}")
         model_to_use = FALLBACK_MODEL
@@ -905,13 +1068,16 @@ def run_agy(prompt, sender_name=BOSS_NAME, is_group=False, is_boss=False, sender
     with open(log_path, "a", encoding="utf-8") as f_log:
         f_log.write(f"Answer ({model_to_use}): {output[:200]}...\nGenerated files: {new_files}\n")
 
+    duration_val = round(time.time() - start_time, 2)
+    record_model_usage(model_to_use, duration_val, success=True, is_quota_err=False)
+
     return {
         "ok": True,
         "answer": output,
         "files": new_files,
         "model_used": model_to_use,
         "is_fallback": (model_to_use == FALLBACK_MODEL),
-        "duration": round(time.time() - start_time, 2)
+        "duration": duration_val
     }
 
 class QuietHTTPServer(ThreadingHTTPServer):
@@ -983,7 +1149,9 @@ class RequestHandler(BaseHTTPRequestHandler):
                 "fallback_model": FALLBACK_MODEL,
                 "active_model": state.get("active_model", PRIMARY_MODEL),
                 "effort": state.get("effort", "medium"),
+                "bot_paused": state.get("bot_paused", False),
                 "is_fallback": state.get("is_fallback", False),
+                "quota_stats": state.get("quota_stats", {k: dict(v) for k, v in DEFAULT_QUOTA_STATS.items()}),
                 "cooldown_seconds": cooldown,
                 "cooldown_remaining_seconds": remaining,
                 "total_failovers": state.get("total_failovers", 0),
@@ -1048,6 +1216,11 @@ class RequestHandler(BaseHTTPRequestHandler):
         path_clean = self.path.split("?")[0]
         if path_clean == "/api/chat":
             try:
+                state = load_model_state()
+                if state.get("bot_paused", False):
+                    self._send_json({"ok": False, "paused": True, "answer": ""}, 200)
+                    return
+
                 content_length = int(self.headers.get("Content-Length", 0))
                 body = self.rfile.read(content_length).decode("utf-8")
                 data = json.loads(body)
@@ -1117,6 +1290,27 @@ class RequestHandler(BaseHTTPRequestHandler):
                 pass
             except Exception as e:
                 print(f"⚠️ [Server] Exception in /api/set_effort: {e}")
+                self._send_json({"ok": False, "error": str(e)}, 500)
+        elif path_clean == "/api/toggle_pause":
+            try:
+                content_length = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(content_length).decode("utf-8") if content_length > 0 else "{}"
+                data = json.loads(body) if body else {}
+                state = load_model_state()
+                if "paused" in data:
+                    state["bot_paused"] = bool(data["paused"])
+                else:
+                    state["bot_paused"] = not state.get("bot_paused", False)
+                save_model_state(state)
+                log_event(f"🔘 [API] Trạng thái Bé Heo: {'⏸️ TẠM DỪNG' if state['bot_paused'] else '▶️ TRỰC CHIẾN'}")
+                self._send_json({"ok": True, "bot_paused": state["bot_paused"]}, 200)
+            except Exception as e:
+                self._send_json({"ok": False, "error": str(e)}, 500)
+        elif path_clean == "/api/check_quota":
+            try:
+                probe_all_models_background()
+                self._send_json({"ok": True, "message": "Đang kiểm tra quota các mô hình trong nền..."}, 200)
+            except Exception as e:
                 self._send_json({"ok": False, "error": str(e)}, 500)
         elif path_clean == "/api/config":
             try:

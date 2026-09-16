@@ -851,6 +851,39 @@ async function startBridge() {
           } catch (e) {}
         }
 
+        // 4. Lệnh tạm dừng phản hồi (Tắt Bé Heo)
+        if (/^\/(pause|stop|tat|nghi)\s*$/i.test(userPrompt.trim()) || /^(?:heo\s+)?(?:tạm\s+)?(?:nghỉ|dừng|tắt)\s*(?:đi|nhé|nha)?$/i.test(userPrompt.trim())) {
+          try {
+            await axios.post(`${AGY_ENGINE_URL}/api/toggle_pause`, { paused: true }, { timeout: 5000 });
+            await sendSafeMessage(api, {
+              msg: `⏸️ Dạ Sếp, em Heo xin phép tạm dừng phản hồi (chế độ nghỉ ngơi). Khi cần Sếp chỉ cần nhắn "/start" (hoặc "Heo bật lên") hoặc bấm nút BẬT trên Web UI là em kích hoạt lại ngay ạ!`,
+              quote: msg.data
+            }, threadId, ThreadType.User);
+            return;
+          } catch (e) {}
+        }
+
+        // 5. Lệnh kích hoạt lại (Bật Bé Heo)
+        if (/^\/(start|resume|bat|tieptuc)\s*$/i.test(userPrompt.trim()) || /^(?:heo\s+)?(?:bật|hoạt động|dậy)\s*(?:lại|đi|nhé|nha)?$/i.test(userPrompt.trim())) {
+          try {
+            await axios.post(`${AGY_ENGINE_URL}/api/toggle_pause`, { paused: false }, { timeout: 5000 });
+            await sendSafeMessage(api, {
+              msg: `▶️ Dạ em Heo đã quay trở lại trực chiến 100%! Em sẵn sàng nhận việc rồi, Sếp giao việc cho em nhé! 🥰✨`,
+              quote: msg.data
+            }, threadId, ThreadType.User);
+            return;
+          } catch (e) {}
+        }
+
+        // Kiểm tra xem Heo có đang tạm dừng không
+        try {
+          const stCheck = await axios.get(`${AGY_ENGINE_URL}/api/status`, { timeout: 3000 });
+          if (stCheck.data?.bot_paused) {
+            log(`[1-1 ${BOSS_NAME}] Heo đang ở chế độ tạm dừng, bỏ qua phản hồi.`);
+            return;
+          }
+        } catch (e) {}
+
         await api.sendTypingEvent(threadId, ThreadType.User).catch(() => {});
         const typingInterval = setInterval(() => {
           api.sendTypingEvent(threadId, ThreadType.User).catch(() => {});
@@ -971,6 +1004,15 @@ async function startBridge() {
         if (!isMentioned && !isQuotingBot && !hasExplicitTag && !hasStartCall && !hasEndCall && !hasMidCall && !hasCommand) {
           return; // IM LẶNG TUYỆT ĐỐI 100%, không xen ngang cuộc trò chuyện khác!
         }
+
+        // Kiểm tra xem Heo có đang ở chế độ tạm dừng không
+        try {
+          const stCheck = await axios.get(`${AGY_ENGINE_URL}/api/status`, { timeout: 3000 });
+          if (stCheck.data?.bot_paused) {
+            log(`[Group ${groupDetails.name}] Bỏ qua vì Bé Heo đang tạm dừng.`);
+            return;
+          }
+        } catch (e) {}
 
         let cleanPrompt = rawContent
           .replace(/@(?:heo|hêu)\s*(?:ơi|ạ)?/giu, " ")

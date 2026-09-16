@@ -24,6 +24,12 @@
     .custom-scroll::-webkit-scrollbar-track { background: #0f172a; }
     .custom-scroll::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
     .custom-scroll::-webkit-scrollbar-thumb:hover { background: #475569; }
+    @keyframes pulse-ring {
+      0% { transform: scale(0.95); opacity: 0.8; }
+      50% { transform: scale(1.05); opacity: 1; }
+      100% { transform: scale(0.95); opacity: 0.8; }
+    }
+    .active-pulse { animation: pulse-ring 2s infinite ease-in-out; }
   </style>
 </head>
 <body class="bg-dark-950 text-slate-100 min-h-screen flex flex-col antialiased">
@@ -45,11 +51,18 @@
       </div>
 
       <div class="flex items-center space-x-3">
-        <div id="liveStatusPill" class="flex items-center space-x-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-400 font-medium">
+        <!-- Nút Bật/Tắt Bot nhanh -->
+        <button id="headerPauseToggle" onclick="toggleBotPause()" class="px-3 py-1.5 rounded-full text-xs font-bold transition flex items-center space-x-1.5 shadow-sm border" title="Bấm để Bật hoặc Tắt phản hồi">
+          <span id="headerPauseDot" class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span id="headerPauseText">Bé Heo: ĐANG BẬT</span>
+        </button>
+
+        <div id="liveStatusPill" class="flex items-center space-x-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-400 font-medium">
           <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-          <span>Online Trực Chiến</span>
+          <span id="liveStatusText">Online Trực Chiến</span>
         </div>
-        <button onclick="refreshData()" class="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition" title="Làm mới">
+
+        <button onclick="refreshData()" class="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition" title="Làm mới dữ liệu">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
         </button>
       </div>
@@ -64,67 +77,122 @@
       <div id="toastContent" class="px-4 py-3 rounded-xl shadow-2xl text-sm font-medium flex items-center space-x-2 border"></div>
     </div>
 
-    <!-- Top Stats Row -->
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-      <!-- Card Zalo -->
-      <div class="p-4 rounded-2xl bg-dark-900 border border-slate-800 shadow-sm relative overflow-hidden">
-        <div class="flex items-center justify-between">
-          <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Tài khoản Zalo</span>
-          <span id="zaloBadge" class="text-xs px-2 py-0.5 rounded-md font-medium">Đang kiểm tra...</span>
+    <!-- Top Stats Row (5 Cards) -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      <!-- Card Bật / Tắt Heo -->
+      <div class="p-4 rounded-2xl bg-dark-900 border border-slate-800 shadow-sm relative overflow-hidden flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Trực Chiến Bé Heo</span>
+            <span id="botActiveBadge" class="text-xs px-2 py-0.5 rounded-md font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Đang bật</span>
+          </div>
+          <div class="mt-2">
+            <div id="botActiveTitle" class="text-base font-bold text-white">Sẵn Sàng Trả Lời</div>
+            <p id="botActiveSub" class="text-xs text-slate-400 mt-0.5">Tự động trả lời 1-1 & nhóm</p>
+          </div>
         </div>
-        <div class="mt-2 flex items-baseline justify-between">
-          <div id="zaloUid" class="text-lg font-bold text-white truncate">Chưa kết nối</div>
+        <div class="mt-3">
+          <button id="botPauseBtn" onclick="toggleBotPause()" class="w-full text-xs py-1.5 rounded-xl font-bold transition flex items-center justify-center space-x-1 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30">
+            <span>⏸️ Tạm Dừng Heo</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Card Zalo -->
+      <div class="p-4 rounded-2xl bg-dark-900 border border-slate-800 shadow-sm relative overflow-hidden flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Tài khoản Zalo</span>
+            <span id="zaloBadge" class="text-xs px-2 py-0.5 rounded-md font-medium">Đang kiểm tra...</span>
+          </div>
+          <div class="mt-2">
+            <div id="zaloUid" class="text-base font-bold text-white truncate">Chưa kết nối</div>
+            <p class="text-xs text-slate-400 mt-0.5">Zalo Personal Account</p>
+          </div>
         </div>
         <div class="mt-3 flex items-center space-x-2">
-          <button onclick="openZaloQRModal()" class="text-xs px-2.5 py-1 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-medium transition">Quét QR Login</button>
-          <button onclick="logoutZalo()" class="text-xs px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-red-500/20 hover:text-red-400 text-slate-400 font-medium transition">Đăng xuất</button>
+          <button onclick="openZaloQRModal()" class="text-xs flex-1 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-medium transition text-center">Quét QR</button>
+          <button onclick="logoutZalo()" class="text-xs px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-red-500/20 hover:text-red-400 text-slate-400 font-medium transition">Đăng xuất</button>
         </div>
       </div>
 
       <!-- Card Google AGY -->
-      <div class="p-4 rounded-2xl bg-dark-900 border border-slate-800 shadow-sm relative overflow-hidden">
-        <div class="flex items-center justify-between">
-          <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Google Antigravity</span>
-          <span id="googleBadge" class="text-xs px-2 py-0.5 rounded-md font-medium">Đang kiểm tra...</span>
+      <div class="p-4 rounded-2xl bg-dark-900 border border-slate-800 shadow-sm relative overflow-hidden flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Google AGY CLI</span>
+            <span id="googleBadge" class="text-xs px-2 py-0.5 rounded-md font-medium">Đang kiểm tra...</span>
+          </div>
+          <div class="mt-2">
+            <div id="googleStatus" class="text-base font-bold text-white truncate">Chưa xác thực</div>
+            <p class="text-xs text-slate-400 mt-0.5">Google OAuth Token</p>
+          </div>
         </div>
-        <div class="mt-2 flex items-baseline justify-between">
-          <div id="googleStatus" class="text-lg font-bold text-white truncate">Chưa xác thực</div>
-        </div>
-        <div class="mt-3 flex items-center space-x-2">
-          <button onclick="logoutGoogle()" class="text-xs px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-red-500/20 hover:text-red-400 text-slate-400 font-medium transition">Đổi tài khoản</button>
+        <div class="mt-3">
+          <button onclick="logoutGoogle()" class="w-full text-xs py-1.5 rounded-xl bg-slate-800 hover:bg-red-500/20 hover:text-red-400 text-slate-400 font-medium transition text-center">Đổi tài khoản</button>
         </div>
       </div>
 
       <!-- Card Model -->
-      <div class="p-4 rounded-2xl bg-dark-900 border border-slate-800 shadow-sm relative overflow-hidden">
-        <div class="flex items-center justify-between">
-          <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Mô hình AI Hiện Tại</span>
-          <span id="fallbackBadge" class="text-xs px-2 py-0.5 rounded-md font-medium bg-emerald-500/10 text-emerald-400">Primary</span>
+      <div class="p-4 rounded-2xl bg-dark-900 border border-slate-800 shadow-sm relative overflow-hidden flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Mô hình Đang Dùng</span>
+            <span id="fallbackBadge" class="text-xs px-2 py-0.5 rounded-md font-medium bg-emerald-500/10 text-emerald-400">Primary</span>
+          </div>
+          <div class="mt-2">
+            <div id="currentModelText" class="text-base font-bold text-cyan-400 truncate">Gemini 3.8 Flash</div>
+            <div class="text-xs text-slate-400 mt-0.5">Effort: <span id="currentEffortText" class="font-semibold text-amber-400">MEDIUM</span></div>
+          </div>
         </div>
-        <div class="mt-2">
-          <div id="currentModelText" class="text-base font-bold text-cyan-400 truncate">Gemini 3.8 Flash</div>
-        </div>
-        <div class="mt-3 flex items-center text-xs text-slate-400">
-          Effort: <span id="currentEffortText" class="ml-1 font-semibold text-amber-400">Medium</span>
+        <div class="mt-3 flex items-center text-xs text-emerald-400 font-medium">
+          <span>● Đang phục vụ</span>
         </div>
       </div>
 
       <!-- Card Boss -->
-      <div class="p-4 rounded-2xl bg-dark-900 border border-slate-800 shadow-sm relative overflow-hidden">
-        <div class="flex items-center justify-between">
-          <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Chủ Sở Hữu (Boss)</span>
-          <span class="text-xs px-2 py-0.5 rounded-md font-medium bg-indigo-500/10 text-indigo-400">Đặc quyền</span>
+      <div class="p-4 rounded-2xl bg-dark-900 border border-slate-800 shadow-sm relative overflow-hidden flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Chủ Sở Hữu</span>
+            <span class="text-xs px-2 py-0.5 rounded-md font-medium bg-indigo-500/10 text-indigo-400">Đặc quyền</span>
+          </div>
+          <div class="mt-2">
+            <div id="currentBossText" class="text-base font-bold text-white truncate">Sếp</div>
+            <p id="currentBossUid" class="text-xs text-slate-400 font-mono truncate mt-0.5">Tự động nhận diện</p>
+          </div>
         </div>
-        <div class="mt-2">
-          <div id="currentBossText" class="text-lg font-bold text-white truncate">Sếp</div>
-        </div>
-        <div class="mt-3 flex items-center text-xs text-slate-400 truncate">
-          UID: <span id="currentBossUid" class="ml-1 text-slate-300 font-mono">Tự động nhận diện</span>
+        <div class="mt-3 text-xs text-indigo-400 font-medium truncate">
+          <span>👑 Toàn quyền chỉ đạo</span>
         </div>
       </div>
     </div>
 
-    <!-- Model & Effort Controller (Core Feature) -->
+    <!-- NEW SECTION: BẢNG GIÁM SÁT QUOTA TỪNG MÔ HÌNH -->
+    <div class="p-6 rounded-2xl bg-dark-900 border border-slate-800 shadow-md space-y-4">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
+        <div>
+          <h2 class="text-base font-bold text-white flex items-center space-x-2">
+            <span>📊</span>
+            <span>Giám Sát Quota & Hiệu Năng Từng Mô Hình</span>
+          </h2>
+          <p class="text-xs text-slate-400">Tự động cập nhật số liệu sau mỗi câu trả lời của Bé Heo hoặc kiểm tra trực tiếp</p>
+        </div>
+        <div>
+          <button id="btnCheckQuota" onclick="checkAllQuota()" class="px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold transition flex items-center space-x-2 shadow-lg shadow-cyan-600/20">
+            <span>⚡ Kiểm Tra Quota Ngay</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Grid Quota Cards -->
+      <div id="quotaGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+        <!-- JS render quota cards -->
+        <div class="p-3 rounded-xl bg-dark-850 border border-slate-800 text-xs text-slate-400">Đang nạp thông số Quota...</div>
+      </div>
+    </div>
+
+    <!-- Model & Effort Controller (Core Feature with LIVE ACTIVE HIGHLIGHT) -->
     <div class="p-6 rounded-2xl bg-dark-900 border border-slate-800 shadow-md space-y-6">
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-4">
         <div>
@@ -132,65 +200,101 @@
             <span>🎛️</span>
             <span>Điều Khiển Mô Hình AI & Mức Suy Luận (Effort)</span>
           </h2>
-          <p class="text-xs text-slate-400">Chuyển đổi tức thì mà không cần khởi động lại máy chủ</p>
+          <p class="text-xs text-slate-400">Nhấn vào model bên dưới để chuyển đổi ngay tức thì — Hệ thống sẽ kích hoạt ngay</p>
         </div>
         <div class="text-xs text-slate-400">
-          Hoặc gõ lệnh trực tiếp trong Zalo: <code class="px-2 py-1 rounded bg-slate-800 text-cyan-400 font-mono">/model &lt;tên&gt;</code> & <code class="px-2 py-1 rounded bg-slate-800 text-amber-400 font-mono">/effort &lt;mức&gt;</code>
+          Chat Zalo: <code class="px-2 py-1 rounded bg-slate-800 text-cyan-400 font-mono">/model &lt;tên&gt;</code> & <code class="px-2 py-1 rounded bg-slate-800 text-amber-400 font-mono">/effort &lt;mức&gt;</code>
         </div>
       </div>
 
       <!-- Model Selector -->
       <div>
-        <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Chọn Mô hình Hoạt động:</label>
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Chọn Mô hình Hoạt động (Click Để Chuyển Đổi):</label>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5" id="modelButtonsContainer">
 
-          <button onclick="switchModel('Gemini 3.8 Flash (High)')" class="model-btn p-4 rounded-xl border border-slate-800 bg-dark-850 hover:border-cyan-500/50 hover:bg-slate-800/60 transition text-left relative group">
-            <div class="flex items-center justify-between mb-1">
-              <span class="font-bold text-white text-sm group-hover:text-cyan-400 transition">Gemini 3.8 Flash (High)</span>
-              <span class="text-xs px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-400 font-medium">Khuyên dùng</span>
+          <!-- Gemini 3.8 Flash High -->
+          <div id="card_gemini_3_8_flash_high" onclick="switchModel('Gemini 3.8 Flash (High)')" class="model-card p-4 rounded-xl border border-slate-800 bg-dark-850 hover:border-cyan-500/60 transition cursor-pointer relative group flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between mb-1.5">
+                <span class="font-bold text-white text-sm group-hover:text-cyan-400 transition">Gemini 3.8 Flash (High)</span>
+                <span class="badge-status text-xs px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-400 font-medium">Khuyên dùng</span>
+              </div>
+              <p class="text-xs text-slate-400 leading-relaxed">Tốc độ cực nhanh kết hợp tư duy logic cao, tối ưu tuyệt đối cho công việc điều hành.</p>
             </div>
-            <p class="text-xs text-slate-400">Tốc độ cực nhanh, tư duy mạnh mẽ cho mọi tác vụ điều hành hàng ngày.</p>
-          </button>
+            <div class="mt-3 pt-2.5 border-t border-slate-800/60 action-text text-xs text-slate-400 group-hover:text-cyan-400 transition flex items-center space-x-1">
+              <span>👉 Bấm để kích hoạt</span>
+            </div>
+          </div>
 
-          <button onclick="switchModel('Gemini 3.8 Flash (Medium)')" class="model-btn p-4 rounded-xl border border-slate-800 bg-dark-850 hover:border-cyan-500/50 hover:bg-slate-800/60 transition text-left relative group">
-            <div class="flex items-center justify-between mb-1">
-              <span class="font-bold text-white text-sm group-hover:text-cyan-400 transition">Gemini 3.8 Flash (Medium)</span>
-              <span class="text-xs px-2 py-0.5 rounded bg-slate-700/50 text-slate-300 font-medium">Tiêu chuẩn</span>
+          <!-- Gemini 3.8 Flash Medium -->
+          <div id="card_gemini_3_8_flash_medium" onclick="switchModel('Gemini 3.8 Flash (Medium)')" class="model-card p-4 rounded-xl border border-slate-800 bg-dark-850 hover:border-cyan-500/60 transition cursor-pointer relative group flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between mb-1.5">
+                <span class="font-bold text-white text-sm group-hover:text-cyan-400 transition">Gemini 3.8 Flash (Medium)</span>
+                <span class="badge-status text-xs px-2 py-0.5 rounded bg-slate-700/50 text-slate-300 font-medium">Tiêu chuẩn</span>
+              </div>
+              <p class="text-xs text-slate-400 leading-relaxed">Mặc định tiêu chuẩn, cân bằng hài hòa giữa thời gian phản hồi và chất lượng trả lời.</p>
             </div>
-            <p class="text-xs text-slate-400">Cân bằng mượt mà giữa thời gian phản hồi và chất lượng câu trả lời.</p>
-          </button>
+            <div class="mt-3 pt-2.5 border-t border-slate-800/60 action-text text-xs text-slate-400 group-hover:text-cyan-400 transition flex items-center space-x-1">
+              <span>👉 Bấm để kích hoạt</span>
+            </div>
+          </div>
 
-          <button onclick="switchModel('Gemini 3.1 Pro (High)')" class="model-btn p-4 rounded-xl border border-slate-800 bg-dark-850 hover:border-indigo-500/50 hover:bg-slate-800/60 transition text-left relative group">
-            <div class="flex items-center justify-between mb-1">
-              <span class="font-bold text-white text-sm group-hover:text-indigo-400 transition">Gemini 3.1 Pro (High)</span>
-              <span class="text-xs px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 font-medium">Chuyên gia</span>
+          <!-- Gemini 3.1 Pro High -->
+          <div id="card_gemini_3_1_pro_high" onclick="switchModel('Gemini 3.1 Pro (High)')" class="model-card p-4 rounded-xl border border-slate-800 bg-dark-850 hover:border-indigo-500/60 transition cursor-pointer relative group flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between mb-1.5">
+                <span class="font-bold text-white text-sm group-hover:text-indigo-400 transition">Gemini 3.1 Pro (High)</span>
+                <span class="badge-status text-xs px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 font-medium">Chuyên gia</span>
+              </div>
+              <p class="text-xs text-slate-400 leading-relaxed">Mô hình Pro xử lý tài liệu dài, lập bảng tính Excel phức tạp và code chuẩn xác.</p>
             </div>
-            <p class="text-xs text-slate-400">Khả năng lập trình, tính toán tài chính phức tạp và xử lý văn bản quy mô lớn.</p>
-          </button>
+            <div class="mt-3 pt-2.5 border-t border-slate-800/60 action-text text-xs text-slate-400 group-hover:text-cyan-400 transition flex items-center space-x-1">
+              <span>👉 Bấm để kích hoạt</span>
+            </div>
+          </div>
 
-          <button onclick="switchModel('Claude Sonnet 4.6 (Thinking)')" class="model-btn p-4 rounded-xl border border-slate-800 bg-dark-850 hover:border-amber-500/50 hover:bg-slate-800/60 transition text-left relative group">
-            <div class="flex items-center justify-between mb-1">
-              <span class="font-bold text-white text-sm group-hover:text-amber-400 transition">Claude Sonnet 4.6 (Thinking)</span>
-              <span class="text-xs px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 font-medium">Chiến lược</span>
+          <!-- Claude Sonnet 4.6 -->
+          <div id="card_claude_sonnet_4_6" onclick="switchModel('Claude Sonnet 4.6 (Thinking)')" class="model-card p-4 rounded-xl border border-slate-800 bg-dark-850 hover:border-amber-500/60 transition cursor-pointer relative group flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between mb-1.5">
+                <span class="font-bold text-white text-sm group-hover:text-amber-400 transition">Claude Sonnet 4.6 (Thinking)</span>
+                <span class="badge-status text-xs px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 font-medium">Chiến lược</span>
+              </div>
+              <p class="text-xs text-slate-400 leading-relaxed">Khả năng tư duy đa chiều, phản biện sắc bén và viết văn bản chính luận cấp cao.</p>
             </div>
-            <p class="text-xs text-slate-400">Khả năng suy luận đa tầng, phản biện sắc sảo và viết tài liệu cấp cao.</p>
-          </button>
+            <div class="mt-3 pt-2.5 border-t border-slate-800/60 action-text text-xs text-slate-400 group-hover:text-cyan-400 transition flex items-center space-x-1">
+              <span>👉 Bấm để kích hoạt</span>
+            </div>
+          </div>
 
-          <button onclick="switchModel('Claude Opus 4.6 (Thinking)')" class="model-btn p-4 rounded-xl border border-slate-800 bg-dark-850 hover:border-purple-500/50 hover:bg-slate-800/60 transition text-left relative group">
-            <div class="flex items-center justify-between mb-1">
-              <span class="font-bold text-white text-sm group-hover:text-purple-400 transition">Claude Opus 4.6 (Thinking)</span>
-              <span class="text-xs px-2 py-0.5 rounded bg-purple-500/10 text-purple-400 font-medium">Đỉnh cao</span>
+          <!-- Claude Opus 4.6 -->
+          <div id="card_claude_opus_4_6" onclick="switchModel('Claude Opus 4.6 (Thinking)')" class="model-card p-4 rounded-xl border border-slate-800 bg-dark-850 hover:border-purple-500/60 transition cursor-pointer relative group flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between mb-1.5">
+                <span class="font-bold text-white text-sm group-hover:text-purple-400 transition">Claude Opus 4.6 (Thinking)</span>
+                <span class="badge-status text-xs px-2 py-0.5 rounded bg-purple-500/10 text-purple-400 font-medium">Đỉnh cao</span>
+              </div>
+              <p class="text-xs text-slate-400 leading-relaxed">Mô hình phân tích chiến lược nặng đô nhất, giải quyết các bài toán hóc búa nhất.</p>
             </div>
-            <p class="text-xs text-slate-400">Mô hình tư duy phân tích nặng đô nhất cho các chiến lược sống còn.</p>
-          </button>
+            <div class="mt-3 pt-2.5 border-t border-slate-800/60 action-text text-xs text-slate-400 group-hover:text-cyan-400 transition flex items-center space-x-1">
+              <span>👉 Bấm để kích hoạt</span>
+            </div>
+          </div>
 
-          <button onclick="switchModel('GPT-OSS 120B (Medium)')" class="model-btn p-4 rounded-xl border border-slate-800 bg-dark-850 hover:border-emerald-500/50 hover:bg-slate-800/60 transition text-left relative group">
-            <div class="flex items-center justify-between mb-1">
-              <span class="font-bold text-white text-sm group-hover:text-emerald-400 transition">GPT-OSS 120B (Medium)</span>
-              <span class="text-xs px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-medium">Mã nguồn mở</span>
+          <!-- GPT-OSS 120B -->
+          <div id="card_gpt_oss_120b" onclick="switchModel('GPT-OSS 120B (Medium)')" class="model-card p-4 rounded-xl border border-slate-800 bg-dark-850 hover:border-emerald-500/60 transition cursor-pointer relative group flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between mb-1.5">
+                <span class="font-bold text-white text-sm group-hover:text-emerald-400 transition">GPT-OSS 120B (Medium)</span>
+                <span class="badge-status text-xs px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-medium">Mã nguồn mở</span>
+              </div>
+              <p class="text-xs text-slate-400 leading-relaxed">Mô hình nguồn mở độc lập, tự chủ hoàn toàn cho các tác vụ thông thường.</p>
             </div>
-            <p class="text-xs text-slate-400">Mô hình mã nguồn mở độc lập, giải quyết các tác vụ thông dụng.</p>
-          </button>
+            <div class="mt-3 pt-2.5 border-t border-slate-800/60 action-text text-xs text-slate-400 group-hover:text-cyan-400 transition flex items-center space-x-1">
+              <span>👉 Bấm để kích hoạt</span>
+            </div>
+          </div>
 
         </div>
       </div>
@@ -307,6 +411,8 @@
   <script>
     let activeLogTab = 'engine';
     let cachedLogs = { engine_logs: [], zalo_logs: [] };
+    let currentActiveModel = '';
+    let isBotPaused = false;
 
     function showToast(msg, isError = false) {
       const toast = document.getElementById('toast');
@@ -321,11 +427,211 @@
       }, 3500);
     }
 
+    function getCardIdByModelName(name) {
+      const t = (name || '').toLowerCase();
+      if (t.includes('opus')) return 'card_claude_opus_4_6';
+      if (t.includes('sonnet')) return 'card_claude_sonnet_4_6';
+      if (t.includes('3.1') || t.includes('pro')) return 'card_gemini_3_1_pro_high';
+      if (t.includes('high') && (t.includes('3.8') || t.includes('flash'))) return 'card_gemini_3_8_flash_high';
+      if (t.includes('3.8') || t.includes('flash')) return 'card_gemini_3_8_flash_medium';
+      if (t.includes('gpt') || t.includes('oss')) return 'card_gpt_oss_120b';
+      return '';
+    }
+
+    function updateActiveModelCards(activeModelName) {
+      currentActiveModel = activeModelName;
+      const targetCardId = getCardIdByModelName(activeModelName);
+
+      const allCards = [
+        { id: 'card_gemini_3_8_flash_high', defaultBadge: 'Khuyên dùng', badgeClass: 'bg-cyan-500/10 text-cyan-400' },
+        { id: 'card_gemini_3_8_flash_medium', defaultBadge: 'Tiêu chuẩn', badgeClass: 'bg-slate-700/50 text-slate-300' },
+        { id: 'card_gemini_3_1_pro_high', defaultBadge: 'Chuyên gia', badgeClass: 'bg-indigo-500/10 text-indigo-400' },
+        { id: 'card_claude_sonnet_4_6', defaultBadge: 'Chiến lược', badgeClass: 'bg-amber-500/10 text-amber-400' },
+        { id: 'card_claude_opus_4_6', defaultBadge: 'Đỉnh cao', badgeClass: 'bg-purple-500/10 text-purple-400' },
+        { id: 'card_gpt_oss_120b', defaultBadge: 'Mã nguồn mở', badgeClass: 'bg-emerald-500/10 text-emerald-400' }
+      ];
+
+      allCards.forEach(c => {
+        const el = document.getElementById(c.id);
+        if (!el) return;
+        const badge = el.querySelector('.badge-status');
+        const action = el.querySelector('.action-text');
+
+        if (c.id === targetCardId) {
+          // ACTIVE STYLING
+          el.className = 'model-card p-4 rounded-xl border-2 border-cyan-400 bg-cyan-950/40 ring-4 ring-cyan-500/20 shadow-xl shadow-cyan-500/10 transition cursor-pointer relative flex flex-col justify-between';
+          if (badge) {
+            badge.className = 'badge-status text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold active-pulse';
+            badge.textContent = '✅ ĐANG SỬ DỤNG';
+          }
+          if (action) {
+            action.innerHTML = '<span class="text-cyan-300 font-bold flex items-center space-x-1.5"><span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span><span>Mô hình đang phục vụ toàn hệ thống</span></span>';
+          }
+        } else {
+          // INACTIVE STYLING
+          el.className = 'model-card p-4 rounded-xl border border-slate-800 bg-dark-850 hover:border-slate-600 hover:bg-slate-800/60 transition cursor-pointer relative group flex flex-col justify-between';
+          if (badge) {
+            badge.className = `badge-status text-xs px-2 py-0.5 rounded ${c.badgeClass} font-medium`;
+            badge.textContent = c.defaultBadge;
+          }
+          if (action) {
+            action.innerHTML = '<span>👉 Bấm để kích hoạt model này</span>';
+          }
+        }
+      });
+    }
+
+    function renderQuotaStats(quotaStats) {
+      const container = document.getElementById('quotaGrid');
+      if (!container || !quotaStats) return;
+
+      const keys = ['gemini-3.8-flash', 'gemini-3.1-pro', 'claude-sonnet-4-6', 'claude-opus-4-6', 'gpt-oss-120b'];
+      let html = '';
+
+      keys.forEach(k => {
+        const item = quotaStats[k] || {
+          name: k,
+          status: 'healthy',
+          status_label: 'Sẵn sàng (Quota OK)',
+          requests_count: 0,
+          avg_latency: 0.0,
+          last_used: 'Chưa dùng',
+          last_checked: 'Hôm nay'
+        };
+
+        const isHealthy = (item.status === 'healthy');
+        const badgeColor = isHealthy 
+          ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30' 
+          : 'bg-red-500/15 text-red-400 border border-red-500/30';
+        const dotColor = isHealthy ? 'bg-emerald-400' : 'bg-red-400 animate-pulse';
+
+        html += `
+          <div class="p-3.5 rounded-xl bg-dark-850 border border-slate-800 flex flex-col justify-between space-y-2.5">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-white text-xs truncate">${item.name}</span>
+              <span class="text-[10px] px-2 py-0.5 rounded-full ${badgeColor} font-semibold flex items-center space-x-1">
+                <span class="w-1.5 h-1.5 rounded-full ${dotColor}"></span>
+                <span>${isHealthy ? 'Quota OK' : 'Hết Quota'}</span>
+              </span>
+            </div>
+            <div class="space-y-1 text-[11px] text-slate-300">
+              <div class="flex justify-between">
+                <span class="text-slate-400">Đã phản hồi:</span>
+                <span class="font-bold text-cyan-400">${item.requests_count || 0} lượt</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-slate-400">Tốc độ TB:</span>
+                <span class="font-semibold text-amber-300">${item.avg_latency ? item.avg_latency + 's' : 'Chưa đo'}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-slate-400">Dùng gần nhất:</span>
+                <span class="text-slate-300 font-mono text-[10px]">${item.last_used || 'Sẵn sàng'}</span>
+              </div>
+            </div>
+            <div class="pt-2 border-t border-slate-800 text-[10px] text-slate-400 truncate">
+              Check: <span class="text-slate-400">${item.last_checked || 'Hôm nay'}</span>
+            </div>
+          </div>
+        `;
+      });
+
+      container.innerHTML = html;
+    }
+
+    async function toggleBotPause() {
+      try {
+        const nextState = !isBotPaused;
+        const res = await fetch('/api/toggle_pause', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ paused: nextState })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          isBotPaused = data.bot_paused;
+          showToast(isBotPaused ? '⏸️ Đã TẠM DỪNG Bé Heo. Heo sẽ không phản hồi tin nhắn cho đến khi bạn Bật lại.' : '▶️ Đã KÍCH HOẠT Bé Heo! Sẵn sàng trực chiến 100%.');
+          refreshData();
+        }
+      } catch (e) {
+        showToast('Lỗi kết nối máy chủ', true);
+      }
+    }
+
+    async function checkAllQuota() {
+      const btn = document.getElementById('btnCheckQuota');
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="animate-spin">🔄</span><span>Đang probe kiểm tra...</span>';
+      }
+      try {
+        const res = await fetch('/api/check_quota', { method: 'POST' });
+        const data = await res.json();
+        if (data.ok) {
+          showToast('⚡ Đang kiểm tra quota toàn bộ các model trong nền...');
+          setTimeout(refreshData, 3000);
+          setTimeout(refreshData, 8000);
+        }
+      } catch (e) {
+        showToast('Lỗi kiểm tra quota', true);
+      } finally {
+        setTimeout(() => {
+          if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<span>⚡ Kiểm Tra Quota Ngay</span>';
+          }
+        }, 3000);
+      }
+    }
+
     async function refreshData() {
       try {
         const res = await fetch('/api/status');
         if (!res.ok) return;
         const data = await res.json();
+
+        // Bot Active / Paused state
+        isBotPaused = Boolean(data.bot_paused);
+        const headerToggle = document.getElementById('headerPauseToggle');
+        const headerDot = document.getElementById('headerPauseDot');
+        const headerText = document.getElementById('headerPauseText');
+        const livePill = document.getElementById('liveStatusPill');
+        const liveText = document.getElementById('liveStatusText');
+        const botActiveBadge = document.getElementById('botActiveBadge');
+        const botActiveTitle = document.getElementById('botActiveTitle');
+        const botActiveSub = document.getElementById('botActiveSub');
+        const botPauseBtn = document.getElementById('botPauseBtn');
+
+        if (isBotPaused) {
+          headerToggle.className = 'px-3 py-1.5 rounded-full text-xs font-bold transition flex items-center space-x-1.5 shadow-sm border bg-amber-500/20 text-amber-300 border-amber-500/40 animate-pulse';
+          headerDot.className = 'w-2 h-2 rounded-full bg-amber-400';
+          headerText.textContent = 'Bé Heo: ĐÃ TẮT';
+
+          livePill.className = 'flex items-center space-x-2 px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-xs text-amber-400 font-medium';
+          liveText.textContent = 'Đã Tạm Dừng';
+
+          botActiveBadge.className = 'text-xs px-2 py-0.5 rounded-md font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20';
+          botActiveBadge.textContent = 'Đã tạm dừng';
+          botActiveTitle.textContent = 'Đang Nghỉ Ngơi';
+          botActiveSub.textContent = 'Không phản hồi tin nhắn';
+
+          botPauseBtn.className = 'w-full text-xs py-1.5 rounded-xl font-bold transition flex items-center justify-center space-x-1 bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/20';
+          botPauseBtn.innerHTML = '<span>▶️ Kích Hoạt Lại Bé Heo</span>';
+        } else {
+          headerToggle.className = 'px-3 py-1.5 rounded-full text-xs font-bold transition flex items-center space-x-1.5 shadow-sm border bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20';
+          headerDot.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-pulse';
+          headerText.textContent = 'Bé Heo: ĐANG BẬT';
+
+          livePill.className = 'flex items-center space-x-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-400 font-medium';
+          liveText.textContent = 'Online Trực Chiến';
+
+          botActiveBadge.className = 'text-xs px-2 py-0.5 rounded-md font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
+          botActiveBadge.textContent = 'Đang bật';
+          botActiveTitle.textContent = 'Sẵn Sàng Trả Lời';
+          botActiveSub.textContent = 'Tự động trả lời 1-1 & nhóm';
+
+          botPauseBtn.className = 'w-full text-xs py-1.5 rounded-xl font-bold transition flex items-center justify-center space-x-1 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30';
+          botPauseBtn.innerHTML = '<span>⏸️ Tạm Dừng Heo</span>';
+        }
 
         // Update Zalo status
         const zaloBadge = document.getElementById('zaloBadge');
@@ -350,7 +656,7 @@
         } else {
           googleBadge.className = 'text-xs px-2 py-0.5 rounded-md font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20';
           googleBadge.textContent = 'Chưa xác thực';
-          googleStatus.textContent = 'Cần đăng nhập Google';
+          googleStatus.textContent = 'Cần đăng nhập';
         }
 
         // Update Model & Effort
@@ -369,7 +675,7 @@
         // Update Boss Info
         if (data.config) {
           document.getElementById('currentBossText').textContent = data.config.boss_name || 'Sếp';
-          document.getElementById('currentBossUid').textContent = data.config.boss_uid || 'Tự động nhận diện';
+          document.getElementById('currentBossUid').textContent = data.config.boss_uid ? 'UID: ' + data.config.boss_uid : 'Tự động nhận diện';
           if (!document.getElementById('cfgBotName').value) {
             document.getElementById('cfgBotName').value = data.config.bot_name || 'Bé Heo';
             document.getElementById('cfgCallerName').value = data.config.boss_caller_name || 'Sếp';
@@ -378,18 +684,26 @@
           }
         }
 
+        // Highlight active model card with glowing border and checkmark badge
+        updateActiveModelCards(data.active_model);
+
         // Highlight active effort button
         const effort = (data.effort || 'medium').toLowerCase();
         ['low', 'medium', 'high'].forEach(eff => {
           const btn = document.getElementById('effort' + eff.charAt(0).toUpperCase() + eff.slice(1) + 'Btn');
           if (btn) {
             if (eff === effort) {
-              btn.className = 'effort-btn px-5 py-2.5 rounded-xl border border-cyan-500/60 bg-cyan-500/20 text-cyan-300 text-sm font-semibold transition flex items-center space-x-2 shadow-lg shadow-cyan-500/10';
+              btn.className = 'effort-btn px-5 py-2.5 rounded-xl border-2 border-cyan-400 bg-cyan-500/20 text-cyan-300 text-sm font-bold transition flex items-center space-x-2 shadow-lg shadow-cyan-500/20 ring-2 ring-cyan-500/30';
             } else {
               btn.className = 'effort-btn px-5 py-2.5 rounded-xl border border-slate-800 bg-dark-850 hover:bg-slate-800 text-sm font-medium transition flex items-center space-x-2';
             }
           }
         });
+
+        // Render Quota stats
+        if (data.quota_stats) {
+          renderQuotaStats(data.quota_stats);
+        }
 
       } catch (err) {
         console.error("Error refreshing status:", err);
@@ -397,6 +711,13 @@
     }
 
     async function switchModel(modelName) {
+      const cardId = getCardIdByModelName(modelName);
+      const cardEl = document.getElementById(cardId);
+      if (cardEl) {
+        const action = cardEl.querySelector('.action-text');
+        if (action) action.innerHTML = '<span class="text-cyan-400 font-bold flex items-center space-x-1"><span class="animate-spin">🔄</span><span>Đang kích hoạt mô hình...</span></span>';
+      }
+
       try {
         const res = await fetch('/api/switch_model', {
           method: 'POST',
@@ -406,6 +727,7 @@
         const data = await res.json();
         if (data.ok) {
           showToast(`Đã chuyển sang mô hình: ${data.active_model}`);
+          updateActiveModelCards(data.active_model);
           refreshData();
         } else {
           showToast(data.error || 'Lỗi chuyển mô hình', true);
