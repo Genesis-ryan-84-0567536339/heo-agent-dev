@@ -10,12 +10,12 @@ services:
       - "5051:5051"
       - "5066:5066"
     volumes:
-      - ./data:/app/data
-      - ./workspace:/app/workspace
-      - ./logs:/app/logs
-      - ./auth:/app/auth
-      - ./config:/app/config
-      - ./bin:/app/bin
+      - ./data:/app/data:Z
+      - ./workspace:/app/workspace:Z
+      - ./logs:/app/logs:Z
+      - ./auth:/app/auth:Z
+      - ./config:/app/config:Z
+      - ./bin:/app/bin:Z
     environment:
       - BASE_DIR=/app
       - WORKSPACE_DIR=/app/workspace

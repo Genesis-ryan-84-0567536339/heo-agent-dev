@@ -177,7 +177,7 @@ echo -e "  3. Thiết lập quyền Chủ sở hữu (Boss UID)"
 echo -e "  4. Mở Bảng điều khiển Live Dashboard giám sát thời gian thực\n"
 
 # Chạy TUI tương tác
-docker compose run --rm -it app tui
+docker compose run --rm app tui
 
 # Đăng ký lối tắt lệnh heo-zalo toàn hệ thống
 chmod +x bin/heo-zalo 2>/dev/null || true

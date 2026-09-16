@@ -10,7 +10,7 @@ MODE="${1:-daemon}"
 if [[ "$MODE" == "--tui" || "$MODE" == "tui" ]]; then
     echo "🖥️ Đang khởi chạy giao diện TUI..."
     if command -v docker compose &> /dev/null && [[ -f "docker-compose.yml" ]]; then
-        docker compose run --rm -it app tui
+        docker compose run --rm app tui
     else
         python3 cli/tui.py
     fi
