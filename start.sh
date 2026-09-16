@@ -30,8 +30,34 @@ get_docker_compose() {
 
 DOCKER_COMPOSE="$(get_docker_compose)"
 
+open_web_ui() {
+    local url="http://localhost:5066"
+    for i in {1..10}; do
+        if curl -s -m 1 "$url" >/dev/null 2>&1; then
+            break
+        fi
+        sleep 0.5
+    done
+    if [ -n "${DISPLAY:-}" ] || [ -n "${WAYLAND_DISPLAY:-}" ]; then
+        if command -v xdg-open &>/dev/null; then
+            xdg-open "$url" >/dev/null 2>&1 &
+        elif command -v google-chrome &>/dev/null; then
+            google-chrome "$url" >/dev/null 2>&1 &
+        elif command -v firefox &>/dev/null; then
+            firefox "$url" >/dev/null 2>&1 &
+        elif command -v gio &>/dev/null; then
+            gio open "$url" >/dev/null 2>&1 &
+        fi
+    elif command -v wslview &>/dev/null; then
+        wslview "$url" >/dev/null 2>&1 &
+    elif command -v open &>/dev/null; then
+        open "$url" >/dev/null 2>&1 &
+    fi
+}
+
 if [[ "$MODE" == "--tui" || "$MODE" == "tui" ]]; then
     echo "🖥️ Đang khởi chạy giao diện TUI..."
+    (sleep 2 && open_web_ui) &
     if [[ -f "docker-compose.yml" ]] && command -v docker &> /dev/null; then
         $DOCKER_COMPOSE run --rm app tui
     else
@@ -49,4 +75,6 @@ else
         (cd bridge && node bot.js >> ../logs/zalo.log 2>&1 &)
         echo "✔ Đã khởi chạy các dịch vụ Native! Xem log tại logs/"
     fi
+    open_web_ui
+    echo "🌐 Đã tự động mở Web Dashboard tại: http://localhost:5066"
 fi

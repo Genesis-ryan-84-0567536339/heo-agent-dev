@@ -230,13 +230,23 @@ echo -e "  4. Mở Bảng điều khiển Live Dashboard giám sát thời gian 
 # Chạy TUI tương tác
 $DOCKER_COMPOSE run --rm app tui
 
+# Tự động mở Web UI sau khi cài đặt thành công
+if [ -n "${DISPLAY:-}" ] || [ -n "${WAYLAND_DISPLAY:-}" ]; then
+    if command -v xdg-open &>/dev/null; then
+        xdg-open "http://localhost:5066" >/dev/null 2>&1 &
+    fi
+fi
+
 echo -e "\n${GREEN}==============================================================================${NC}"
 echo -e "${GREEN}✔ CÀI ĐẶT VÀ CẤU HÌNH THÀNH CÔNG!${NC}"
 echo -e "Hệ thống đã đăng ký lệnh điều hành toàn hệ thống: ${CYAN}heo-zalo${NC}"
 echo -e "\n📌 BỘ LỆNH ĐIỀU HÀNH:"
-echo -e "   👉 ${CYAN}heo-zalo${NC}              : Mở TUI Dashboard tương tác trực tiếp"
+echo -e "   👉 ${CYAN}heo-zalo${NC}              : Mở Web Dashboard & kiểm tra trạng thái"
+echo -e "   👉 ${CYAN}heo-zalo web${NC}          : Mở Web Dashboard quản trị (http://localhost:5066)"
 echo -e "   👉 ${CYAN}heo-zalo --bg${NC}         : Khởi chạy chế độ nền (Daemon 24/7) trong Docker"
 echo -e "   👉 ${CYAN}heo-zalo status${NC}       : Kiểm tra trạng thái máy chủ"
+echo -e "   👉 ${CYAN}heo-zalo model${NC}        : Xem và đổi mô hình AI (flash, pro, sonnet, opus)"
+echo -e "   👉 ${CYAN}heo-zalo effort${NC}       : Chỉnh mức suy luận logic (low, medium, high)"
 echo -e "   👉 ${CYAN}heo-zalo logs${NC}         : Xem nhật ký hoạt động thời gian thực"
 echo -e "   👉 ${CYAN}heo-zalo restart${NC}      : Khởi động lại dịch vụ"
 echo -e "   👉 ${CYAN}heo-zalo stop${NC}         : Dừng toàn bộ hệ thống an toàn"

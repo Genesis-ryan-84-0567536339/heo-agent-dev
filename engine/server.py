@@ -18,7 +18,7 @@ import glob
 import urllib.request
 import subprocess
 import threading
-from http.server import HTTPServer, BaseHTTPRequestHandler
+from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 
 PORT = int(os.environ.get("ENGINE_PORT", "5066"))
 BRIDGE_BASE_URL = os.environ.get("BRIDGE_URL", "http://127.0.0.1:5051")
@@ -86,16 +86,20 @@ SUPPORTED_MODELS = [
 ]
 
 def normalize_model_target(target):
-    t = target.lower().strip()
+    t = (target or "").lower().strip()
     if "opus" in t:
         return "Claude Opus 4.6 (Thinking)"
     elif "sonnet" in t:
         return "Claude Sonnet 4.6 (Thinking)"
     elif "3.1" in t or "pro" in t:
+        if "low" in t:
+            return "Gemini 3.1 Pro (Low)"
         return "Gemini 3.1 Pro (High)"
-    elif "high" in t and ("3.8" in t or "flash" in t):
-        return "Gemini 3.8 Flash (High)"
-    elif "3.8" in t or "flash" in t or "primary" in t:
+    elif "3.8" in t or "flash" in t:
+        if "low" in t:
+            return "Gemini 3.8 Flash (Low)"
+        elif "high" in t and "medium" not in t:
+            return "Gemini 3.8 Flash (High)"
         return "Gemini 3.8 Flash (Medium)"
     elif "gpt" in t or "oss" in t:
         return "GPT-OSS 120B (Medium)"
@@ -103,6 +107,42 @@ def normalize_model_target(target):
         if m["name"].lower() == t or m["id"].lower() == t:
             return m["name"]
     return target
+
+def get_canonical_agy_model(model_name, effort="medium"):
+    """
+    Maps model display names / user inputs + effort levels to the exact, valid
+    model IDs natively recognized by Antigravity (agy) CLI.
+    This avoids invalid '--effort' flag errors since effort is encoded into the model ID.
+    """
+    t = (model_name or "").lower().strip()
+    eff = (effort or "medium").lower().strip()
+    if eff not in ["low", "medium", "high"]:
+        eff = "medium"
+
+    if "opus" in t:
+        return "claude-opus-4-6-thinking"
+    elif "sonnet" in t:
+        return "claude-sonnet-4-6"
+    elif "gpt" in t or "oss" in t:
+        return "gpt-oss-120b-medium"
+    elif "3.1" in t or "pro" in t:
+        return "gemini-3.1-pro-low" if eff == "low" or "low" in t else "gemini-3.1-pro-high"
+    elif "3.8" in t or "flash" in t:
+        if eff == "low" or "low" in t:
+            return "gemini-3.8-flash-low"
+        elif eff == "high" or ("high" in t and "medium" not in t):
+            return "gemini-3.8-flash-high"
+        else:
+            return "gemini-3.8-flash-medium"
+
+    for m in [
+        "gemini-3.8-flash-high", "gemini-3.8-flash-medium", "gemini-3.8-flash-low",
+        "gemini-3.1-pro-high", "gemini-3.1-pro-low",
+        "claude-sonnet-4-6", "claude-opus-4-6-thinking", "gpt-oss-120b-medium"
+    ]:
+        if t == m.lower():
+            return m
+    return "gemini-3.8-flash-medium"
 
 state_lock = threading.Lock()
 
@@ -276,7 +316,7 @@ def probe_gemini_quota():
     cmd = [
         AGY_BIN,
         "-p", "ping 1",
-        f"--model={PRIMARY_MODEL}",
+        "--model=gemini-3.8-flash-medium",
         "--dangerously-skip-permissions",
         f"--gemini_dir={GEMINI_DIR}",
         "--print-timeout=20s"
@@ -348,6 +388,8 @@ def execute_agy_cli(full_prompt, model_name, effort=None):
         state = load_model_state()
         effort = state.get("effort", "medium")
 
+    canonical_model = get_canonical_agy_model(model_name, effort)
+
     msg = json.dumps({"event": "user", "message": {"content": full_prompt}}) + "\n"
     cmd = [
         AGY_BIN,
@@ -355,8 +397,7 @@ def execute_agy_cli(full_prompt, model_name, effort=None):
         "--output-format=stream-json",
         "--dangerously-skip-permissions",
         f"--gemini_dir={GEMINI_DIR}",
-        f"--model={model_name}",
-        f"--effort={effort}",
+        f"--model={canonical_model}",
         "--print-timeout=3m"
     ]
 
@@ -385,13 +426,57 @@ def execute_agy_cli(full_prompt, model_name, effort=None):
                         err_msg = res.get("error")
             except Exception:
                 pass
-        if not final_resp and err_msg:
-            final_resp = err_msg
+
+        # If primary attempt failed (error code or empty response), retry with fallback model
+        if proc.returncode != 0 or not final_resp:
+            log_event(f"⚠️ AGY CLI trả mã {proc.returncode} với model '{canonical_model}'. Stderr: {err_msg}")
+            if canonical_model != "gemini-3.8-flash-medium":
+                log_event("🔄 Tự động thử lại với mô hình chuẩn: gemini-3.8-flash-medium...")
+                cmd_retry = [
+                    AGY_BIN,
+                    "--input-format=stream-json",
+                    "--output-format=stream-json",
+                    "--dangerously-skip-permissions",
+                    f"--gemini_dir={GEMINI_DIR}",
+                    "--model=gemini-3.8-flash-medium",
+                    "--print-timeout=3m"
+                ]
+                proc_retry = subprocess.run(
+                    cmd_retry,
+                    cwd=WORKSPACE_DIR,
+                    env=env,
+                    input=msg,
+                    text=True,
+                    capture_output=True,
+                    timeout=180
+                )
+                if proc_retry.returncode == 0:
+                    for line in proc_retry.stdout.splitlines():
+                        line = line.strip()
+                        if not line:
+                            continue
+                        try:
+                            ev = json.loads(line)
+                            if ev.get("event") == "result":
+                                res = ev.get("result", {})
+                                final_resp = res.get("response", "")
+                        except Exception:
+                            pass
+                    if final_resp:
+                        return 0, final_resp, ""
+
+        if not final_resp:
+            if is_quota_error(err_msg, proc.returncode):
+                return proc.returncode, "", err_msg
+            final_resp = (
+                f"Dạ {BOSS_NAME}, đường truyền xử lý của em vừa bị gián đoạn đôi chút ạ. "
+                "Em đã tự động phục hồi kết nối, Sếp nhắn lại giúp em nhé! 🥰"
+            )
         return proc.returncode, final_resp, err_msg
     except subprocess.TimeoutExpired:
-        return -1, "Dạ Sếp, tác vụ xử lý mất nhiều thời gian hơn dự kiến (timeout 3 phút). Em xin gửi tóm tắt sơ bộ.", "Timeout"
+        return -1, f"Dạ {BOSS_NAME}, tác vụ xử lý mất nhiều thời gian hơn dự kiến (timeout 3 phút). Em xin gửi tóm tắt sơ bộ.", "Timeout"
     except Exception as e:
-        return -1, f"Dạ Sếp, hệ thống gặp gián đoạn khi thực thi: {str(e)}", str(e)
+        return -1, f"Dạ {BOSS_NAME}, hệ thống gặp gián đoạn khi thực thi: {str(e)}", str(e)
 
 def get_recent_history(channel_key, min_limit=15, max_limit=30):
     if not channel_key:
@@ -660,10 +745,10 @@ def run_agy(prompt, sender_name=BOSS_NAME, is_group=False, is_boss=False, sender
     # 1. First execution attempt with model_to_use
     returncode, output, err_output = execute_agy_cli(full_prompt, model_to_use)
 
-    # 2. Check if Gemini 3.8 encountered Quota/Rate Limit error
-    if model_to_use == PRIMARY_MODEL and (is_quota_error(output, returncode) or is_quota_error(err_output, returncode)):
-        log_event(f"⚠️ [FAILOVER TRIGGER] Phát hiện Gemini 3.8 hết quota/rate limit! Đang chuyển tức thì sang {FALLBACK_MODEL}...")
-        switch_to_fallback(f"Quota error detected: {output[:100]}")
+    # 2. Check if encountered Quota/Rate Limit error
+    if is_quota_error(output, returncode) or is_quota_error(err_output, returncode):
+        log_event(f"⚠️ [FAILOVER TRIGGER] Phát hiện lỗi Quota/Rate Limit! Đang chuyển tức thì sang {FALLBACK_MODEL}...")
+        switch_to_fallback(f"Quota error: {output[:100] or err_output[:100]}")
         model_to_use = FALLBACK_MODEL
         # Seamlessly re-execute using Claude Sonnet 4.6 so user receives an answer without failure
         returncode, output, err_output = execute_agy_cli(full_prompt, FALLBACK_MODEL)
@@ -829,7 +914,8 @@ def run_agy(prompt, sender_name=BOSS_NAME, is_group=False, is_boss=False, sender
         "duration": round(time.time() - start_time, 2)
     }
 
-class QuietHTTPServer(HTTPServer):
+class QuietHTTPServer(ThreadingHTTPServer):
+    daemon_threads = True
     def handle_error(self, request, client_address):
         exc_type, exc_val, _ = sys.exc_info()
         if exc_type in (BrokenPipeError, ConnectionResetError):
@@ -837,12 +923,15 @@ class QuietHTTPServer(HTTPServer):
         super().handle_error(request, client_address)
 
 class RequestHandler(BaseHTTPRequestHandler):
+    protocol_version = "HTTP/1.1"
+
     def _send_json(self, data, status_code=200):
         try:
             payload = json.dumps(data, ensure_ascii=False).encode("utf-8")
             self.send_response(status_code)
             self.send_header("Content-Type", "application/json; charset=utf-8")
             self.send_header("Content-Length", str(len(payload)))
+            self.send_header("Connection", "close")
             self.end_headers()
             self.wfile.write(payload)
         except (BrokenPipeError, ConnectionResetError):
@@ -860,6 +949,7 @@ class RequestHandler(BaseHTTPRequestHandler):
                 self.send_response(200)
                 self.send_header("Content-Type", "text/html; charset=utf-8")
                 self.send_header("Content-Length", str(len(content)))
+                self.send_header("Connection", "close")
                 self.end_headers()
                 self.wfile.write(content)
             else:
@@ -942,6 +1032,7 @@ class RequestHandler(BaseHTTPRequestHandler):
                 self.send_response(200)
                 self.send_header("Content-Type", "image/png")
                 self.send_header("Content-Length", str(len(data)))
+                self.send_header("Connection", "close")
                 self.end_headers()
                 self.wfile.write(data)
             else:
@@ -990,6 +1081,12 @@ class RequestHandler(BaseHTTPRequestHandler):
                 state["active_model"] = norm
                 state["is_fallback"] = ("sonnet" in norm.lower() or "opus" in norm.lower())
                 state["last_switch_reason"] = "Chuyển theo yêu cầu"
+                if "high" in norm.lower() and "gemini" in norm.lower():
+                    state["effort"] = "high"
+                elif "low" in norm.lower() and "gemini" in norm.lower():
+                    state["effort"] = "low"
+                elif "medium" in norm.lower() and "gemini" in norm.lower():
+                    state["effort"] = "medium"
                 save_model_state(state)
                 log_event(f"🔀 [API] Chuyển model: {norm}")
                 self._send_json({"ok": True, "active_model": norm, "effort": state.get("effort", "medium")}, 200)
@@ -1008,9 +1105,14 @@ class RequestHandler(BaseHTTPRequestHandler):
                     eff = "medium"
                 state = load_model_state()
                 state["effort"] = eff
+                curr = state.get("active_model", PRIMARY_MODEL)
+                if "3.8" in curr or "flash" in curr.lower():
+                    state["active_model"] = f"Gemini 3.8 Flash ({eff.capitalize()})"
+                elif "3.1" in curr or "pro" in curr.lower():
+                    state["active_model"] = f"Gemini 3.1 Pro ({'Low' if eff == 'low' else 'High'})"
                 save_model_state(state)
                 log_event(f"⚡ [API] Chuyển mức suy luận (effort): {eff}")
-                self._send_json({"ok": True, "effort": eff}, 200)
+                self._send_json({"ok": True, "effort": eff, "active_model": state.get("active_model")}, 200)
             except (BrokenPipeError, ConnectionResetError):
                 pass
             except Exception as e:
