@@ -19,6 +19,7 @@ services:
       - ./cli:/app/cli:Z
       - ./engine:/app/engine:Z
       - ./scripts:/app/scripts:Z
+      - ./bridge/bot.js:/app/bridge/bot.js:Z
       - ./entrypoint.sh:/app/entrypoint.sh:Z
     environment:
       - HOME=/app/auth/home

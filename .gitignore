@@ -19,6 +19,7 @@ data/*.json
 data/*.jsonl
 !data/beats/
 !data/.gitkeep
+config/config.json
 
 # Auth & Tokens
 auth/*

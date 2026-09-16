@@ -311,14 +311,63 @@ async function initZaloClient() {
     switch (evt.type) {
       case LoginQRCallbackEventType.QRCodeGenerated: {
         log("📱 ĐÃ TẠO MÃ QR ĐĂNG NHẬP!");
-        if (evt.data && evt.data.code) {
-          qrcode.generate(evt.data.code, { small: true });
+        let qrPayload = "";
+
+        // 1. Thử giải mã trực tiếp từ ảnh QR chính thức của Zalo bằng jsQR & pngjs
+        try {
+          if (evt.data && evt.data.image) {
+            const { PNG } = require("pngjs");
+            const jsQR = require("jsqr");
+            const imgBuffer = Buffer.from(evt.data.image, "base64");
+            const png = PNG.sync.read(imgBuffer);
+            const qrResult = jsQR(new Uint8ClampedArray(png.data.buffer), png.width, png.height);
+            if (qrResult && qrResult.data) {
+              qrPayload = qrResult.data;
+            }
+          }
+        } catch (_) {}
+
+        // 2. Dự phòng: Sử dụng evt.data.token theo đúng giao thức Zalo login
+        if (!qrPayload && evt.data && evt.data.token) {
+          qrPayload = evt.data.token.startsWith("http")
+            ? evt.data.token
+            : `http://zaloapp.com/qr/l?tk=${evt.data.token}`;
         }
+
+        // 3. Dự phòng cuối cùng: evt.data.code
+        if (!qrPayload && evt.data && evt.data.code) {
+          qrPayload = evt.data.code.startsWith("http")
+            ? evt.data.code
+            : (evt.data.code.startsWith("zaloqr:")
+                ? `http://zaloapp.com/qr/l?tk=${evt.data.code}`
+                : evt.data.code);
+        }
+
+        if (qrPayload) {
+          console.log("\n" + "═".repeat(60));
+          console.log("👉 BẮT BUỘC: Mở app ZALO trên điện thoại di động");
+          console.log("👉 Bấm biểu tượng [ -|- ] (Quét mã QR) ở góc trên bên phải Zalo");
+          console.log("   (LƯU Ý: Không dùng camera thường của máy để quét!)");
+          console.log("👉 Quét mã QR dưới đây, rồi bấm 'ĐĂNG NHẬP' trên điện thoại");
+          console.log("═".repeat(60) + "\n");
+          qrcode.generate(qrPayload, { small: true });
+        }
+
         if (evt.actions && evt.actions.saveToFile) {
           await evt.actions.saveToFile(QR_PATH);
         } else if (evt.data && evt.data.image) {
           fs.writeFileSync(QR_PATH, Buffer.from(evt.data.image, "base64"));
         }
+
+        try {
+          const dataQrPath = path.join(DATA_DIR, "zalo_qr.png");
+          if (fs.existsSync(QR_PATH)) {
+            fs.copyFileSync(QR_PATH, dataQrPath);
+          }
+        } catch (_) {}
+
+        console.log(`\n🖼️ Ảnh QR gốc đã được lưu tại: ${QR_PATH}`);
+        console.log("   (Sếp cũng có thể mở trực tiếp file ảnh này để quét nếu terminal bị vỡ dòng!)\n");
         break;
       }
       case LoginQRCallbackEventType.QRCodeScanned:

@@ -227,10 +227,13 @@ def step_zalo_login():
 
     console.print(Panel(
         "[bold cyan]📱 Quét mã QR để đăng nhập Zalo[/bold cyan]\n\n"
-        "Hệ thống sẽ hiển thị mã QR Code ASCII ngay dưới đây.\n"
-        "1. Mở ứng dụng [bold]Zalo[/bold] trên điện thoại di động.\n"
-        "2. Chọn biểu tượng [bold]Quét mã QR[/bold] và hướng camera vào mã QR hiển thị bên dưới.\n"
-        "3. Bấm [bold]Xác nhận đăng nhập[/bold] trên điện thoại.",
+        "Hệ thống sẽ hiển thị mã QR Code ngay dưới đây:\n\n"
+        "[bold yellow]⚠️ LƯU Ý QUAN TRỌNG:[/bold yellow]\n"
+        "• [bold red]KHÔNG[/bold red] dùng Camera thường của điện thoại hoặc Google Lens (sẽ chỉ ra 1 chuỗi ký tự dài vô nghĩa).\n"
+        "• [bold green]BẮT BUỘC[/bold green] mở ứng dụng [bold]Zalo[/bold] trên điện thoại di động.\n"
+        "• Bấm vào biểu tượng [bold][ -|- ] Quét mã QR[/bold] ở góc trên bên phải (cạnh ô Tìm kiếm trong Zalo).\n"
+        "• Hướng camera Zalo vào mã QR bên dưới, rồi bấm [bold]Xác nhận Đăng nhập[/bold] trên điện thoại.\n"
+        "• Nếu màn hình terminal nhỏ hoặc vỡ chữ, bạn có thể mở trực tiếp ảnh gốc tại: [bold cyan]workspace/zalo_qr.png[/bold cyan] để quét!",
         title="Bước 2: Zalo QR Code Login", border_style="cyan"
     ))
 
