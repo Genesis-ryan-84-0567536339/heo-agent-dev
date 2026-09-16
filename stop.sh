@@ -2,7 +2,13 @@
 # stop.sh: Dừng an toàn toàn bộ hệ thống Zalo-AGY Copilot
 set -euo pipefail
 
-BASE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SOURCE="${BASH_SOURCE[0]}"
+while [ -h "$SOURCE" ]; do
+    DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+    SOURCE="$(readlink "$SOURCE")"
+    [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+BASE_DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
 cd "$BASE_DIR"
 
 echo "🛑 Đang dừng Zalo-AGY Copilot..."

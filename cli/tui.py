@@ -165,13 +165,7 @@ def step_agy_auth(agy_bin, config):
             title="Bước 1: Google AGY Auth", border_style="yellow"
         ))
 
-        flush_stdin()
-        if not Confirm.ask("Bạn đã sẵn sàng đăng nhập Google AGY chưa?", default=True):
-            console.print("[yellow]Đã tạm hoãn xác thực Google AGY.[/yellow]")
-            return False
-
-        flush_stdin()
-        time.sleep(0.3)
+        console.print("[cyan]🚀 Đang khởi động Google AGY OAuth...[/cyan]\n")
 
         cmd = [
             agy_bin,
