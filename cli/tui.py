@@ -142,7 +142,7 @@ def step_agy_auth(agy_bin, config):
     ]
     # 1. Kiểm tra nhanh xem đã xác thực từ trước chưa
     try:
-        proc = subprocess.run(test_cmd, env=env, capture_output=True, text=True, timeout=3)
+        proc = subprocess.run(test_cmd, env=env, capture_output=True, text=True, timeout=15)
         if proc.returncode == 0:
             console.print(Panel("[bold green]✔ Google AGY Authentication: SẴN SÀNG HOẠT ĐỘNG[/bold green]\n"
                                 "AGY CLI đã kết nối thành công với tài khoản Google!",
@@ -177,8 +177,8 @@ def step_agy_auth(agy_bin, config):
             # Chạy trực tiếp kết nối với Terminal TTY để nhận bàn phím và in link
             subprocess.run(cmd, env=env)
 
-            # Kiểm tra lại sau khi đăng nhập
-            verify = subprocess.run(test_cmd, env=env, capture_output=True, text=True, timeout=10)
+            # Kiểm tra lại sau khi đăng nhập (tăng timeout lên 25s để chờ cloud model)
+            verify = subprocess.run(test_cmd, env=env, capture_output=True, text=True, timeout=25)
             if verify.returncode == 0:
                 console.print(Panel("[bold green]✔ ĐĂNG NHẬP GOOGLE AGY THÀNH CÔNG![/bold green]\n"
                                     "Tài khoản Google đã được kích hoạt và lưu trữ vĩnh viễn.",
@@ -190,6 +190,16 @@ def step_agy_auth(agy_bin, config):
                 if not Confirm.ask("👉 Bạn có muốn thử đăng nhập lại ngay không?", default=True):
                     return False
         except Exception as e:
+            # Nếu gặp lỗi, kiểm tra lại xem token đã lưu thành công chưa
+            try:
+                check_again = subprocess.run(test_cmd, env=env, capture_output=True, text=True, timeout=20)
+                if check_again.returncode == 0:
+                    console.print(Panel("[bold green]✔ ĐĂNG NHẬP GOOGLE AGY THÀNH CÔNG![/bold green]\n"
+                                        "Tài khoản Google đã được kích hoạt và lưu trữ vĩnh viễn.",
+                                        border_style="green"))
+                    return True
+            except Exception:
+                pass
             console.print(f"[bold red]Lỗi khi chạy xác thực: {e}[/bold red]")
             flush_stdin()
             if not Confirm.ask("👉 Bạn có muốn thử lại không?", default=True):
