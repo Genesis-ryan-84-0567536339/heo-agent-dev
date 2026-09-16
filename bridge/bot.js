@@ -889,22 +889,11 @@ async function startBridge() {
           api.sendTypingEvent(threadId, ThreadType.User).catch(() => {});
         }, 4000);
 
-        let isDone = false;
-        // 1. Phản hồi xác nhận tức thì: "dạ ukie, chờ em xíu... "
+        // Phản hồi xác nhận tức thì: "Heo nghe ạ , chờ heo chút ...."
         try {
-          await sendSafeMessage(api, { msg: "dạ ukie, chờ em xíu... ", quote: msg.data }, threadId, ThreadType.User);
-          log(`[1-1 ${BOSS_NAME}] Đã gửi xác nhận: "dạ ukie, chờ em xíu... "`);
+          await sendSafeMessage(api, { msg: "Heo nghe ạ , chờ heo chút ....", quote: msg.data }, threadId, ThreadType.User);
+          log(`[1-1 ${BOSS_NAME}] Đã gửi xác nhận: "Heo nghe ạ , chờ heo chút ...."`);
         } catch (e) {}
-
-        // 2. 5s sau nếu chưa có kết quả thì nhắn "Em nghĩ kỹ chút.."
-        const thinkTimer = setTimeout(async () => {
-          if (!isDone) {
-            try {
-              await sendSafeMessage(api, { msg: "Em nghĩ kỹ chút..", quote: msg.data }, threadId, ThreadType.User);
-              log(`[1-1 ${BOSS_NAME}] Đã chủ động nhắn: "Em nghĩ kỹ chút.."`);
-            } catch (e) {}
-          }
-        }, 5000);
 
         try {
           const resp = await axios.post(`${AGY_ENGINE_URL}/api/chat`, {
@@ -954,8 +943,6 @@ async function startBridge() {
             quote: msg.data
           }, threadId, ThreadType.User).catch(() => {});
         } finally {
-          isDone = true;
-          clearTimeout(thinkTimer);
           clearInterval(typingInterval);
         }
         return;
@@ -1030,22 +1017,11 @@ async function startBridge() {
           api.sendTypingEvent(threadId, ThreadType.Group).catch(() => {});
         }, 4000);
 
-        let isDone = false;
-        // 1. Phản hồi xác nhận tức thì trong nhóm: "dạ ukie, chờ em xíu... "
+        // Phản hồi xác nhận tức thì trong nhóm: "Heo nghe ạ , chờ heo chút ...."
         try {
-          await sendSafeMessage(api, { msg: "dạ ukie, chờ em xíu... ", quote: msg.data }, threadId, ThreadType.Group);
-          log(`[Group ${groupDetails.name}] Đã gửi xác nhận: "dạ ukie, chờ em xíu... "`);
+          await sendSafeMessage(api, { msg: "Heo nghe ạ , chờ heo chút ....", quote: msg.data }, threadId, ThreadType.Group);
+          log(`[Group ${groupDetails.name}] Đã gửi xác nhận: "Heo nghe ạ , chờ heo chút ...."`);
         } catch (e) {}
-
-        // 2. 5s sau nếu chưa có kết quả thì nhắn "Em nghĩ kỹ chút.."
-        const thinkTimer = setTimeout(async () => {
-          if (!isDone) {
-            try {
-              await sendSafeMessage(api, { msg: "Em nghĩ kỹ chút..", quote: msg.data }, threadId, ThreadType.Group);
-              log(`[Group ${groupDetails.name}] Đã chủ động nhắn: "Em nghĩ kỹ chút.."`);
-            } catch (e) {}
-          }
-        }, 5000);
 
         try {
           const resp = await axios.post(`${AGY_ENGINE_URL}/api/chat`, {
@@ -1094,8 +1070,6 @@ async function startBridge() {
           log(`[Group ${groupDetails.name}] Lỗi AGY Engine: ${apiErr.message}`);
           // Trong group nếu lỗi nội bộ thì im lặng không spam lỗi kỹ thuật ra nhóm
         } finally {
-          isDone = true;
-          clearTimeout(thinkTimer);
           clearInterval(typingInterval);
         }
       }
