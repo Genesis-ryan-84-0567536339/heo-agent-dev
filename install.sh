@@ -33,7 +33,11 @@ check_and_install_engine() {
     # 2. Kiểm tra nếu có Podman
     if command -v podman &> /dev/null; then
         echo -e "${CYAN}ℹ Phát hiện hệ thống đã cài đặt Podman ($(podman --version | head -n1)).${NC}"
-        read -r -p "👉 Bạn có muốn sử dụng Podman thay thế Docker không? [Y/n]: " use_podman < /dev/tty || use_podman="y"
+        if [ -t 0 ]; then
+            read -r -p "👉 Bạn có muốn sử dụng Podman thay thế Docker không? [Y/n]: " use_podman
+        else
+            read -r -p "👉 Bạn có muốn sử dụng Podman thay thế Docker không? [Y/n]: " use_podman || use_podman="y"
+        fi
         use_podman=${use_podman:-y}
         if [[ "$use_podman" =~ ^[Yy]$ ]]; then
             # Kiểm tra hoặc cài đặt podman-docker & podman-compose
@@ -54,7 +58,11 @@ check_and_install_engine() {
 
     # 3. Nếu chưa có Docker, hỏi người dùng có muốn tự động cài đặt luôn không
     echo -e "${YELLOW}⚠️ Chưa tìm thấy Docker trên hệ thống.${NC}"
-    read -r -p "👉 Bạn có muốn tự động cài đặt Docker ngay bây giờ không? [Y/n]: " auto_install < /dev/tty || auto_install="y"
+    if [ -t 0 ]; then
+        read -r -p "👉 Bạn có muốn tự động cài đặt Docker ngay bây giờ không? [Y/n]: " auto_install
+    else
+        read -r -p "👉 Bạn có muốn tự động cài đặt Docker ngay bây giờ không? [Y/n]: " auto_install || auto_install="y"
+    fi
     auto_install=${auto_install:-y}
 
     if [[ ! "$auto_install" =~ ^[Yy]$ ]]; then
