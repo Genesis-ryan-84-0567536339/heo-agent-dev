@@ -30,7 +30,7 @@ services:
       - AUTH_DIR=/app/auth
       - CONFIG_FILE=/app/config/config.json
       - AGY_BIN=/app/bin/agy
-      - GEMINI_DIR=/app/auth/gemini_profile
+      - GEMINI_DIR=/app/auth/home/.gemini
       - XDG_DATA_HOME=/app/auth/xdg-data
     stdin_open: true
     tty: true

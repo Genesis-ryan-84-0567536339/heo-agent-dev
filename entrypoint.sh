@@ -25,7 +25,7 @@ if [ "$1" = "daemon" ]; then
     export DATA_DIR=/app/data
     export LOGS_DIR=/app/logs
     export AUTH_DIR=/app/auth
-    export GEMINI_DIR=/app/auth/gemini_profile
+    export GEMINI_DIR="${GEMINI_DIR:-/app/auth/home/.gemini}"
     export XDG_DATA_HOME=/app/auth/xdg-data
     export AGY_BIN=/app/bin/agy
 

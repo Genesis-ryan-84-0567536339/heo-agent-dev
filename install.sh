@@ -170,7 +170,8 @@ else
 fi
 
 echo -e "${YELLOW}>>> Bước 2/4: Chuẩn bị AGY Binary và Cấu hình...${NC}"
-mkdir -p bin data workspace logs auth config auth/gemini_profile auth/xdg-data auth/home
+mkdir -p bin data workspace logs auth config auth/xdg-data auth/home
+ln -sf home/.gemini auth/gemini_profile 2>/dev/null || true
 
 # Tìm hoặc tải agy binary
 if [[ ! -f "bin/agy" ]]; then

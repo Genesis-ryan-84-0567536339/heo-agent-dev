@@ -35,7 +35,7 @@ LOG_DIR = os.environ.get("LOG_DIR", str(Path(BASE_DIR) / "logs"))
 DATA_DIR = os.environ.get("DATA_DIR", str(Path(BASE_DIR) / "data"))
 SCRIPTS_DIR = os.environ.get("SCRIPTS_DIR", str(Path(BASE_DIR) / "scripts"))
 STATE_FILE = os.path.join(DATA_DIR, "model_state.json")
-GEMINI_DIR = os.environ.get("GEMINI_DIR", str(Path(BASE_DIR) / "auth" / "gemini_profile"))
+GEMINI_DIR = os.environ.get("GEMINI_DIR", str(Path(BASE_DIR) / "auth" / "home" / ".gemini"))
 XDG_DATA_HOME = os.environ.get("XDG_DATA_HOME", str(Path(BASE_DIR) / "auth" / "xdg-data"))
 AGY_BIN = os.environ.get("AGY_BIN", shutil.which("agy") or str(Path(BASE_DIR) / "bin" / "agy"))
 

@@ -6,7 +6,7 @@ PROMPT="${1:-}"
 BASE_DIR="${APP_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 WORKSPACE_DIR="${WORKSPACE_DIR:-$BASE_DIR/workspace}"
 LOG_FILE="${LOG_FILE:-$BASE_DIR/logs/agy.log}"
-GEMINI_DIR="${GEMINI_DIR:-$BASE_DIR/auth/gemini_profile}"
+GEMINI_DIR="${GEMINI_DIR:-$BASE_DIR/auth/home/.gemini}"
 XDG_DATA_HOME="${XDG_DATA_HOME:-$BASE_DIR/auth/xdg-data}"
 
 if [[ -z "$PROMPT" ]]; then
