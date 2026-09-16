@@ -792,33 +792,62 @@ async function startBridge() {
         });
         await api.sendTypingEvent(threadId, ThreadType.User).catch(() => {});
 
-        // Lệnh tra cứu hoặc chuyển đổi model nhanh
-        if (/^\/(model|status)\b/i.test(userPrompt.trim())) {
+        // 1. Lệnh tra cứu trạng thái mô hình & cấu hình nhanh
+        if (/^\/(model|status)\s*$/i.test(userPrompt.trim())) {
           try {
-            const stResp = await axios.get(`${AGY_ENGINE_URL}/api/model_status`, { timeout: 5000 });
+            const stResp = await axios.get(`${AGY_ENGINE_URL}/api/status`, { timeout: 5000 });
             const st = stResp.data;
             const statusMsg = (
               `📊 [BÁO CÁO HẠ TẦNG AI - TRẠNG THÁI MODEL]\n\n` +
               `🔹 Mô hình hiện tại: ${st.active_model}\n` +
-              `🔹 Chế độ dự phòng: ${st.is_fallback ? '⚠️ ĐANG BẬT (Fallback Claude Sonnet 4.6 do Gemini chạm quota)' : '✅ BÌNH THƯỜNG (Gemini 3.8 Flash chuẩn)'}\n` +
-              (st.is_fallback ? `⏳ Cooldown còn lại: ${st.cooldown_remaining_seconds}s trước khi auto-probe hồi phục về Gemini\n` : '') +
-              `📈 Thống kê: ${st.total_failovers} lần failover, ${st.total_recoveries} lần hồi phục thành công.`
+              `🔹 Mức suy luận (Effort): ${(st.effort || 'medium').toUpperCase()}\n` +
+              `🔹 Chế độ: ${st.is_fallback ? '⚠️ Fallback do quota' : '✅ Bình thường'}\n` +
+              `🔹 Web UI Quản trị: http://localhost:5066\n\n` +
+              `💡 CÚ PHÁP ĐỔI NHANH:\n` +
+              `👉 /model flash (hoặc 3.8 / pro / sonnet / opus)\n` +
+              `👉 /effort low | medium | high`
             );
             await sendSafeMessage(api, { msg: statusMsg, quote: msg.data }, threadId, ThreadType.User);
             return;
           } catch (e) {}
         }
 
-        if (/^\/(use|switch)\s+(sonnet|gemini)\b/i.test(userPrompt.trim())) {
-          const target = userPrompt.toLowerCase().includes("sonnet") ? "sonnet" : "gemini";
+        // 2. Lệnh chuyển đổi model nhanh
+        const modelMatch = userPrompt.trim().match(/^\/(?:model|use|switch)\s+(.+)$/i) ||
+                           userPrompt.trim().match(/^(?:đổi|chuyển)\s+(?:sang\s+)?(?:model|mô hình)\s+(.+)$/i);
+        if (modelMatch) {
+          const target = modelMatch[1].trim();
           try {
             const swResp = await axios.post(`${AGY_ENGINE_URL}/api/switch_model`, { model: target }, { timeout: 5000 });
             const sw = swResp.data;
-            await sendSafeMessage(api, {
-              msg: `✅ Dạ Sếp, đã chuyển mô hình hoạt động sang: ${sw.active_model}`,
-              quote: msg.data
-            }, threadId, ThreadType.User);
-            return;
+            if (sw.ok) {
+              await sendSafeMessage(api, {
+                msg: `✅ Dạ Sếp, em đã chuyển mô hình hoạt động sang: ${sw.active_model} (Effort: ${(sw.effort || 'medium').toUpperCase()})!`,
+                quote: msg.data
+              }, threadId, ThreadType.User);
+              return;
+            }
+          } catch (e) {}
+        }
+
+        // 3. Lệnh chuyển đổi mức suy luận (Effort)
+        const effortMatch = userPrompt.trim().match(/^\/effort\s+(low|medium|high|thấp|vừa|cao)$/i) ||
+                            userPrompt.trim().match(/^(?:chỉnh|đổi|tăng|hạ)\s+effort\s+(low|medium|high|thấp|vừa|cao)$/i);
+        if (effortMatch) {
+          let eff = effortMatch[1].toLowerCase().trim();
+          if (eff === "thấp") eff = "low";
+          else if (eff === "vừa") eff = "medium";
+          else if (eff === "cao") eff = "high";
+          try {
+            const effResp = await axios.post(`${AGY_ENGINE_URL}/api/set_effort`, { effort: eff }, { timeout: 5000 });
+            const effData = effResp.data;
+            if (effData.ok) {
+              await sendSafeMessage(api, {
+                msg: `✅ Dạ Sếp, em đã đổi mức độ suy luận (Effort) sang: ${effData.effort.toUpperCase()}!`,
+                quote: msg.data
+              }, threadId, ThreadType.User);
+              return;
+            }
           } catch (e) {}
         }
 

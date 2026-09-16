@@ -71,22 +71,66 @@ Khi khởi động lần đầu, màn hình TUI hướng dẫn bạn 4 bước �
 
 ---
 
+## 🌐 Giao Diện Quản Trị Web UI (Web Dashboard)
+
+Bên cạnh giao diện Terminal UI (TUI), hệ thống tích hợp sẵn **Web Dashboard** hiện đại, trực quan tại cổng `5066`:
+
+👉 **`http://localhost:5066`** *(hoặc `http://<IP_MÁY_CHỦ>:5066`)*
+
+* 🎛️ **1-Click đổi Model**: Chuyển đổi tức thì giữa *Gemini 3.8 Flash, Gemini 3.1 Pro, Claude Sonnet 4.6, Claude Opus 4.6*.
+* ⚡ **1-Click đổi Effort**: Chỉnh mức suy luận logic (*Low, Medium, High*).
+* 🔐 **Quản lý Tài khoản**: Đăng xuất / Đăng nhập lại Google AGY & Zalo ngay trên giao diện; quét mã QR Zalo trực tiếp trong popup.
+* 📜 **Live Logs Console**: Theo dõi nhật ký luồng xử lý AI Engine và Zalo Bridge thời gian thực.
+* ⚙️ **Thiết lập Sếp**: Cập nhật Boss UID, Tên gọi, Danh xưng chỉ với một cú nhấp chuột.
+
+---
+
 ## 🎮 Điều Hành Nhanh Bằng Lệnh `heo-zalo`
 
-Sau khi cài đặt, hệ thống tự động đăng ký lệnh `heo-zalo` vào `PATH` toàn hệ thống để bạn có thể điều khiển Bé Heo Zalo mọi lúc mọi nơi từ bất kỳ cửa sổ terminal nào:
+Sau khi cài đặt, hệ thống tự động đăng ký lệnh `heo-zalo` vào `PATH` toàn hệ thống:
 
 ```bash
-heo-zalo              # Khởi chạy và kết nối trực tiếp vào giao diện TUI
-heo-zalo --bg         # Khởi chạy chế độ nền (Daemon 24/7) trong Docker
-heo-zalo status       # Kiểm tra trạng thái hoạt động của container / tiến trình
-heo-zalo logs         # Xem nhật ký thời gian thực (live stream logs)
-heo-zalo restart      # Khởi động lại toàn bộ dịch vụ
-heo-zalo stop         # Dừng an toàn toàn bộ hệ thống
-heo-zalo uninstall    # Dọn dẹp và gỡ bỏ toàn bộ container, images, symlinks
+# === Quản Trị & Vận Hành ===
+heo-zalo web              # Mở đường link giao diện Web Dashboard (http://localhost:5066)
+heo-zalo                  # Mở giao diện tương tác Terminal TUI Dashboard
+heo-zalo --bg             # Khởi chạy chế độ nền (Daemon 24/7) trong Docker
+heo-zalo status           # Kiểm tra trạng thái hoạt động của hệ thống
+heo-zalo logs             # Xem luồng nhật ký thời gian thực (live stream logs)
+heo-zalo restart          # Khởi động lại toàn bộ dịch vụ
+heo-zalo stop             # Dừng an toàn toàn bộ hệ thống
+heo-zalo uninstall        # Dọn dẹp và gỡ bỏ toàn bộ container, images, symlinks
+
+# === Thay Đổi Model & Mức Suy Luận (Effort) ===
+heo-zalo model            # Xem model hiện tại và danh sách các mô hình hỗ trợ
+heo-zalo model pro        # Đổi ngay sang Gemini 3.1 Pro (High)
+heo-zalo model sonnet     # Đổi ngay sang Claude Sonnet 4.6 (Thinking)
+heo-zalo model flash      # Đổi ngay sang Gemini 3.8 Flash (High/Medium)
+heo-zalo effort high      # Chỉnh mức độ suy luận: low (nhanh), medium (vừa), high (sâu)
+
+# === Quản Lý Đăng Nhập / Đăng Xuất Tài Khoản ===
+heo-zalo logout-zalo      # Đăng xuất tài khoản Zalo hiện tại
+heo-zalo login-zalo       # Mở màn hình quét mã QR để đăng nhập tài khoản Zalo mới
+heo-zalo logout-google    # Đăng xuất tài khoản Google của AGY CLI
+heo-zalo login-google     # Đăng nhập tài khoản Google mới cho AGY CLI
 ```
 
-> [!TIP]
-> **Phân định phiên bản:** Lệnh `heo-zalo` chuyên dùng để điều khiển phiên bản Zalo Copilot độc lập này, tách biệt hoàn toàn với hệ thống chỉ huy đa kênh `Agy-Assis` (gọi bằng lệnh riêng như `heo` hoặc `jarvis`).
+---
+
+## 💬 Điều Khiển Model & Effort Trực Tiếp Trong Zalo Chat
+
+Chủ sở hữu (Boss) có thể ra lệnh thay đổi mô hình và mức suy luận ngay trong khung chat Zalo với Bé Heo:
+
+* **Xem cấu hình hiện tại**: Nhắn `/model` hoặc `/status`.
+* **Đổi mô hình nhanh**:
+  * Nhắn: `/model flash` (hoặc `/model 3.8`) &rarr; Chuyển về Gemini 3.8 Flash siêu tốc.
+  * Nhắn: `/model pro` (hoặc `/model 3.1`) &rarr; Chuyển sang Gemini 3.1 Pro xử lý tài liệu lớn, lập trình phức tạp.
+  * Nhắn: `/model sonnet` &rarr; Chuyển sang Claude Sonnet 4.6 tư duy phản biện.
+  * Nhắn: `/model opus` &rarr; Chuyển sang Claude Opus 4.6 cao cấp nhất.
+  * *(Hỗ trợ cả câu nói tự nhiên: "Heo đổi sang model pro", "chuyển model sonnet").*
+* **Đổi mức suy luận (Effort)**:
+  * Nhắn: `/effort low` &rarr; Suy luận ngắn gọn, tốc độ tối đa.
+  * Nhắn: `/effort medium` &rarr; Mức cân bằng chuẩn.
+  * Nhắn: `/effort high` &rarr; Đào sâu bản chất, tư duy logic chuyên sâu.
 
 ---
 

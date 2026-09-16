@@ -68,6 +68,68 @@ case "${1:-}" in
         echo "🚀 Đang khởi chạy Zalo-AGY Copilot chế độ nền (Daemon 24/7)..."
         "$PROJECT_DIR/start.sh" daemon
         ;;
+    web)
+        echo "🌐 BẢNG ĐIỀU KHIỂN QUẢN TRỊ WEB UI:"
+        echo "   👉 http://localhost:5066"
+        echo "   (Hoặc http://<IP_MAY_CHU>:5066)"
+        if command -v xdg-open &>/dev/null; then
+            xdg-open "http://localhost:5066" 2>/dev/null || true
+        fi
+        ;;
+    model)
+        TARGET="${2:-}"
+        if [ -n "$TARGET" ]; then
+            curl -s -X POST http://127.0.0.1:5066/api/switch_model \
+                -H "Content-Type: application/json" \
+                -d "{\"model\": \"$TARGET\"}" | python3 -c "import sys, json; d=json.load(sys.stdin); print('✔ Đã chuyển sang mô hình:', d.get('active_model')) if d.get('ok') else print('❌ Lỗi:', d.get('error'))"
+        else
+            curl -s http://127.0.0.1:5066/api/status | python3 -c "
+import sys, json
+try:
+    d = json.load(sys.stdin)
+    print('🤖 Mô hình hiện tại:', d.get('active_model'))
+    print('⚡ Mức suy luận (Effort):', str(d.get('effort')).upper())
+    print('\n💡 Danh sách mô hình hỗ trợ:')
+    for m in d.get('supported_models', []):
+        print(f'   • {m[\"name\"]} - {m.get(\"desc\", \"\")}')
+    print('\n👉 Cú pháp đổi: heo-zalo model <flash|pro|sonnet|opus>')
+except Exception as e:
+    print('Máy chủ chưa chạy. Hãy gõ: heo-zalo --bg')
+"
+        fi
+        ;;
+    effort)
+        LEVEL="${2:-}"
+        if [ -n "$LEVEL" ]; then
+            curl -s -X POST http://127.0.0.1:5066/api/set_effort \
+                -H "Content-Type: application/json" \
+                -d "{\"effort\": \"$LEVEL\"}" | python3 -c "import sys, json; d=json.load(sys.stdin); print('✔ Đã chỉnh mức suy luận:', d.get('effort', '').upper()) if d.get('ok') else print('❌ Lỗi:', d.get('error'))"
+        else
+            echo "👉 Cú pháp: heo-zalo effort <low|medium|high>"
+        fi
+        ;;
+    login-google)
+        echo "⚡ KHỞI CHẠY XÁC THỰC GOOGLE CHO AGY CLI..."
+        $DOCKER_COMPOSE run --rm -it app agy auth login
+        ;;
+    logout-google)
+        echo "🛑 Đang đăng xuất tài khoản Google..."
+        curl -s -X POST http://127.0.0.1:5066/api/logout_google 2>/dev/null || true
+        rm -rf "$PROJECT_DIR/auth/home/.gemini"
+        echo "✔ Đã xóa phiên đăng nhập Google. Để đăng nhập tài khoản khác: heo-zalo login-google"
+        ;;
+    login-zalo)
+        echo "📱 KHỞI CHẠY QUÉT MÃ QR ĐĂNG NHẬP ZALO..."
+        rm -f "$PROJECT_DIR/data/zalo_session.json"
+        $DOCKER_COMPOSE run --rm -it app node /app/bridge/bot.js --qr-only
+        echo "✔ Đã lưu phiên Zalo mới! Khởi động lại dịch vụ bằng: heo-zalo restart"
+        ;;
+    logout-zalo)
+        echo "🛑 Đang đăng xuất tài khoản Zalo..."
+        curl -s -X POST http://127.0.0.1:5066/api/logout_zalo 2>/dev/null || true
+        rm -f "$PROJECT_DIR/data/zalo_session.json"
+        echo "✔ Đã xóa phiên đăng nhập Zalo. Để đăng nhập tài khoản khác: heo-zalo login-zalo"
+        ;;
     uninstall|clean)
         "$PROJECT_DIR/uninstall.sh"
         ;;

@@ -76,6 +76,34 @@ QUOTA_ERROR_PATTERNS = [
     r"exhausted"
 ]
 
+SUPPORTED_MODELS = [
+    {"id": "gemini-3.8-flash-high", "name": "Gemini 3.8 Flash (High)", "desc": "Tối ưu tốc độ cao và khả năng suy luận mạnh"},
+    {"id": "gemini-3.8-flash-medium", "name": "Gemini 3.8 Flash (Medium)", "desc": "Mặc định tiêu chuẩn, cân bằng tốc độ và phản hồi"},
+    {"id": "gemini-3.1-pro-high", "name": "Gemini 3.1 Pro (High)", "desc": "Mô hình Pro chuyên sâu, xử lý tài liệu dài và phân tích phức tạp"},
+    {"id": "claude-sonnet-4-6", "name": "Claude Sonnet 4.6 (Thinking)", "desc": "Tư duy đa chiều, phản biện chiến lược sâu sắc"},
+    {"id": "claude-opus-4-6-thinking", "name": "Claude Opus 4.6 (Thinking)", "desc": "Mô hình Opus cao cấp nhất"},
+    {"id": "gpt-oss-120b-medium", "name": "GPT-OSS 120B (Medium)", "desc": "Mô hình mã nguồn mở độc lập"}
+]
+
+def normalize_model_target(target):
+    t = target.lower().strip()
+    if "opus" in t:
+        return "Claude Opus 4.6 (Thinking)"
+    elif "sonnet" in t:
+        return "Claude Sonnet 4.6 (Thinking)"
+    elif "3.1" in t or "pro" in t:
+        return "Gemini 3.1 Pro (High)"
+    elif "high" in t and ("3.8" in t or "flash" in t):
+        return "Gemini 3.8 Flash (High)"
+    elif "3.8" in t or "flash" in t or "primary" in t:
+        return "Gemini 3.8 Flash (Medium)"
+    elif "gpt" in t or "oss" in t:
+        return "GPT-OSS 120B (Medium)"
+    for m in SUPPORTED_MODELS:
+        if m["name"].lower() == t or m["id"].lower() == t:
+            return m["name"]
+    return target
+
 state_lock = threading.Lock()
 
 def load_model_state():
@@ -83,12 +111,16 @@ def load_model_state():
         if os.path.exists(STATE_FILE):
             try:
                 with open(STATE_FILE, "r", encoding="utf-8") as f:
-                    return json.load(f)
+                    st = json.load(f)
+                    if "effort" not in st:
+                        st["effort"] = "medium"
+                    return st
             except Exception:
                 pass
         # Default state
         default_state = {
             "active_model": PRIMARY_MODEL,
+            "effort": "medium",
             "is_fallback": False,
             "exhausted_at": 0,
             "cooldown_seconds": DEFAULT_COOLDOWN_SECONDS,
@@ -308,9 +340,13 @@ def get_workspace_files():
             files[p] = os.path.getmtime(p)
     return files
 
-def execute_agy_cli(full_prompt, model_name):
+def execute_agy_cli(full_prompt, model_name, effort=None):
     env = os.environ.copy()
     env["XDG_DATA_HOME"] = XDG_DATA_HOME
+
+    if not effort:
+        state = load_model_state()
+        effort = state.get("effort", "medium")
 
     msg = json.dumps({"event": "user", "message": {"content": full_prompt}}) + "\n"
     cmd = [
@@ -320,6 +356,7 @@ def execute_agy_cli(full_prompt, model_name):
         "--dangerously-skip-permissions",
         f"--gemini_dir={GEMINI_DIR}",
         f"--model={model_name}",
+        f"--effort={effort}",
         "--print-timeout=3m"
     ]
 
@@ -814,25 +851,101 @@ class RequestHandler(BaseHTTPRequestHandler):
             print(f"⚠️ [Server] Error sending response: {e}")
 
     def do_GET(self):
-        if self.path == "/api/model_status":
+        path_clean = self.path.split("?")[0]
+        if path_clean in ["/", "/dashboard"]:
+            dashboard_file = os.path.join(Path(__file__).parent, "dashboard.html")
+            if os.path.exists(dashboard_file):
+                with open(dashboard_file, "r", encoding="utf-8") as f:
+                    content = f.read().encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.send_header("Content-Length", str(len(content)))
+                self.end_headers()
+                self.wfile.write(content)
+            else:
+                self._send_json({"error": "Dashboard template not found"}, 404)
+        elif path_clean in ["/api/status", "/api/model_status"]:
             state = load_model_state()
             elapsed = time.time() - state.get("exhausted_at", 0) if state.get("is_fallback") else 0
             cooldown = state.get("cooldown_seconds", DEFAULT_COOLDOWN_SECONDS)
             remaining = max(0, int(cooldown - elapsed)) if state.get("is_fallback") else 0
+
+            # Check Zalo session
+            zalo_session_file = os.path.join(DATA_DIR, "zalo_session.json")
+            zalo_logged_in = os.path.exists(zalo_session_file) and os.path.getsize(zalo_session_file) > 20
+            zalo_uid = ""
+            if zalo_logged_in:
+                try:
+                    with open(zalo_session_file, "r", encoding="utf-8") as zf:
+                        zdata = json.load(zf)
+                        zalo_uid = str(zdata.get("userId") or zdata.get("uid") or "")
+                except Exception:
+                    pass
+
+            # Check Google AGY auth
+            google_auth_ok = os.path.exists(os.path.join(GEMINI_DIR, "antigravity-cli")) or os.path.exists(GEMINI_DIR)
+
+            cfg = load_app_config()
 
             resp = {
                 "ok": True,
                 "primary_model": PRIMARY_MODEL,
                 "fallback_model": FALLBACK_MODEL,
                 "active_model": state.get("active_model", PRIMARY_MODEL),
+                "effort": state.get("effort", "medium"),
                 "is_fallback": state.get("is_fallback", False),
                 "cooldown_seconds": cooldown,
                 "cooldown_remaining_seconds": remaining,
                 "total_failovers": state.get("total_failovers", 0),
                 "total_recoveries": state.get("total_recoveries", 0),
-                "history": state.get("history", [])[-5:]
+                "history": state.get("history", [])[-5:],
+                "zalo": {
+                    "logged_in": zalo_logged_in,
+                    "user_id": zalo_uid
+                },
+                "google": {
+                    "authenticated": google_auth_ok
+                },
+                "config": {
+                    "boss_name": cfg.get("boss_name", BOSS_NAME),
+                    "boss_caller_name": cfg.get("boss_caller_name", BOSS_CALLER_NAME),
+                    "boss_uid": cfg.get("boss_uid", BOSS_UID),
+                    "bot_name": cfg.get("bot_name", BOT_NAME)
+                },
+                "supported_models": SUPPORTED_MODELS
             }
             self._send_json(resp, 200)
+        elif path_clean == "/api/logs":
+            def get_last_lines(fpath, n=40):
+                if not os.path.exists(fpath):
+                    return []
+                try:
+                    with open(fpath, "r", encoding="utf-8", errors="replace") as f:
+                        lines = f.readlines()
+                        return [l.strip() for l in lines[-n:]]
+                except Exception:
+                    return []
+            self._send_json({
+                "ok": True,
+                "engine_logs": get_last_lines(os.path.join(LOG_DIR, "engine.log")),
+                "zalo_logs": get_last_lines(os.path.join(LOG_DIR, "zalo.log"))
+            }, 200)
+        elif path_clean == "/api/qr":
+            qr_f = None
+            for candidate in [os.path.join(DATA_DIR, "zalo_qr.png"), os.path.join(WORKSPACE_DIR, "zalo_qr.png")]:
+                if os.path.exists(candidate):
+                    qr_f = candidate
+                    break
+            if qr_f:
+                with open(qr_f, "rb") as f:
+                    data = f.read()
+                self.send_response(200)
+                self.send_header("Content-Type", "image/png")
+                self.send_header("Content-Length", str(len(data)))
+                self.end_headers()
+                self.wfile.write(data)
+            else:
+                self._send_json({"error": "QR image not found"}, 404)
         else:
             try:
                 self.send_response(404)
@@ -841,7 +954,8 @@ class RequestHandler(BaseHTTPRequestHandler):
                 pass
 
     def do_POST(self):
-        if self.path == "/api/chat":
+        path_clean = self.path.split("?")[0]
+        if path_clean == "/api/chat":
             try:
                 content_length = int(self.headers.get("Content-Length", 0))
                 body = self.rfile.read(content_length).decode("utf-8")
@@ -865,24 +979,73 @@ class RequestHandler(BaseHTTPRequestHandler):
             except Exception as e:
                 print(f"⚠️ [Server] Exception in /api/chat: {e}")
                 self._send_json({"ok": False, "error": str(e)}, 500)
-        elif self.path == "/api/switch_model":
+        elif path_clean == "/api/switch_model":
             try:
                 content_length = int(self.headers.get("Content-Length", 0))
                 body = self.rfile.read(content_length).decode("utf-8")
                 data = json.loads(body)
-                target = data.get("model", "").lower()
-                if "sonnet" in target or "fallback" in target:
-                    switch_to_fallback("Chuyển thủ công theo yêu cầu")
-                elif "gemini" in target or "primary" in target:
-                    switch_to_primary("Chuyển thủ công theo yêu cầu")
-                
+                target = data.get("model", "").strip()
+                norm = normalize_model_target(target)
                 state = load_model_state()
-                self._send_json({"ok": True, "active_model": state.get("active_model")}, 200)
+                state["active_model"] = norm
+                state["is_fallback"] = ("sonnet" in norm.lower() or "opus" in norm.lower())
+                state["last_switch_reason"] = "Chuyển theo yêu cầu"
+                save_model_state(state)
+                log_event(f"🔀 [API] Chuyển model: {norm}")
+                self._send_json({"ok": True, "active_model": norm, "effort": state.get("effort", "medium")}, 200)
             except (BrokenPipeError, ConnectionResetError):
                 pass
             except Exception as e:
                 print(f"⚠️ [Server] Exception in /api/switch_model: {e}")
                 self._send_json({"ok": False, "error": str(e)}, 500)
+        elif path_clean == "/api/set_effort":
+            try:
+                content_length = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(content_length).decode("utf-8")
+                data = json.loads(body)
+                eff = data.get("effort", "medium").lower().strip()
+                if eff not in ["low", "medium", "high"]:
+                    eff = "medium"
+                state = load_model_state()
+                state["effort"] = eff
+                save_model_state(state)
+                log_event(f"⚡ [API] Chuyển mức suy luận (effort): {eff}")
+                self._send_json({"ok": True, "effort": eff}, 200)
+            except (BrokenPipeError, ConnectionResetError):
+                pass
+            except Exception as e:
+                print(f"⚠️ [Server] Exception in /api/set_effort: {e}")
+                self._send_json({"ok": False, "error": str(e)}, 500)
+        elif path_clean == "/api/config":
+            try:
+                content_length = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(content_length).decode("utf-8")
+                data = json.loads(body)
+                cfg = load_app_config()
+                for k in ["boss_name", "boss_caller_name", "boss_uid", "bot_name"]:
+                    if k in data and data[k]:
+                        cfg[k] = data[k]
+                with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+                    json.dump(cfg, f, ensure_ascii=False, indent=2)
+                self._send_json({"ok": True, "config": cfg}, 200)
+            except Exception as e:
+                self._send_json({"ok": False, "error": str(e)}, 500)
+        elif path_clean == "/api/logout_zalo":
+            zalo_session_file = os.path.join(DATA_DIR, "zalo_session.json")
+            if os.path.exists(zalo_session_file):
+                try:
+                    os.remove(zalo_session_file)
+                except Exception:
+                    pass
+            self._send_json({"ok": True, "message": "Đã xóa phiên Zalo thành công. Khởi động lại container để quét mã mới."}, 200)
+        elif path_clean == "/api/logout_google":
+            try:
+                for token_file in glob.glob(os.path.join(GEMINI_DIR, "*token*")) + glob.glob(os.path.join(GEMINI_DIR, "antigravity-cli", "*token*")):
+                    if os.path.isfile(token_file):
+                        os.remove(token_file)
+            except Exception:
+                pass
+            self._send_json({"ok": True, "message": "Đã đăng xuất Google. Dùng lệnh heo-zalo login-google để xác thực lại."}, 200)
         else:
             try:
                 self.send_response(404)
@@ -898,8 +1061,8 @@ if __name__ == "__main__":
     recovery_thread = threading.Thread(target=auto_recovery_daemon, daemon=True)
     recovery_thread.start()
 
-    server = QuietHTTPServer(("127.0.0.1", PORT), RequestHandler)
-    print(f"🚀 AGY Zalo Co-Pilot Engine Server running on http://127.0.0.1:{PORT}")
+    server = QuietHTTPServer(("0.0.0.0", PORT), RequestHandler)
+    print(f"🚀 AGY Zalo Co-Pilot Engine Server running on http://0.0.0.0:{PORT}")
     print(f"🔹 Primary Model: {PRIMARY_MODEL}")
     print(f"🔹 Fallback Model: {FALLBACK_MODEL}")
     print(f"🔹 Auto-Recovery Daemon: Active (Cooldown: {DEFAULT_COOLDOWN_SECONDS}s)")
