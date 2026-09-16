@@ -17,6 +17,7 @@ bin/*.tar.*
 # Personal Sessions & History
 data/*.json
 data/*.jsonl
+data/*.png
 !data/beats/
 !data/.gitkeep
 config/config.json
