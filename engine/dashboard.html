@@ -496,7 +496,8 @@
           requests_count: 0,
           avg_latency: 0.0,
           last_used: 'Chưa dùng',
-          last_checked: 'Hôm nay'
+          last_checked: 'Hôm nay',
+          remaining_fraction: null
         };
 
         const isHealthy = (item.status === 'healthy');
@@ -504,6 +505,24 @@
           ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30' 
           : 'bg-red-500/15 text-red-400 border border-red-500/30';
         const dotColor = isHealthy ? 'bg-emerald-400' : 'bg-red-400 animate-pulse';
+
+        // Tính % quota thực từ remaining_fraction
+        const rf = item.remaining_fraction;
+        const pct = rf !== null && rf !== undefined ? Math.round(rf * 100) : null;
+        let barHtml = '';
+        if (pct !== null) {
+          const barColor = pct > 50 ? '#10b981' : pct > 20 ? '#f59e0b' : '#ef4444';
+          barHtml = `
+            <div class="mt-1.5">
+              <div class="flex justify-between text-[10px] mb-0.5">
+                <span class="text-slate-400">Quota còn lại</span>
+                <span class="font-bold" style="color:${barColor}">${pct}%</span>
+              </div>
+              <div class="w-full bg-slate-800 rounded-full h-1.5">
+                <div class="h-1.5 rounded-full transition-all" style="width:${pct}%;background:${barColor}"></div>
+              </div>
+            </div>`;
+        }
 
         html += `
           <div class="p-3.5 rounded-xl bg-dark-850 border border-slate-800 flex flex-col justify-between space-y-2.5">
@@ -514,6 +533,7 @@
                 <span>${isHealthy ? 'Quota OK' : 'Hết Quota'}</span>
               </span>
             </div>
+            ${barHtml}
             <div class="space-y-1 text-[11px] text-slate-300">
               <div class="flex justify-between">
                 <span class="text-slate-400">Đã phản hồi:</span>
@@ -529,7 +549,8 @@
               </div>
             </div>
             <div class="pt-2 border-t border-slate-800 text-[10px] text-slate-400 truncate">
-              Check: <span class="text-slate-400">${item.last_checked || 'Hôm nay'}</span>
+              <span class="text-slate-500">Check: </span><span class="text-slate-400">${item.last_checked || 'Hôm nay'}</span>
+              ${item.status_label && item.status_label !== 'Sẵn sàng (Quota OK)' ? `<div class="text-[10px] mt-0.5 truncate" style="color:${isHealthy?'#34d399':'#f87171'}">${item.status_label}</div>` : ''}
             </div>
           </div>
         `;
@@ -537,6 +558,7 @@
 
       container.innerHTML = html;
     }
+
 
     async function toggleBotPause() {
       try {

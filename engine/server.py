@@ -290,56 +290,168 @@ def record_model_usage(model_name, duration, success=True, is_quota_err=False):
     state["quota_stats"] = stats
     save_model_state(state)
 
-def probe_model_quota_sync(model_key):
-    state = load_model_state()
-    stats = state.get("quota_stats", {})
-    entry = stats.get(model_key)
-    if not entry:
-        return
-    canonical_id = entry.get("model_id", "gemini-3.8-flash-medium")
-    env = os.environ.copy()
-    env["XDG_DATA_HOME"] = XDG_DATA_HOME
-    cmd = [
-        AGY_BIN,
-        "-p", "ping 1",
-        f"--model={canonical_id}",
-        "--dangerously-skip-permissions",
-        f"--gemini_dir={GEMINI_DIR}",
-        "--print-timeout=15s"
-    ]
-    t0 = time.time()
+def get_oauth_access_token():
+    """Đọc và tự động refresh OAuth token từ file auth của agy."""
+    token_file = os.path.join(GEMINI_DIR, "antigravity-cli", "antigravity-oauth-token")
     try:
-        proc = subprocess.run(cmd, cwd=WORKSPACE_DIR, env=env, capture_output=True, text=True, timeout=20)
-        out = (proc.stdout or "") + (proc.stderr or "")
-        dur = round(time.time() - t0, 1)
-        now_str = datetime.datetime.now().strftime("%H:%M:%S %d/%m")
-        if proc.returncode == 0 and not is_quota_error(out):
-            entry["status"] = "healthy"
-            entry["status_label"] = f"Sẵn sàng ({dur}s)"
-        else:
-            entry["status"] = "exhausted"
-            entry["status_label"] = "Hết Quota / Giới hạn"
-            entry["quota_errors"] = entry.get("quota_errors", 0) + 1
-        entry["last_checked"] = now_str
+        with open(token_file) as f:
+            data = json.load(f)
+        token = data.get("token", {})
+        access_token = token.get("access_token", "")
+        refresh_token = token.get("refresh_token", "")
+        expiry_str = token.get("expiry", "")
+        # Auto-refresh nếu còn dưới 5 phút hết hạn
+        if expiry_str:
+            try:
+                expiry = datetime.datetime.fromisoformat(expiry_str.replace("Z", "+00:00"))
+                now = datetime.datetime.now(datetime.timezone.utc)
+                if (expiry - now).total_seconds() < 300:
+                    access_token = _refresh_oauth_token(refresh_token, token_file, data)
+            except Exception:
+                pass
+        return access_token
     except Exception as e:
-        entry["status"] = "exhausted"
-        entry["status_label"] = "Lỗi probe"
+        log_event(f"⚠️ [Quota] Lỗi đọc OAuth token: {e}")
+        return ""
 
-    state = load_model_state()
-    state.setdefault("quota_stats", {})[model_key] = entry
-    save_model_state(state)
+def _refresh_oauth_token(refresh_token, token_file, existing_data):
+    """Refresh OAuth token dùng refresh_token (PKCE/device-flow, không cần client_secret)."""
+    import urllib.parse
+    CLIENT_IDS = [
+        "884354919052-36trc1jjb3tguiac32ov6cod268c5blh.apps.googleusercontent.com",
+        "1071006060591-tmhssin2h21lcre235vtolojh4g403ep.apps.googleusercontent.com",
+    ]
+    for client_id in CLIENT_IDS:
+        try:
+            body = urllib.parse.urlencode({
+                "grant_type": "refresh_token",
+                "client_id": client_id,
+                "refresh_token": refresh_token,
+            }).encode()
+            req = urllib.request.Request(
+                "https://oauth2.googleapis.com/token",
+                data=body,
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+                method="POST"
+            )
+            with urllib.request.urlopen(req, timeout=10) as r:
+                resp = json.loads(r.read())
+            new_access = resp.get("access_token", "")
+            if new_access:
+                expires_in = resp.get("expires_in", 3600)
+                expiry = (datetime.datetime.now(datetime.timezone.utc) +
+                          datetime.timedelta(seconds=expires_in)).isoformat()
+                existing_data["token"]["access_token"] = new_access
+                existing_data["token"]["expiry"] = expiry
+                try:
+                    with open(token_file, "w") as f:
+                        json.dump(existing_data, f)
+                except Exception:
+                    pass
+                return new_access
+        except Exception:
+            continue
+    log_event("⚠️ [Quota] Không thể refresh OAuth token")
+    return ""
+
+# Mapping model_id (API response) -> quota_stats key
+_MODEL_ID_TO_STAT_KEY = {
+    "gemini-3.8-flash-medium":   "gemini-3.8-flash",
+    "gemini-3.8-flash-high":     "gemini-3.8-flash",
+    "gemini-3.8-flash-tiered":   "gemini-3.8-flash",
+    "gemini-3.1-pro-high":       "gemini-3.1-pro",
+    "gemini-3.1-pro-low":        "gemini-3.1-pro",
+    "claude-sonnet-4-6":         "claude-sonnet-4-6",
+    "claude-opus-4-6-thinking":  "claude-opus-4-6",
+    "gpt-oss-120b-medium":       "gpt-oss-120b",
+}
+
+def fetch_real_quota():
+    """Gọi fetchAvailableModels API để lấy quota thực (remainingFraction, isExhausted, resetTime)."""
+    access_token = get_oauth_access_token()
+    if not access_token:
+        return None
+    try:
+        req = urllib.request.Request(
+            "https://daily-cloudcode-pa.googleapis.com/v1internal:fetchAvailableModels",
+            data=b"{}",
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {access_token}",
+                "User-Agent": "antigravity",
+            },
+            method="POST"
+        )
+        with urllib.request.urlopen(req, timeout=15) as r:
+            return json.loads(r.read())
+    except Exception as e:
+        log_event(f"⚠️ [Quota] Lỗi gọi fetchAvailableModels: {e}")
+        return None
 
 def probe_all_models_background():
+    """Gọi fetchAvailableModels API thực để cập nhật quota toàn bộ model."""
     def _run():
-        threads = []
-        for k in DEFAULT_QUOTA_STATS.keys():
-            t = threading.Thread(target=probe_model_quota_sync, args=(k,), daemon=True)
-            threads.append(t)
-            t.start()
-        for t in threads:
-            t.join(timeout=25)
-        log_event("📊 [Quota Monitor] Đã hoàn tất kiểm tra Quota toàn bộ các mô hình.")
+        now_str = datetime.datetime.now().strftime("%H:%M:%S %d/%m")
+        resp = fetch_real_quota()
+        state = load_model_state()
+        stats = state.get("quota_stats", {})
+
+        if resp is None:
+            for key in stats:
+                stats[key]["last_checked"] = now_str + " (API err)"
+            state["quota_stats"] = stats
+            save_model_state(state)
+            log_event("⚠️ [Quota] fetchAvailableModels thất bại, giữ nguyên trạng thái cũ.")
+            return
+
+        api_models = resp.get("models", {})
+        updated_keys = set()
+
+        for model_id, model_info in api_models.items():
+            qi = model_info.get("quotaInfo", {})
+            stat_key = _MODEL_ID_TO_STAT_KEY.get(model_id)
+            if not stat_key or stat_key in updated_keys:
+                continue
+            updated_keys.add(stat_key)
+
+            remaining = qi.get("remainingFraction")  # float 0.0 - 1.0
+            is_exhausted = qi.get("isExhausted", False)
+            reset_time = qi.get("resetTime", "")
+
+            entry = stats.get(stat_key, {})
+            entry["last_checked"] = now_str
+            entry["remaining_fraction"] = remaining
+
+            reset_label = ""
+            if reset_time:
+                try:
+                    rt = datetime.datetime.fromisoformat(reset_time.replace("Z", "+00:00"))
+                    rt_local = rt.astimezone().strftime("%H:%M %d/%m")
+                    reset_label = f" | reset {rt_local}"
+                except Exception:
+                    reset_label = f" | reset {reset_time[:16]}"
+
+            if is_exhausted or (remaining is not None and remaining <= 0.0):
+                entry["status"] = "exhausted"
+                entry["quota_errors"] = entry.get("quota_errors", 0) + 1
+                pct = int((remaining or 0) * 100)
+                entry["status_label"] = f"Hết Quota ({pct}%{reset_label})"
+            else:
+                entry["status"] = "healthy"
+                pct = int((remaining or 1.0) * 100) if remaining is not None else 100
+                entry["status_label"] = f"Sẵn sàng ({pct}% còn lại{reset_label})"
+
+            stats[stat_key] = entry
+
+        state["quota_stats"] = stats
+        save_model_state(state)
+        log_event(f"📊 [Quota] Đã cập nhật quota thực cho {len(updated_keys)} model từ Google API.")
+
     threading.Thread(target=_run, daemon=True).start()
+
+def probe_model_quota_sync(model_key):
+    """Alias tương thích — trigger probe toàn bộ (dùng API thực)."""
+    probe_all_models_background()
 
 def is_quota_error(text, returncode=0):
     if not text:
