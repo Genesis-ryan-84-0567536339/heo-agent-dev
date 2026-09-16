@@ -211,6 +211,14 @@ fi
 echo -e "${YELLOW}>>> Bước 3/4: Đóng gói Docker Container (Build Image)...${NC}"
 $DOCKER_COMPOSE build
 
+# Đăng ký lối tắt lệnh heo-zalo toàn hệ thống trước khi mở TUI
+chmod +x bin/heo-zalo 2>/dev/null || true
+mkdir -p "$HOME/.local/bin"
+ln -sf "$WORKDIR/bin/heo-zalo" "$HOME/.local/bin/heo-zalo"
+if sudo -n true 2>/dev/null; then
+    sudo ln -sf "$WORKDIR/bin/heo-zalo" /usr/local/bin/heo-zalo 2>/dev/null || true
+fi
+
 echo -e "${YELLOW}>>> Bước 4/4: Khởi chạy Trình Cấu hình Trực quan (TUI Setup Wizard)...${NC}"
 echo -e "${CYAN}Hệ thống sẽ mở giao diện Terminal tương tác để:${NC}"
 echo -e "  1. Xác thực tài khoản Google cho AGY CLI"
@@ -220,14 +228,6 @@ echo -e "  4. Mở Bảng điều khiển Live Dashboard giám sát thời gian 
 
 # Chạy TUI tương tác
 $DOCKER_COMPOSE run --rm app tui
-
-# Đăng ký lối tắt lệnh heo-zalo toàn hệ thống
-chmod +x bin/heo-zalo 2>/dev/null || true
-mkdir -p "$HOME/.local/bin"
-ln -sf "$WORKDIR/bin/heo-zalo" "$HOME/.local/bin/heo-zalo"
-if sudo -n true 2>/dev/null; then
-    sudo ln -sf "$WORKDIR/bin/heo-zalo" /usr/local/bin/heo-zalo 2>/dev/null || true
-fi
 
 echo -e "\n${GREEN}==============================================================================${NC}"
 echo -e "${GREEN}✔ CÀI ĐẶT VÀ CẤU HÌNH THÀNH CÔNG!${NC}"
