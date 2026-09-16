@@ -15,6 +15,7 @@ import signal
 import shutil
 import subprocess
 import threading
+import re
 from pathlib import Path
 
 try:
@@ -139,8 +140,9 @@ def step_agy_auth(agy_bin, config):
         "--dangerously-skip-permissions",
         "-p", "ping"
     ]
+    # 1. Kiểm tra nhanh xem đã xác thực từ trước chưa
     try:
-        proc = subprocess.run(test_cmd, env=env, capture_output=True, text=True, timeout=8)
+        proc = subprocess.run(test_cmd, env=env, capture_output=True, text=True, timeout=3)
         if proc.returncode == 0:
             console.print(Panel("[bold green]✔ Google AGY Authentication: SẴN SÀNG HOẠT ĐỘNG[/bold green]\n"
                                 "AGY CLI đã kết nối thành công với tài khoản Google!",
@@ -149,45 +151,110 @@ def step_agy_auth(agy_bin, config):
     except Exception:
         pass
 
+    # 2. Quy trình xác thực tương tác
     while True:
         console.print(Panel(
             "[bold yellow]⚡ Yêu cầu xác thực tài khoản Google cho AGY CLI[/bold yellow]\n\n"
-            "Quy trình xác thực Google OAuth cực kỳ đơn giản qua 4 bước:\n"
-            "  1. Sau câu hỏi bên dưới, hệ thống sẽ in ra một đường link [bold cyan]Google Login[/bold cyan].\n"
-            "  2. Mở link trên trình duyệt Web (Chrome, Edge, Firefox...), đăng nhập và nhấn [bold green]Cho phép (Allow)[/bold green].\n"
-            "  3. Trình duyệt sẽ hiển thị mã [bold cyan]Authorization Code[/bold cyan] (dạng 4/0A...).\n"
-            "  4. Sao chép mã đó, dán vào Terminal này tại dòng [bold yellow]'Or, paste the authorization code here'[/bold yellow] rồi ấn Enter.",
+            "Do hệ thống chạy trong Docker Container cô lập (không có giao diện Desktop),\n"
+            "hệ thống sẽ tạo đường link đăng nhập để bạn mở trên trình duyệt Web của máy tính.",
             title="Bước 1: Google AGY Auth", border_style="yellow"
         ))
 
         flush_stdin()
-        if not Confirm.ask("Bạn đã sẵn sàng đăng nhập Google AGY chưa?", default=True):
+        if not Confirm.ask("Bạn đã sẵn sàng lấy link đăng nhập Google AGY chưa?", default=True):
             console.print("[yellow]Đã tạm hoãn xác thực Google AGY.[/yellow]")
             return False
 
-        flush_stdin()
-        time.sleep(0.3)
-
+        console.print("[cyan]⏳ Đang khởi tạo phiên xác thực Google OAuth...[/cyan]")
+        
         cmd = [
             agy_bin,
             "--dangerously-skip-permissions",
-            "-p", "Chào bạn, hãy kiểm tra kết nối."
+            "-p", "ping"
         ]
 
         try:
-            subprocess.run(cmd, env=env)
-            # Kiểm tra lại sau khi đăng nhập
-            verify = subprocess.run(test_cmd, env=env, capture_output=True, text=True, timeout=12)
-            if verify.returncode == 0:
-                console.print("[bold green]✔ Đăng nhập Google AGY thành công![/bold green]")
-                return True
-            else:
-                console.print("[bold red]❌ Chưa hoàn tất đăng nhập Google AGY.[/bold red]")
+            p = subprocess.Popen(
+                cmd,
+                env=env,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True
+            )
+            auth_url = None
+            url_pattern = re.compile(r"https://accounts\.google\.com/o/oauth2/[^\s]+")
+
+            # Đọc stderr để bắt link OAuth
+            for line in p.stderr:
+                match = url_pattern.search(line)
+                if match:
+                    auth_url = match.group(0)
+                    break
+                if "already authenticated" in line.lower() or "pong" in line.lower():
+                    break
+
+            if auth_url:
+                # Ghi link ra file để người dùng dễ mở nếu cần
+                url_file = os.path.join(AUTH_DIR, "google_login_url.txt")
+                try:
+                    with open(url_file, "w", encoding="utf-8") as f:
+                        f.write(auth_url.strip() + "\n")
+                except Exception:
+                    pass
+
+                console.print("\n")
+                console.print(Panel(
+                    f"[bold green]🔗 LINK ĐĂNG NHẬP GOOGLE AGY (Bấm vào link hoặc copy mở bằng Chrome):[/bold green]\n\n"
+                    f"[bold cyan underline]{auth_url}[/bold cyan underline]\n\n"
+                    f"📌 [bold yellow]Hướng dẫn 3 bước tiếp theo:[/bold yellow]\n"
+                    f"  1. Mở link trên bằng trình duyệt Web (Chrome, Edge, Firefox...).\n"
+                    f"  2. Đăng nhập Google và bấm [bold green]Cho phép (Allow)[/bold green].\n"
+                    f"  3. Trình duyệt sẽ hiển thị mã [bold cyan]Authorization Code[/bold cyan] (bắt đầu bằng [bold]4/0A...[/bold]).\n"
+                    f"  4. Sao chép toàn bộ mã đó rồi dán vào ô bên dưới.\n"
+                    f"[dim](Đường link này cũng đã được lưu vào file: {url_file})[/dim]",
+                    title="👉 ĐĂNG NHẬP GOOGLE OAUTH", border_style="green", expand=True
+                ))
+
                 flush_stdin()
-                if not Confirm.ask("👉 Bạn có muốn thử đăng nhập lại ngay không?", default=True):
-                    return False
+                code = Prompt.ask("\n👉 [bold yellow]Dán mã Authorization Code vào đây[/bold yellow]").strip()
+
+                if not code:
+                    console.print("[red]Mã xác thực không được để trống![/red]")
+                    p.terminate()
+                    continue
+
+                console.print("[cyan]⏳ Đang gửi mã xác thực lên máy chủ Google...[/cyan]")
+                p.stdin.write(code + "\n")
+                p.stdin.flush()
+
+                # Chờ agy hoàn tất xác thực (tối đa 25s)
+                p.wait(timeout=25)
+
+                if p.returncode == 0:
+                    console.print(Panel("[bold green]✔ ĐĂNG NHẬP GOOGLE AGY THÀNH CÔNG![/bold green]\n"
+                                        "Phiên làm việc đã được lưu trữ vĩnh viễn.",
+                                        border_style="green"))
+                    return True
+                else:
+                    stderr_out = p.stderr.read()
+                    console.print(f"[bold red]❌ Xác thực chưa thành công (Mã lỗi: {p.returncode}).[/bold red]")
+                    if stderr_out:
+                        console.print(f"[dim]{stderr_out.strip()}[/dim]")
+            else:
+                # Nếu không tìm thấy URL, kiểm tra lại xem có phản hồi thành công không
+                p.terminate()
+                verify = subprocess.run(test_cmd, env=env, capture_output=True, text=True, timeout=5)
+                if verify.returncode == 0:
+                    console.print("[bold green]✔ Google AGY Authentication đã sẵn sàng![/bold green]")
+                    return True
+
+            flush_stdin()
+            if not Confirm.ask("👉 Bạn có muốn thử lại không?", default=True):
+                return False
+
         except Exception as e:
-            console.print(f"[bold red]Lỗi khi chạy agy: {e}[/bold red]")
+            console.print(f"[bold red]Lỗi khi xác thực: {e}[/bold red]")
             flush_stdin()
             if not Confirm.ask("👉 Bạn có muốn thử lại không?", default=True):
                 return False
