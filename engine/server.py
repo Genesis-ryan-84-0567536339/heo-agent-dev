@@ -324,45 +324,73 @@ def get_oauth_access_token():
         log_event(f"⚠️ [Quota] Lỗi đọc OAuth token: {e}")
         return ""
 
-def _refresh_oauth_token(refresh_token, token_file, existing_data):
-    """Refresh OAuth token dùng refresh_token (PKCE/device-flow, không cần client_secret)."""
-    import urllib.parse
-    CLIENT_IDS = [
-        "884354919052-36trc1jjb3tguiac32ov6cod268c5blh.apps.googleusercontent.com",
-        "1071006060591-tmhssin2h21lcre235vtolojh4g403ep.apps.googleusercontent.com",
-    ]
-    for client_id in CLIENT_IDS:
+def _get_oauth_creds():
+    """Tự động trích xuất OAuth Client ID và Secret từ agy binary hoặc biến môi trường."""
+    cid = os.environ.get("GOOGLE_OAUTH_CLIENT_ID", "")
+    sec = os.environ.get("GOOGLE_OAUTH_CLIENT_SECRET", "")
+    if not (cid and sec) and os.path.exists(AGY_BIN):
         try:
-            body = urllib.parse.urlencode({
-                "grant_type": "refresh_token",
-                "client_id": client_id,
-                "refresh_token": refresh_token,
-            }).encode()
-            req = urllib.request.Request(
-                "https://oauth2.googleapis.com/token",
-                data=body,
-                headers={"Content-Type": "application/x-www-form-urlencoded"},
-                method="POST"
-            )
-            with urllib.request.urlopen(req, timeout=10) as r:
-                resp = json.loads(r.read())
-            new_access = resp.get("access_token", "")
-            if new_access:
-                expires_in = resp.get("expires_in", 3600)
-                expiry = (datetime.datetime.now(datetime.timezone.utc) +
-                          datetime.timedelta(seconds=expires_in)).isoformat()
-                existing_data["token"]["access_token"] = new_access
-                existing_data["token"]["expiry"] = expiry
-                try:
-                    with open(token_file, "w") as f:
-                        json.dump(existing_data, f)
-                except Exception:
-                    pass
-                return new_access
+            with open(AGY_BIN, "rb") as f:
+                data = f.read()
+            import re
+            ids = re.findall(rb"\d{10,15}-[a-z0-9]{30,40}\.apps\.googleusercontent\.com", data)
+            for item in ids:
+                s = item.decode()
+                if s.startswith("1071006060591"):
+                    cid = s
+                    break
+            if not cid and ids:
+                cid = ids[0].decode()
+            m_sec = re.search(rb"GOCSPX-[A-Za-z0-9_\-]{28}", data)
+            if m_sec:
+                sec = m_sec.group().decode()
         except Exception:
-            continue
+            pass
+    return cid, sec
+
+GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET = _get_oauth_creds()
+GOOGLE_OAUTH_SCOPES = "openid https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/cloud-platform https://www.googleapis.com/auth/cclog"
+
+
+def _refresh_oauth_token(refresh_token, token_file, existing_data):
+    """Refresh OAuth token dùng refresh_token và client_secret đã xác thực."""
+    import urllib.parse
+    try:
+        body = urllib.parse.urlencode({
+            "grant_type": "refresh_token",
+            "client_id": GOOGLE_OAUTH_CLIENT_ID,
+            "client_secret": GOOGLE_OAUTH_CLIENT_SECRET,
+            "refresh_token": refresh_token,
+        }).encode()
+        req = urllib.request.Request(
+            "https://oauth2.googleapis.com/token",
+            data=body,
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            method="POST"
+        )
+        with urllib.request.urlopen(req, timeout=10) as r:
+            resp = json.loads(r.read())
+        new_access = resp.get("access_token", "")
+        if new_access:
+            expires_in = resp.get("expires_in", 3600)
+            expiry = (datetime.datetime.now(datetime.timezone.utc) +
+                      datetime.timedelta(seconds=expires_in)).isoformat()
+            existing_data.setdefault("token", {})["access_token"] = new_access
+            existing_data["token"]["expiry"] = expiry
+            if "id_token" in resp:
+                existing_data["id_token"] = resp["id_token"]
+            try:
+                with open(token_file, "w", encoding="utf-8") as f:
+                    json.dump(existing_data, f, ensure_ascii=False, indent=2)
+            except Exception:
+                pass
+            log_event("✅ [Quota] Đã tự động refresh OAuth token qua Google API.")
+            return new_access
+    except Exception as e:
+        log_event(f"⚠️ [Quota] Lỗi refresh Google OAuth token qua API: {e}")
+
     # Fallback: dùng agy binary để refresh token
-    log_event("⚠️ [Quota] OAuth refresh thất bại, thử refresh qua agy...")
+    log_event("⚠️ [Quota] Thử fallback refresh qua agy...")
     return _refresh_token_via_agy()
 
 def _refresh_token_via_agy():
@@ -389,6 +417,147 @@ def _refresh_token_via_agy():
     except Exception as e:
         log_event(f"⚠️ [Quota] Refresh via agy thất bại: {e}")
         return ""
+
+_tier_cache = {"email": "", "tier_name": "", "tier_id": "", "expires_at": 0}
+
+def get_google_auth_info():
+    """Lấy thông tin tài khoản Google: trạng thái kết nối, email đăng nhập, tên gói cước (tier)."""
+    token_file = os.path.join(GEMINI_DIR, "antigravity-cli", "antigravity-oauth-token")
+    if not os.path.exists(token_file) or os.path.getsize(token_file) < 20:
+        return {"authenticated": False, "email": "", "tier_name": "Chưa đăng nhập", "tier_id": ""}
+
+    try:
+        with open(token_file, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception:
+        return {"authenticated": False, "email": "", "tier_name": "Chưa đăng nhập", "tier_id": ""}
+
+    token = data.get("token", {})
+    access_token = token.get("access_token", "")
+    if not access_token:
+        return {"authenticated": False, "email": "", "tier_name": "Chưa đăng nhập", "tier_id": ""}
+
+    # Lấy email từ id_token JWT claims
+    email = ""
+    id_token = data.get("id_token", "")
+    if id_token:
+        try:
+            import base64
+            parts = id_token.split(".")
+            if len(parts) >= 2:
+                p = parts[1]
+                p += "=" * ((4 - len(p) % 4) % 4)
+                claims = json.loads(base64.urlsafe_b64decode(p))
+                email = claims.get("email", "")
+        except Exception:
+            pass
+
+    now = time.time()
+    if _tier_cache.get("expires_at", 0) > now and _tier_cache.get("email") == email:
+        return {
+            "authenticated": True,
+            "email": email,
+            "tier_name": _tier_cache["tier_name"],
+            "tier_id": _tier_cache["tier_id"]
+        }
+
+    tier_name = "Miễn phí (Free Tier)"
+    tier_id = "free-tier"
+    try:
+        req = urllib.request.Request(
+            "https://daily-cloudcode-pa.googleapis.com/v1internal:loadCodeAssist",
+            data=json.dumps({"metadata": {"ideType": "ANTIGRAVITY", "platform": "PLATFORM_UNSPECIFIED", "pluginType": "GEMINI"}}).encode(),
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {access_token}",
+                "User-Agent": "antigravity"
+            },
+            method="POST"
+        )
+        with urllib.request.urlopen(req, timeout=5) as r:
+            code_resp = json.loads(r.read())
+            ct = code_resp.get("currentTier", {})
+            tier_id = ct.get("id", "free-tier")
+            raw_name = ct.get("name", "Antigravity")
+            if tier_id == "free-tier":
+                tier_name = "Miễn phí (Free Tier)"
+            elif "pro" in tier_id.lower() or "pro" in raw_name.lower():
+                tier_name = f"Google AI Pro ({raw_name})"
+            elif "ultra" in tier_id.lower():
+                tier_name = f"Google AI Ultra ({raw_name})"
+            else:
+                tier_name = raw_name
+            if not email and "upgradeSubscriptionUri" in code_resp:
+                import urllib.parse as up
+                parsed = up.urlparse(code_resp["upgradeSubscriptionUri"])
+                qs = up.parse_qs(parsed.query)
+                email = qs.get("Email", [""])[0]
+    except Exception:
+        tier_name = "Đã xác thực"
+
+    _tier_cache["email"] = email
+    _tier_cache["tier_name"] = tier_name
+    _tier_cache["tier_id"] = tier_id
+    _tier_cache["expires_at"] = now + 600
+
+    return {
+        "authenticated": True,
+        "email": email,
+        "tier_name": tier_name,
+        "tier_id": tier_id
+    }
+
+def exchange_oauth_code_and_save(code, redirect_uri=None):
+    """Đổi Google authorization code lấy access_token + refresh_token và lưu vào token file."""
+    import urllib.parse
+    if not redirect_uri:
+        redirect_uri = f"http://localhost:{PORT}/api/oauth_callback"
+    body = urllib.parse.urlencode({
+        "client_id": GOOGLE_OAUTH_CLIENT_ID,
+        "client_secret": GOOGLE_OAUTH_CLIENT_SECRET,
+        "code": code,
+        "grant_type": "authorization_code",
+        "redirect_uri": redirect_uri
+    }).encode()
+    req = urllib.request.Request(
+        "https://oauth2.googleapis.com/token",
+        data=body,
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        method="POST"
+    )
+    with urllib.request.urlopen(req, timeout=15) as r:
+        resp = json.loads(r.read())
+
+    access_token = resp.get("access_token", "")
+    refresh_token = resp.get("refresh_token", "")
+    id_token = resp.get("id_token", "")
+    expires_in = resp.get("expires_in", 3600)
+    expiry = (datetime.datetime.now(datetime.timezone.utc) +
+              datetime.timedelta(seconds=expires_in)).isoformat()
+
+    token_data = {
+        "token": {
+            "access_token": access_token,
+            "token_type": "Bearer",
+            "refresh_token": refresh_token,
+            "expiry": expiry
+        },
+        "auth_method": "consumer",
+        "id_token": id_token
+    }
+
+    target_dir = os.path.join(GEMINI_DIR, "antigravity-cli")
+    os.makedirs(target_dir, exist_ok=True)
+    token_file = os.path.join(target_dir, "antigravity-oauth-token")
+    with open(token_file, "w", encoding="utf-8") as f:
+        json.dump(token_data, f, ensure_ascii=False, indent=2)
+
+    global _tier_cache
+    _tier_cache = {"email": "", "tier_name": "", "tier_id": "", "expires_at": 0}
+
+    log_event("🎉 [Auth] Đăng nhập Google thành công! Token đã được lưu.")
+    probe_all_models_background()
+    return token_data
 
 def _token_refresh_loop():
     """Background thread: tự động refresh token mỗi 45 phút."""
@@ -1270,6 +1439,20 @@ class RequestHandler(BaseHTTPRequestHandler):
         except Exception as e:
             print(f"⚠️ [Server] Error sending response: {e}")
 
+    def _send_html(self, html_content, status_code=200):
+        try:
+            payload = html_content.encode("utf-8")
+            self.send_response(status_code)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(payload)))
+            self.send_header("Connection", "close")
+            self.end_headers()
+            self.wfile.write(payload)
+        except (BrokenPipeError, ConnectionResetError):
+            pass
+        except Exception as e:
+            print(f"⚠️ [Server] Error sending html: {e}")
+
     def do_GET(self):
         path_clean = self.path.split("?")[0]
         if path_clean in ["/", "/dashboard"]:
@@ -1303,8 +1486,8 @@ class RequestHandler(BaseHTTPRequestHandler):
                 except Exception:
                     pass
 
-            # Check Google AGY auth
-            google_auth_ok = os.path.exists(os.path.join(GEMINI_DIR, "antigravity-cli")) or os.path.exists(GEMINI_DIR)
+            # Thông tin tài khoản Google chi tiết (trạng thái, email, loại gói)
+            google_info = get_google_auth_info()
 
             cfg = load_app_config()
 
@@ -1326,9 +1509,7 @@ class RequestHandler(BaseHTTPRequestHandler):
                     "logged_in": zalo_logged_in,
                     "user_id": zalo_uid
                 },
-                "google": {
-                    "authenticated": google_auth_ok
-                },
+                "google": google_info,
                 "config": {
                     "boss_name": cfg.get("boss_name", BOSS_NAME),
                     "boss_caller_name": cfg.get("boss_caller_name", BOSS_CALLER_NAME),
@@ -1338,6 +1519,56 @@ class RequestHandler(BaseHTTPRequestHandler):
                 "supported_models": SUPPORTED_MODELS
             }
             self._send_json(resp, 200)
+        elif path_clean == "/api/oauth_login_url":
+            import urllib.parse
+            redirect_uri = f"http://localhost:{PORT}/api/oauth_callback"
+            params = {
+                "client_id": GOOGLE_OAUTH_CLIENT_ID,
+                "redirect_uri": redirect_uri,
+                "response_type": "code",
+                "scope": GOOGLE_OAUTH_SCOPES,
+                "access_type": "offline",
+                "prompt": "consent select_account",
+            }
+            auth_url = "https://accounts.google.com/o/oauth2/v2/auth?" + urllib.parse.urlencode(params)
+            self._send_json({"ok": True, "auth_url": auth_url, "redirect_uri": redirect_uri}, 200)
+        elif path_clean == "/api/oauth_callback":
+            # Google OAuth redirect callback
+            import urllib.parse
+            parsed = urllib.parse.urlparse(self.path)
+            qs = urllib.parse.parse_qs(parsed.query)
+            code = qs.get("code", [""])[0]
+            error = qs.get("error", [""])[0]
+            if error:
+                html = f"""<!DOCTYPE html><html><head><meta charset="utf-8"><title>Lỗi xác thực</title>
+                <style>body{{background:#0a0f1d;color:#f87171;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;}}
+                .box{{text-align:center;background:#131d31;padding:30px;border-radius:16px;border:1px solid #dc2626;}}a{{color:#38bdf8;}}</style></head><body>
+                <div class="box"><h2>❌ Lỗi xác thực Google</h2><p>{error}</p><p><a href="/dashboard">Quay lại Dashboard</a></p></div></body></html>"""
+                self._send_html(html, 400)
+                return
+            if not code:
+                html = """<!DOCTYPE html><html><head><meta charset="utf-8"><title>Lỗi</title></head><body style="background:#0a0f1d;color:#fff;font-family:sans-serif;padding:30px;">
+                <p>Không tìm thấy authorization code. <a href="/dashboard" style="color:#38bdf8;">Quay lại Dashboard</a></p></body></html>"""
+                self._send_html(html, 400)
+                return
+            try:
+                redirect_uri = f"http://localhost:{PORT}/api/oauth_callback"
+                exchange_oauth_code_and_save(code, redirect_uri)
+                html = """<!DOCTYPE html><html><head><meta charset="utf-8"><title>Đăng nhập Google thành công</title>
+                <script>setTimeout(function(){ window.location.href = '/dashboard?login_success=google'; }, 1000);</script>
+                <style>body{background:#0a0f1d;color:#fff;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;}
+                .box{text-align:center;background:#131d31;padding:30px;border-radius:16px;border:1px solid #10b981;box-shadow:0 10px 25px rgba(0,0,0,0.5);}
+                a{color:#38bdf8;text-decoration:none;font-weight:bold;}</style></head><body>
+                <div class="box"><h2 style="color:#10b981;margin-top:0;">🎉 Đăng nhập Google thành công!</h2>
+                <p style="color:#cbd5e1;">Đang cập nhật phiên làm việc và chuyển về Dashboard...</p>
+                <p><a href="/dashboard?login_success=google">Bấm vào đây nếu trình duyệt không tự chuyển</a></p></div></body></html>"""
+                self._send_html(html, 200)
+            except Exception as e:
+                html = f"""<!DOCTYPE html><html><head><meta charset="utf-8"><title>Lỗi đổi token</title>
+                <style>body{{background:#0a0f1d;color:#f87171;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;}}
+                .box{{text-align:center;background:#131d31;padding:30px;border-radius:16px;border:1px solid #dc2626;}}a{{color:#38bdf8;}}</style></head><body>
+                <div class="box"><h2>❌ Lỗi đổi token Google</h2><p>{e}</p><p><a href="/dashboard">Quay lại Dashboard</a></p></div></body></html>"""
+                self._send_html(html, 500)
         elif path_clean == "/api/logs":
             def get_last_lines(fpath, n=40):
                 if not os.path.exists(fpath):
@@ -1504,9 +1735,101 @@ class RequestHandler(BaseHTTPRequestHandler):
                 for token_file in glob.glob(os.path.join(GEMINI_DIR, "*token*")) + glob.glob(os.path.join(GEMINI_DIR, "antigravity-cli", "*token*")):
                     if os.path.isfile(token_file):
                         os.remove(token_file)
+                global _tier_cache
+                _tier_cache = {"email": "", "tier_name": "", "tier_id": "", "expires_at": 0}
             except Exception:
                 pass
-            self._send_json({"ok": True, "message": "Đã đăng xuất Google. Dùng lệnh heo-zalo login-google để xác thực lại."}, 200)
+            self._send_json({"ok": True, "message": "Đã đăng xuất Google.", "google": get_google_auth_info()}, 200)
+        elif path_clean == "/api/submit_oauth_code":
+            try:
+                content_length = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(content_length).decode("utf-8")
+                data = json.loads(body)
+                raw_code = data.get("code", "").strip()
+                if not raw_code:
+                    self._send_json({"ok": False, "error": "Mã code hoặc URL không được để trống"}, 400)
+                    return
+                # Hỗ trợ dán cả URL chuyển hướng (ví dụ http://localhost:5066/api/oauth_callback?code=4/...)
+                if "code=" in raw_code:
+                    import urllib.parse
+                    parsed = urllib.parse.urlparse(raw_code)
+                    qs = urllib.parse.parse_qs(parsed.query)
+                    code = qs.get("code", [raw_code])[0]
+                else:
+                    code = raw_code
+                redirect_uri = f"http://localhost:{PORT}/api/oauth_callback"
+                exchange_oauth_code_and_save(code, redirect_uri)
+                info = get_google_auth_info()
+                self._send_json({"ok": True, "message": "Đăng nhập Google thành công!", "google": info}, 200)
+            except Exception as e:
+                self._send_json({"ok": False, "error": f"Lỗi xác thực code: {e}"}, 500)
+        elif path_clean == "/api/sync_host_google_auth":
+            try:
+                host_token_file = "/home/ryan/.gemini/antigravity-cli/antigravity-oauth-token"
+                token_str = ""
+                if os.path.exists(host_token_file) and os.path.getsize(host_token_file) > 20:
+                    with open(host_token_file, "r", encoding="utf-8") as f:
+                        token_str = f.read()
+                else:
+                    try:
+                        token_str = subprocess.check_output(
+                            ["secret-tool", "lookup", "service", "gemini", "username", "antigravity"],
+                            stderr=subprocess.DEVNULL, timeout=3
+                        ).decode().strip()
+                    except Exception:
+                        pass
+                if token_str:
+                    target_dir = os.path.join(GEMINI_DIR, "antigravity-cli")
+                    os.makedirs(target_dir, exist_ok=True)
+                    target_file = os.path.join(target_dir, "antigravity-oauth-token")
+                    with open(target_file, "w", encoding="utf-8") as f:
+                        f.write(token_str)
+                    _tier_cache = {"email": "", "tier_name": "", "tier_id": "", "expires_at": 0}
+                    probe_all_models_background()
+                    info = get_google_auth_info()
+                    self._send_json({"ok": True, "message": "Đã đồng bộ xác thực Google từ máy chủ!", "google": info}, 200)
+                else:
+                    self._send_json({"ok": False, "error": "Không tìm thấy phiên đăng nhập Google trên máy chủ."}, 404)
+            except Exception as e:
+                self._send_json({"ok": False, "error": str(e)}, 500)
+        elif path_clean == "/api/save_google_token":
+            try:
+                content_length = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(content_length).decode("utf-8")
+                data = json.loads(body)
+                token_raw = data.get("token_json", "").strip()
+                if not token_raw:
+                    self._send_json({"ok": False, "error": "Dữ liệu token không được để trống"}, 400)
+                    return
+                token_obj = json.loads(token_raw) if isinstance(token_raw, str) else token_raw
+                target_dir = os.path.join(GEMINI_DIR, "antigravity-cli")
+                os.makedirs(target_dir, exist_ok=True)
+                target_file = os.path.join(target_dir, "antigravity-oauth-token")
+                with open(target_file, "w", encoding="utf-8") as f:
+                    json.dump(token_obj, f, ensure_ascii=False, indent=2)
+                _tier_cache = {"email": "", "tier_name": "", "tier_id": "", "expires_at": 0}
+                probe_all_models_background()
+                info = get_google_auth_info()
+                self._send_json({"ok": True, "message": "Đã lưu token Google thành công!", "google": info}, 200)
+            except Exception as e:
+                self._send_json({"ok": False, "error": f"JSON không hợp lệ: {e}"}, 400)
+        elif path_clean == "/api/login_google":
+            # API trả về URL OAuth cho client
+            import urllib.parse
+            redirect_uri = f"http://localhost:{PORT}/api/oauth_callback"
+            params = {
+                "client_id": GOOGLE_OAUTH_CLIENT_ID,
+                "redirect_uri": redirect_uri,
+                "response_type": "code",
+                "scope": GOOGLE_OAUTH_SCOPES,
+                "access_type": "offline",
+                "prompt": "consent select_account",
+            }
+            auth_url = "https://accounts.google.com/o/oauth2/v2/auth?" + urllib.parse.urlencode(params)
+            self._send_json({"ok": True, "url": auth_url, "redirect_uri": redirect_uri}, 200)
+        elif path_clean == "/api/login_google_status":
+            info = get_google_auth_info()
+            self._send_json({"done": info.get("authenticated", False), "google": info}, 200)
         else:
             try:
                 self.send_response(404)

@@ -80,6 +80,11 @@ try:
     d = json.load(sys.stdin)
     print('🤖 Mô hình AI:', d.get('active_model'), f'({str(d.get(\"effort\", \"medium\")).upper()})')
     print('📱 Zalo:', 'Đã đăng nhập (UID: ' + str(d.get('zalo', {}).get('user_id', 'N/A')) + ')' if d.get('zalo', {}).get('logged_in') else 'Chưa đăng nhập')
+    g = d.get('google', {})
+    if g.get('authenticated'):
+        print('🔐 Google AGY:', g.get('email', 'Đã xác thực'), f\"[{g.get('tier_name', 'Free Tier')}]\")
+    else:
+        print('🔐 Google AGY: Chưa đăng nhập')
     print('🌐 Web Dashboard:', 'http://localhost:5066')
 except Exception:
     pass
@@ -127,7 +132,7 @@ try:
     print('\n💡 Danh sách mô hình hỗ trợ:')
     for m in d.get('supported_models', []):
         print(f'   • {m[\"name\"]} - {m.get(\"desc\", \"\")}')
-    print('\n👉 Cú pháp đổi: heo-zalo model <flash|pro|sonnet|opus>')
+    print('\n👉 Cú pháp đổi: heo-zalo model <flash|pro|sonnet|opus|oss>')
 except Exception as e:
     print('Máy chủ chưa chạy. Hãy gõ: heo-zalo --bg')
 "
@@ -145,7 +150,20 @@ except Exception as e:
         ;;
     login-google)
         echo "⚡ KHỞI CHẠY XÁC THỰC GOOGLE CHO AGY CLI..."
-        $DOCKER_COMPOSE run --rm -it app agy auth login
+        HOST_TOKEN=""
+        if command -v secret-tool >/dev/null 2>&1; then
+            HOST_TOKEN=$(secret-tool lookup service gemini username antigravity 2>/dev/null || true)
+        fi
+        if [ -n "$HOST_TOKEN" ]; then
+            mkdir -p "$PROJECT_DIR/auth/home/.gemini/antigravity-cli"
+            echo "$HOST_TOKEN" > "$PROJECT_DIR/auth/home/.gemini/antigravity-cli/antigravity-oauth-token"
+            echo "✔ Đã tự động đồng bộ phiên đăng nhập Google từ máy chủ vào Co-Pilot!"
+            curl -s -X POST http://127.0.0.1:5066/api/check_quota >/dev/null 2>&1 || true
+        else
+            echo "🌐 Đang mở Web UI để đăng nhập Google OAuth:"
+            echo "   👉 http://localhost:5066"
+            open_web_ui
+        fi
         ;;
     logout-google)
         echo "🛑 Đang đăng xuất tài khoản Google..."

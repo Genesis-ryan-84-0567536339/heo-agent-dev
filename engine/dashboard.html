@@ -123,15 +123,86 @@
             <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Google AGY CLI</span>
             <span id="googleBadge" class="text-xs px-2 py-0.5 rounded-md font-medium">Đang kiểm tra...</span>
           </div>
-          <div class="mt-2">
-            <div id="googleStatus" class="text-base font-bold text-white truncate">Chưa xác thực</div>
-            <p class="text-xs text-slate-400 mt-0.5">Google OAuth Token</p>
+          <div class="mt-2 space-y-1">
+            <div class="text-sm font-bold text-white truncate flex items-center space-x-1.5">
+              <svg class="w-3.5 h-3.5 text-cyan-400 shrink-0" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>
+              <span id="googleEmailText" class="truncate">Chưa đăng nhập</span>
+            </div>
+            <div class="flex items-center space-x-1.5 text-xs text-slate-400">
+              <span>Gói:</span>
+              <span id="googleTierBadge" class="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 truncate">Đang kiểm tra...</span>
+            </div>
           </div>
         </div>
-        <div class="mt-3">
-          <button onclick="logoutGoogle()" class="w-full text-xs py-1.5 rounded-xl bg-slate-800 hover:bg-red-500/20 hover:text-red-400 text-slate-400 font-medium transition text-center">Đổi tài khoản</button>
+        <div class="mt-3 flex items-center space-x-2">
+          <button id="googleLoginBtn" onclick="openGoogleLoginModal()" class="w-full text-xs py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-medium transition text-center hidden">🔐 Đăng nhập Google</button>
+          <div id="googleActionGroup" class="flex items-center space-x-2 w-full">
+            <button onclick="openGoogleLoginModal()" class="flex-1 text-xs py-1.5 rounded-xl bg-slate-800 hover:bg-cyan-500/20 hover:text-cyan-400 text-slate-300 font-medium transition text-center">Đổi tài khoản</button>
+            <button onclick="logoutGoogle()" class="text-xs px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-red-500/20 hover:text-red-400 text-slate-400 font-medium transition">Đăng xuất</button>
+          </div>
         </div>
       </div>
+
+      <!-- Modal login Google -->
+      <div id="googleLoginModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm hidden p-4">
+        <div class="bg-dark-900 border border-slate-700 rounded-2xl p-6 max-w-lg w-full shadow-2xl space-y-4">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+            <div class="flex items-center space-x-2">
+              <span class="text-lg">🔐</span>
+              <h3 class="text-white font-bold text-base">Xác thực Google AGY CLI</h3>
+            </div>
+            <button onclick="closeGoogleLoginModal()" class="text-slate-400 hover:text-white text-2xl leading-none">&times;</button>
+          </div>
+
+          <!-- Tabs -->
+          <div class="flex space-x-1 bg-dark-850 p-1 rounded-xl border border-slate-800 text-xs">
+            <button id="tabBtnOauth" onclick="switchGoogleTab('oauth')" class="flex-1 py-1.5 rounded-lg font-medium transition bg-cyan-600 text-white">OAuth Trực tiếp</button>
+            <button id="tabBtnHost" onclick="switchGoogleTab('host')" class="flex-1 py-1.5 rounded-lg font-medium transition text-slate-400 hover:text-white">Đồng bộ từ Máy chủ</button>
+            <button id="tabBtnJson" onclick="switchGoogleTab('json')" class="flex-1 py-1.5 rounded-lg font-medium transition text-slate-400 hover:text-white">Dán Token JSON</button>
+          </div>
+
+          <!-- Tab Content 1: OAuth Direct -->
+          <div id="tabContentOauth" class="space-y-3">
+            <p class="text-xs text-slate-300 leading-relaxed">
+              Bấm nút bên dưới để mở trang đăng nhập Google chính thức. Sau khi chọn tài khoản và xác nhận, hệ thống sẽ tự động liên kết với Co-Pilot:
+            </p>
+            <button onclick="startGoogleOAuthFlow()" class="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white font-semibold text-xs shadow-lg flex items-center justify-center space-x-2 transition">
+              <svg class="w-4 h-4" viewBox="0 0 24 24"><path fill="currentColor" d="M21.35 11.1h-9.17v2.98h5.27c-.23 1.25-.94 2.31-2 3.01v2.5h3.24c1.89-1.74 2.98-4.3 2.98-7.39 0-.7-.06-1.37-.18-2.1z"/><path fill="currentColor" d="M12.18 21c2.7 0 4.96-.9 6.62-2.42l-3.24-2.5c-.9.6-2.05.96-3.38.96-2.6 0-4.8-1.76-5.59-4.12H3.24v2.58C4.88 18.74 8.27 21 12.18 21z"/><path fill="currentColor" d="M6.59 12.92c-.2-.6-.32-1.25-.32-1.92s.12-1.32.32-1.92V6.5H3.24C2.58 7.82 2.2 9.35 2.2 11s.38 3.18 1.04 4.5l3.35-2.58z"/><path fill="currentColor" d="M12.18 5.96c1.47 0 2.79.51 3.82 1.5l2.87-2.87C17.13 3.01 14.88 2 12.18 2 8.27 2 4.88 4.26 3.24 7.5l3.35 2.58c.79-2.36 2.99-4.12 5.59-4.12z"/></svg>
+              <span>🚀 Mở trang Đăng nhập Google</span>
+            </button>
+            <div class="pt-2 border-t border-slate-800">
+              <label class="block text-[11px] text-slate-400 mb-1">Nếu trình duyệt không tự chuyển hướng, dán mã Code hoặc URL chuyển hướng vào đây:</label>
+              <div class="flex space-x-2">
+                <input id="oauthCodeInput" type="text" placeholder="Dán mã code (4/...) hoặc URL redirect..." class="flex-1 px-3 py-1.5 text-xs bg-dark-850 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500">
+                <button onclick="submitOAuthCode()" class="px-3 py-1.5 text-xs bg-slate-800 hover:bg-cyan-600 text-white font-medium rounded-xl transition">Xác nhận</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tab Content 2: Host Keyring Sync -->
+          <div id="tabContentHost" class="space-y-3 hidden">
+            <p class="text-xs text-slate-300 leading-relaxed">
+              Nếu máy chủ Linux của bạn đã đăng nhập AGY CLI thành công từ trước, bấm nút dưới đây để đồng bộ ngay lập tức:
+            </p>
+            <button onclick="syncHostGoogleAuth()" class="w-full py-2.5 px-4 rounded-xl bg-dark-850 hover:bg-slate-800 border border-cyan-500/30 hover:border-cyan-500 text-cyan-400 font-semibold text-xs flex items-center justify-center space-x-2 transition">
+              <span>⚡ Đồng bộ từ Máy chủ (Host Keyring / Token)</span>
+            </button>
+          </div>
+
+          <!-- Tab Content 3: Manual JSON -->
+          <div id="tabContentJson" class="space-y-3 hidden">
+            <p class="text-xs text-slate-300 leading-relaxed">
+              Dán nội dung JSON của file <code class="text-cyan-400 bg-slate-800 px-1 py-0.5 rounded">antigravity-oauth-token</code>:
+            </p>
+            <textarea id="jsonTokenInput" rows="5" placeholder='{"token": {"access_token": "ya29...", ...}, "id_token": "..."}' class="w-full px-3 py-2 text-xs bg-dark-850 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 font-mono"></textarea>
+            <button onclick="saveManualToken()" class="w-full py-2 px-4 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-medium text-xs transition">Lưu Token</button>
+          </div>
+
+          <!-- Status / Feedback -->
+          <div id="googleModalFeedback" class="text-xs text-center hidden"></div>
+        </div>
+      </div>
+
 
       <!-- Card Model -->
       <div class="p-4 rounded-2xl bg-dark-900 border border-slate-800 shadow-sm relative overflow-hidden flex flex-col justify-between">
@@ -670,15 +741,38 @@
 
         // Update Google status
         const googleBadge = document.getElementById('googleBadge');
-        const googleStatus = document.getElementById('googleStatus');
+        const googleEmailText = document.getElementById('googleEmailText');
+        const googleTierBadge = document.getElementById('googleTierBadge');
+        const googleLoginBtn = document.getElementById('googleLoginBtn');
+        const googleActionGroup = document.getElementById('googleActionGroup');
+
         if (data.google && data.google.authenticated) {
           googleBadge.className = 'text-xs px-2 py-0.5 rounded-md font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
           googleBadge.textContent = 'Đã xác thực';
-          googleStatus.textContent = 'Sẵn sàng 100%';
+          if (googleEmailText) {
+            googleEmailText.textContent = data.google.email || 'Google Account';
+            googleEmailText.title = data.google.email || '';
+          }
+          if (googleTierBadge) {
+            googleTierBadge.textContent = data.google.tier_name || 'Miễn phí (Free Tier)';
+            if (data.google.tier_id && data.google.tier_id.includes('pro')) {
+              googleTierBadge.className = 'px-2 py-0.5 rounded-md text-[11px] font-semibold bg-purple-500/15 text-purple-300 border border-purple-500/30 truncate';
+            } else {
+              googleTierBadge.className = 'px-2 py-0.5 rounded-md text-[11px] font-semibold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 truncate';
+            }
+          }
+          if (googleLoginBtn) googleLoginBtn.classList.add('hidden');
+          if (googleActionGroup) googleActionGroup.classList.remove('hidden');
         } else {
-          googleBadge.className = 'text-xs px-2 py-0.5 rounded-md font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20';
+          googleBadge.className = 'text-xs px-2 py-0.5 rounded-md font-medium bg-red-500/10 text-red-400 border border-red-500/20';
           googleBadge.textContent = 'Chưa xác thực';
-          googleStatus.textContent = 'Cần đăng nhập';
+          if (googleEmailText) googleEmailText.textContent = 'Chưa đăng nhập';
+          if (googleTierBadge) {
+            googleTierBadge.textContent = 'Cần kết nối Google';
+            googleTierBadge.className = 'px-2 py-0.5 rounded-md text-[11px] font-semibold bg-slate-800 text-slate-400 border border-slate-700 truncate';
+          }
+          if (googleLoginBtn) googleLoginBtn.classList.remove('hidden');
+          if (googleActionGroup) googleActionGroup.classList.add('hidden');
         }
 
         // Update Model & Effort
@@ -813,14 +907,170 @@
     }
 
     async function logoutGoogle() {
-      if (!confirm('Sếp có muốn đăng xuất tài khoản Google hiện tại của AGY CLI để đăng nhập tài khoản khác không?')) return;
+      if (!confirm('Sếp có muốn đăng xuất tài khoản Google hiện tại của AGY CLI không?')) return;
       try {
         const res = await fetch('/api/logout_google', { method: 'POST' });
         const data = await res.json();
-        showToast(data.message || 'Đã đăng xuất Google. Sếp gõ heo-zalo login-google trong Terminal để đăng nhập lại.');
+        showToast('Đã đăng xuất Google. Bấm nút "Đăng nhập Google" để kết nối lại.');
         refreshData();
       } catch (e) {
         showToast('Lỗi đăng xuất Google', true);
+      }
+    }
+
+    function openGoogleLoginModal() {
+      document.getElementById('googleLoginModal').classList.remove('hidden');
+      switchGoogleTab('oauth');
+      setGoogleModalFeedback('');
+    }
+
+    function closeGoogleLoginModal() {
+      document.getElementById('googleLoginModal').classList.add('hidden');
+      setGoogleModalFeedback('');
+    }
+
+    function switchGoogleTab(tab) {
+      const tabs = ['oauth', 'host', 'json'];
+      tabs.forEach(t => {
+        const btn = document.getElementById('tabBtn' + t.charAt(0).toUpperCase() + t.slice(1));
+        const content = document.getElementById('tabContent' + t.charAt(0).toUpperCase() + t.slice(1));
+        if (t === tab) {
+          if (btn) btn.className = 'flex-1 py-1.5 rounded-lg font-medium transition bg-cyan-600 text-white';
+          if (content) content.classList.remove('hidden');
+        } else {
+          if (btn) btn.className = 'flex-1 py-1.5 rounded-lg font-medium transition text-slate-400 hover:text-white';
+          if (content) content.classList.add('hidden');
+        }
+      });
+      setGoogleModalFeedback('');
+    }
+
+    function setGoogleModalFeedback(msg, isError = false) {
+      const fb = document.getElementById('googleModalFeedback');
+      if (!fb) return;
+      if (!msg) {
+        fb.classList.add('hidden');
+        fb.textContent = '';
+      } else {
+        fb.classList.remove('hidden');
+        fb.className = 'text-xs text-center p-2 rounded-xl ' + (isError ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20');
+        fb.textContent = msg;
+      }
+    }
+
+    async function startGoogleOAuthFlow() {
+      try {
+        setGoogleModalFeedback('Đang lấy liên kết đăng nhập Google OAuth...');
+        const res = await fetch('/api/oauth_login_url');
+        const data = await res.json();
+        if (data.ok && data.auth_url) {
+          window.open(data.auth_url, '_blank');
+          setGoogleModalFeedback('Đã mở trang đăng nhập Google trong tab mới! Hãy chọn tài khoản và cấp quyền, hệ thống sẽ tự động cập nhật.');
+          // Bắt đầu poll trạng thái đăng nhập
+          let pollCount = 0;
+          const pollTimer = setInterval(async () => {
+            pollCount++;
+            try {
+              const r = await fetch('/api/status');
+              const d = await r.json();
+              if (d.google && d.google.authenticated) {
+                clearInterval(pollTimer);
+                setGoogleModalFeedback('🎉 Đăng nhập Google thành công!');
+                showToast('Đăng nhập Google thành công: ' + (d.google.email || ''));
+                setTimeout(() => {
+                  closeGoogleLoginModal();
+                  refreshData();
+                }, 1200);
+              } else if (pollCount > 60) {
+                clearInterval(pollTimer);
+              }
+            } catch (e) {}
+          }, 2000);
+        } else {
+          setGoogleModalFeedback(data.error || 'Lỗi lấy liên kết OAuth', true);
+        }
+      } catch (e) {
+        setGoogleModalFeedback('Lỗi kết nối: ' + e.message, true);
+      }
+    }
+
+    async function submitOAuthCode() {
+      const input = document.getElementById('oauthCodeInput');
+      const code = (input ? input.value : '').trim();
+      if (!code) {
+        setGoogleModalFeedback('Vui lòng dán mã code hoặc URL chuyển hướng.', true);
+        return;
+      }
+      try {
+        setGoogleModalFeedback('Đang xác thực mã với Google API...');
+        const res = await fetch('/api/submit_oauth_code', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code: code })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          setGoogleModalFeedback('🎉 Đăng nhập Google thành công!');
+          showToast('Đăng nhập Google thành công: ' + (data.google ? data.google.email : ''));
+          setTimeout(() => {
+            closeGoogleLoginModal();
+            refreshData();
+          }, 1200);
+        } else {
+          setGoogleModalFeedback('❌ ' + (data.error || 'Xác thực thất bại'), true);
+        }
+      } catch (e) {
+        setGoogleModalFeedback('Lỗi: ' + e.message, true);
+      }
+    }
+
+    async function syncHostGoogleAuth() {
+      try {
+        setGoogleModalFeedback('Đang kiểm tra phiên đăng nhập trên máy chủ...');
+        const res = await fetch('/api/sync_host_google_auth', { method: 'POST' });
+        const data = await res.json();
+        if (data.ok) {
+          setGoogleModalFeedback('🎉 Đã đồng bộ tài khoản Google từ máy chủ!');
+          showToast('Đồng bộ Google thành công: ' + (data.google ? data.google.email : ''));
+          setTimeout(() => {
+            closeGoogleLoginModal();
+            refreshData();
+          }, 1200);
+        } else {
+          setGoogleModalFeedback('❌ ' + (data.error || 'Không tìm thấy phiên đăng nhập trên máy chủ'), true);
+        }
+      } catch (e) {
+        setGoogleModalFeedback('Lỗi kết nối: ' + e.message, true);
+      }
+    }
+
+    async function saveManualToken() {
+      const input = document.getElementById('jsonTokenInput');
+      const raw = (input ? input.value : '').trim();
+      if (!raw) {
+        setGoogleModalFeedback('Vui lòng dán nội dung JSON token.', true);
+        return;
+      }
+      try {
+        setGoogleModalFeedback('Đang lưu và xác thực token...');
+        const res = await fetch('/api/save_google_token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token_json: raw })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          setGoogleModalFeedback('🎉 Đã lưu token thành công!');
+          showToast('Đã lưu token Google: ' + (data.google ? data.google.email : ''));
+          setTimeout(() => {
+            closeGoogleLoginModal();
+            refreshData();
+          }, 1200);
+        } else {
+          setGoogleModalFeedback('❌ ' + (data.error || 'Lưu token thất bại'), true);
+        }
+      } catch (e) {
+        setGoogleModalFeedback('Lỗi: ' + e.message, true);
       }
     }
 
@@ -881,6 +1131,13 @@
         cachedLogs = await res.json();
         renderLogs();
       } catch (e) {}
+    }
+
+    // Check URL query parameters for auth redirect
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('login_success') === 'google' || urlParams.get('auth_success') === '1') {
+      showToast('🎉 Đăng nhập Google thành công!');
+      window.history.replaceState({}, document.title, window.location.pathname);
     }
 
     // Initial load & loops
