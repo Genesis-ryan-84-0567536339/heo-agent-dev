@@ -208,6 +208,16 @@ DEFAULT_QUOTA_STATS = {
 }
 
 state_lock = threading.Lock()
+_last_quota_check_time = 0.0   # timestamp lần cuối check quota sau response
+QUOTA_AUTO_CHECK_COOLDOWN = 180  # 3 phút giữa các lần auto-check
+
+def maybe_refresh_quota_after_response():
+    """Trigger cập nhật quota thực sau khi Heo trả lời, nhưng tối đa 1 lần / 3 phút."""
+    global _last_quota_check_time
+    now = time.time()
+    if now - _last_quota_check_time >= QUOTA_AUTO_CHECK_COOLDOWN:
+        _last_quota_check_time = now
+        probe_all_models_background()
 
 def load_model_state():
     with state_lock:
@@ -1222,6 +1232,9 @@ def run_agy(prompt, sender_name=BOSS_NAME, is_group=False, is_boss=False, sender
 
     duration_val = round(time.time() - start_time, 2)
     record_model_usage(model_to_use, duration_val, success=True, is_quota_err=False)
+
+    # Tự động cập nhật quota thực sau khi Heo trả lời (cooldown 3 phút)
+    maybe_refresh_quota_after_response()
 
     return {
         "ok": True,
