@@ -351,8 +351,48 @@ def _refresh_oauth_token(refresh_token, token_file, existing_data):
                 return new_access
         except Exception:
             continue
-    log_event("⚠️ [Quota] Không thể refresh OAuth token")
-    return ""
+    # Fallback: dùng agy binary để refresh token
+    log_event("⚠️ [Quota] OAuth refresh thất bại, thử refresh qua agy...")
+    return _refresh_token_via_agy()
+
+def _refresh_token_via_agy():
+    """Chạy agy với prompt rỗng để force refresh OAuth token."""
+    try:
+        env = os.environ.copy()
+        env["XDG_DATA_HOME"] = XDG_DATA_HOME
+        cmd = [
+            AGY_BIN, "-p", "1",
+            "--dangerously-skip-permissions",
+            f"--gemini_dir={GEMINI_DIR}",
+            "--model=Gemini 3.8 Flash (Medium)",
+            "--print-timeout=15s"
+        ]
+        subprocess.run(cmd, cwd=WORKSPACE_DIR, env=env,
+                       capture_output=True, text=True, timeout=20)
+        # Đọc lại token sau khi agy đã refresh
+        token_file = os.path.join(GEMINI_DIR, "antigravity-cli", "antigravity-oauth-token")
+        with open(token_file) as f:
+            d = json.load(f)
+        token = d.get("token", {})
+        log_event("✅ [Quota] Token đã refresh qua agy binary.")
+        return token.get("access_token", "")
+    except Exception as e:
+        log_event(f"⚠️ [Quota] Refresh via agy thất bại: {e}")
+        return ""
+
+def _token_refresh_loop():
+    """Background thread: tự động refresh token mỗi 45 phút."""
+    TOKEN_REFRESH_INTERVAL = 45 * 60  # 45 phút
+    log_event("🔑 [Token] Bắt đầu vòng lặp auto-refresh token (mỗi 45 phút).")
+    while True:
+        time.sleep(TOKEN_REFRESH_INTERVAL)
+        log_event("🔑 [Token] Đến giờ refresh token định kỳ...")
+        _refresh_token_via_agy()
+
+def start_token_refresh_loop():
+    """Khởi động background thread tự refresh OAuth token."""
+    t = threading.Thread(target=_token_refresh_loop, daemon=True)
+    t.start()
 
 # Mapping model_id (API response) -> quota_stats key
 _MODEL_ID_TO_STAT_KEY = {
@@ -1469,11 +1509,15 @@ if __name__ == "__main__":
     recovery_thread = threading.Thread(target=auto_recovery_daemon, daemon=True)
     recovery_thread.start()
 
+    # Start background token auto-refresh (mỗi 45 phút)
+    start_token_refresh_loop()
+
     server = QuietHTTPServer(("0.0.0.0", PORT), RequestHandler)
     print(f"🚀 AGY Zalo Co-Pilot Engine Server running on http://0.0.0.0:{PORT}")
     print(f"🔹 Primary Model: {PRIMARY_MODEL}")
     print(f"🔹 Fallback Model: {FALLBACK_MODEL}")
     print(f"🔹 Auto-Recovery Daemon: Active (Cooldown: {DEFAULT_COOLDOWN_SECONDS}s)")
+    print(f"🔹 Token Auto-Refresh: Active (mỗi 45 phút)")
     try:
         server.serve_forever()
     except KeyboardInterrupt:
