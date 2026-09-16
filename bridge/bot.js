@@ -828,24 +828,21 @@ async function startBridge() {
         }, 4000);
 
         let isDone = false;
-        const progressTimer = setTimeout(async () => {
-          if (!isDone) {
-            try {
-              const interimMsg = getRandomInterimMessage(false, true, BOSS_NAME, userPrompt);
-              await sendSafeMessage(api, { msg: interimMsg, quote: msg.data }, threadId, ThreadType.User);
-              log(`[1-1 ${BOSS_NAME}] Đã chủ động nhắn báo đang xử lý: "${interimMsg.substring(0, 45)}..."`);
-            } catch (e) {}
-          }
-        }, 22000);
+        // 1. Phản hồi xác nhận tức thì: "dạ ukie, chờ em xíu... "
+        try {
+          await sendSafeMessage(api, { msg: "dạ ukie, chờ em xíu... ", quote: msg.data }, threadId, ThreadType.User);
+          log(`[1-1 ${BOSS_NAME}] Đã gửi xác nhận: "dạ ukie, chờ em xíu... "`);
+        } catch (e) {}
 
-        const secondTimer = setTimeout(async () => {
+        // 2. 5s sau nếu chưa có kết quả thì nhắn "Em nghĩ kỹ chút.."
+        const thinkTimer = setTimeout(async () => {
           if (!isDone) {
             try {
-              const secondMsg = getRandomSecondInterimMessage(false, true);
-              await sendSafeMessage(api, { msg: secondMsg, quote: msg.data }, threadId, ThreadType.User);
+              await sendSafeMessage(api, { msg: "Em nghĩ kỹ chút..", quote: msg.data }, threadId, ThreadType.User);
+              log(`[1-1 ${BOSS_NAME}] Đã chủ động nhắn: "Em nghĩ kỹ chút.."`);
             } catch (e) {}
           }
-        }, 75000);
+        }, 5000);
 
         try {
           const resp = await axios.post(`${AGY_ENGINE_URL}/api/chat`, {
@@ -896,8 +893,7 @@ async function startBridge() {
           }, threadId, ThreadType.User).catch(() => {});
         } finally {
           isDone = true;
-          clearTimeout(progressTimer);
-          clearTimeout(secondTimer);
+          clearTimeout(thinkTimer);
           clearInterval(typingInterval);
         }
         return;
@@ -964,24 +960,21 @@ async function startBridge() {
         }, 4000);
 
         let isDone = false;
-        const progressTimer = setTimeout(async () => {
-          if (!isDone) {
-            try {
-              const interimMsg = getRandomInterimMessage(true, isBoss, senderName, cleanPrompt || rawContent);
-              await sendSafeMessage(api, { msg: interimMsg, quote: msg.data }, threadId, ThreadType.Group);
-              log(`[Group ${groupDetails.name}] Đã chủ động nhắn báo đang xử lý: "${interimMsg.substring(0, 45)}..."`);
-            } catch (e) {}
-          }
-        }, 22000);
+        // 1. Phản hồi xác nhận tức thì trong nhóm: "dạ ukie, chờ em xíu... "
+        try {
+          await sendSafeMessage(api, { msg: "dạ ukie, chờ em xíu... ", quote: msg.data }, threadId, ThreadType.Group);
+          log(`[Group ${groupDetails.name}] Đã gửi xác nhận: "dạ ukie, chờ em xíu... "`);
+        } catch (e) {}
 
-        const secondTimer = setTimeout(async () => {
+        // 2. 5s sau nếu chưa có kết quả thì nhắn "Em nghĩ kỹ chút.."
+        const thinkTimer = setTimeout(async () => {
           if (!isDone) {
             try {
-              const secondMsg = getRandomSecondInterimMessage(true, isBoss);
-              await sendSafeMessage(api, { msg: secondMsg, quote: msg.data }, threadId, ThreadType.Group);
+              await sendSafeMessage(api, { msg: "Em nghĩ kỹ chút..", quote: msg.data }, threadId, ThreadType.Group);
+              log(`[Group ${groupDetails.name}] Đã chủ động nhắn: "Em nghĩ kỹ chút.."`);
             } catch (e) {}
           }
-        }, 75000);
+        }, 5000);
 
         try {
           const resp = await axios.post(`${AGY_ENGINE_URL}/api/chat`, {
@@ -1031,8 +1024,7 @@ async function startBridge() {
           // Trong group nếu lỗi nội bộ thì im lặng không spam lỗi kỹ thuật ra nhóm
         } finally {
           isDone = true;
-          clearTimeout(progressTimer);
-          clearTimeout(secondTimer);
+          clearTimeout(thinkTimer);
           clearInterval(typingInterval);
         }
       }
