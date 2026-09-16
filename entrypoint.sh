@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 set -e
 
-# Đảm bảo các thư mục dữ liệu tồn tại
-mkdir -p /app/data /app/workspace /app/logs /app/auth/gemini_profile /app/auth/xdg-data /app/bin
+# Đảm bảo các thư mục dữ liệu và profile người dùng tồn tại
+mkdir -p /app/data /app/workspace /app/logs /app/auth/gemini_profile /app/auth/xdg-data /app/auth/home /app/bin
+export HOME="${HOME:-/app/auth/home}"
 
 # Kiểm tra và giải nén AGY CLI binary nếu có file lưu trữ nén
 if [ ! -f /app/bin/agy ] && [ -f /app/bin/agy.tar.gz ]; then

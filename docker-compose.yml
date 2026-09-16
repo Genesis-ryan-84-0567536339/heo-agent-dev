@@ -17,6 +17,7 @@ services:
       - ./config:/app/config:Z
       - ./bin:/app/bin:Z
     environment:
+      - HOME=/app/auth/home
       - BASE_DIR=/app
       - WORKSPACE_DIR=/app/workspace
       - DATA_DIR=/app/data

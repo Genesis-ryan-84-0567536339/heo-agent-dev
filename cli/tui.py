@@ -31,6 +31,13 @@ except ImportError:
 
 console = Console()
 
+def flush_stdin():
+    try:
+        import termios
+        termios.tcflush(sys.stdin, termios.TCIFLUSH)
+    except Exception:
+        pass
+
 BASE_DIR = os.environ.get("BASE_DIR", str(Path(__file__).parent.parent.resolve()))
 CONFIG_FILE = os.path.join(BASE_DIR, "config", "config.json")
 CONFIG_EXAMPLE = os.path.join(BASE_DIR, "config", "config.example.json")
@@ -104,7 +111,7 @@ def check_or_extract_agy():
     return agy_bin
 
 def render_banner():
-    banner = """
+    banner = r"""
 [bold cyan]  _____       _             _    ______   __ [/bold cyan]
 [bold cyan] |__  / __ _| | ___       / \  / ___\ \ / / [/bold cyan]
 [bold cyan]   / / / _` | |/ _ \ ___ / _ \| |  _ \ V /  [/bold cyan]
@@ -115,26 +122,21 @@ def render_banner():
     console.print(banner)
 
 def step_agy_auth(agy_bin, config):
-    token_file = os.path.join(GEMINI_DIR, "antigravity-cli", "antigravity-oauth-token")
-    host_token = os.path.expanduser("~/.gemini/antigravity-cli/antigravity-oauth-token")
-
     # Đảm bảo đồng bộ cấu hình từ host nếu có
     host_cli_dir = os.path.expanduser("~/.gemini/antigravity-cli")
     target_cli_dir = os.path.join(GEMINI_DIR, "antigravity-cli")
     if os.path.exists(host_cli_dir) and not os.path.exists(target_cli_dir):
         os.makedirs(target_cli_dir, exist_ok=True)
-        for fname in ["settings.json", "installation_id", "antigravity-oauth-token"]:
+        for fname in ["settings.json", "installation_id"]:
             src_f = os.path.join(host_cli_dir, fname)
             if os.path.exists(src_f):
                 shutil.copy(src_f, os.path.join(target_cli_dir, fname))
 
-    # Kiểm tra thử khả năng phản hồi trực tiếp của agy CLI
     env = os.environ.copy()
     env["XDG_DATA_HOME"] = XDG_DATA_HOME
     test_cmd = [
         agy_bin,
         "--dangerously-skip-permissions",
-        f"--gemini_dir={GEMINI_DIR}",
         "-p", "ping"
     ]
     try:
@@ -147,37 +149,49 @@ def step_agy_auth(agy_bin, config):
     except Exception:
         pass
 
-    console.print(Panel(
-        "[bold yellow]⚡ Yêu cầu xác thực tài khoản Google cho AGY CLI[/bold yellow]\n\n"
-        "Hệ thống sẽ khởi chạy quy trình đăng nhập Google OAuth của Antigravity ngay trong Terminal này.\n"
-        "Bạn chỉ cần mở link hiển thị trên màn hình bằng trình duyệt để xác thực một lần duy nhất.",
-        title="Bước 1: Google AGY Auth", border_style="yellow"
-    ))
+    while True:
+        console.print(Panel(
+            "[bold yellow]⚡ Yêu cầu xác thực tài khoản Google cho AGY CLI[/bold yellow]\n\n"
+            "Quy trình xác thực Google OAuth cực kỳ đơn giản qua 4 bước:\n"
+            "  1. Sau câu hỏi bên dưới, hệ thống sẽ in ra một đường link [bold cyan]Google Login[/bold cyan].\n"
+            "  2. Mở link trên trình duyệt Web (Chrome, Edge, Firefox...), đăng nhập và nhấn [bold green]Cho phép (Allow)[/bold green].\n"
+            "  3. Trình duyệt sẽ hiển thị mã [bold cyan]Authorization Code[/bold cyan] (dạng 4/0A...).\n"
+            "  4. Sao chép mã đó, dán vào Terminal này tại dòng [bold yellow]'Or, paste the authorization code here'[/bold yellow] rồi ấn Enter.",
+            title="Bước 1: Google AGY Auth", border_style="yellow"
+        ))
 
-    if not Confirm.ask("Bạn đã sẵn sàng đăng nhập Google AGY chưa?", default=True):
-        console.print("[red]Đã hủy xác thực Google AGY. Hệ thống chưa thể hoạt động.[/red]")
-        return False
-
-    cmd = [
-        agy_bin,
-        "--dangerously-skip-permissions",
-        f"--gemini_dir={GEMINI_DIR}",
-        "-p", "Chào bạn, hãy kiểm tra kết nối."
-    ]
-
-    try:
-        proc = subprocess.run(cmd, env=env)
-        # Kiểm tra lại sau khi đăng nhập
-        verify = subprocess.run(test_cmd, env=env, capture_output=True, text=True, timeout=10)
-        if verify.returncode == 0:
-            console.print("[bold green]✔ Đăng nhập Google AGY thành công![/bold green]")
-            return True
-        else:
-            console.print("[bold red]❌ Chưa hoàn tất đăng nhập Google AGY.[/bold red]")
+        flush_stdin()
+        if not Confirm.ask("Bạn đã sẵn sàng đăng nhập Google AGY chưa?", default=True):
+            console.print("[yellow]Đã tạm hoãn xác thực Google AGY.[/yellow]")
             return False
-    except Exception as e:
-        console.print(f"[bold red]Lỗi khi chạy agy: {e}[/bold red]")
-        return False
+
+        flush_stdin()
+        time.sleep(0.3)
+
+        cmd = [
+            agy_bin,
+            "--dangerously-skip-permissions",
+            "-p", "Chào bạn, hãy kiểm tra kết nối."
+        ]
+
+        try:
+            subprocess.run(cmd, env=env)
+            # Kiểm tra lại sau khi đăng nhập
+            verify = subprocess.run(test_cmd, env=env, capture_output=True, text=True, timeout=12)
+            if verify.returncode == 0:
+                console.print("[bold green]✔ Đăng nhập Google AGY thành công![/bold green]")
+                return True
+            else:
+                console.print("[bold red]❌ Chưa hoàn tất đăng nhập Google AGY.[/bold red]")
+                flush_stdin()
+                if not Confirm.ask("👉 Bạn có muốn thử đăng nhập lại ngay không?", default=True):
+                    return False
+        except Exception as e:
+            console.print(f"[bold red]Lỗi khi chạy agy: {e}[/bold red]")
+            flush_stdin()
+            if not Confirm.ask("👉 Bạn có muốn thử lại không?", default=True):
+                return False
+
 
 
 def step_zalo_login():

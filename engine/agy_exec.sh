@@ -21,7 +21,8 @@ if [[ ! -x "$AGY_BIN" ]]; then
 fi
 
 export XDG_DATA_HOME
-mkdir -p "$WORKSPACE_DIR" "$LOG_FILE" "$(dirname "$LOG_FILE")" "$GEMINI_DIR" "$XDG_DATA_HOME"
+export HOME="${HOME:-$BASE_DIR/auth/home}"
+mkdir -p "$WORKSPACE_DIR" "$LOG_FILE" "$(dirname "$LOG_FILE")" "$GEMINI_DIR" "$XDG_DATA_HOME" "$HOME"
 cd "$WORKSPACE_DIR"
 
 exec "$AGY_BIN" --dangerously-skip-permissions \
