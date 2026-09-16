@@ -16,6 +16,10 @@ services:
       - ./auth:/app/auth:Z
       - ./config:/app/config:Z
       - ./bin:/app/bin:Z
+      - ./cli:/app/cli:Z
+      - ./engine:/app/engine:Z
+      - ./scripts:/app/scripts:Z
+      - ./entrypoint.sh:/app/entrypoint.sh:Z
     environment:
       - HOME=/app/auth/home
       - BASE_DIR=/app
