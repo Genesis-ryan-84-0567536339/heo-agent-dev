@@ -185,8 +185,15 @@ def step_agy_auth(agy_bin, config):
             auth_url = None
             url_pattern = re.compile(r"https://accounts\.google\.com/o/oauth2/[^\s]+")
 
-            # Đọc stderr để bắt link OAuth
-            for line in p.stderr:
+            # Đọc stderr để bắt link OAuth ngay lập tức không bị đệm
+            start_t = time.time()
+            while time.time() - start_t < 20:
+                line = p.stderr.readline()
+                if not line:
+                    if p.poll() is not None:
+                        break
+                    time.sleep(0.05)
+                    continue
                 match = url_pattern.search(line)
                 if match:
                     auth_url = match.group(0)
