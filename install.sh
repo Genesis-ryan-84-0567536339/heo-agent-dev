@@ -28,7 +28,7 @@ trap 'restore_cursor' EXIT INT TERM
 # Vẽ thanh tiến độ % dạng thanh ngang [██████░░░░]
 render_progress_bar() {
     local pct=$1
-    local width=22
+    local width=16
     local filled=$((pct * width / 100))
     local empty=$((width - filled))
     local bar=""
@@ -42,38 +42,38 @@ get_step_hint() {
     local recent_lines
     recent_lines=$(tail -n 6 "$INSTALL_LOG" 2>/dev/null || true)
     if echo "$recent_lines" | grep -qi "exporting\|naming to\|writing image"; then
-        echo "Đang hoàn tất đóng gói Docker image..."
+        echo "Hoàn tất đóng gói image..."
     elif echo "$recent_lines" | grep -qi "pip\|installing collected packages\|wheel\|whl"; then
-        echo "Đang cài đặt thư viện Python AI Engine & TUI..."
+        echo "Cài thư viện Python AI..."
     elif echo "$recent_lines" | grep -qi "npm install\|npm ERR\|node_modules"; then
-        echo "Đang cài đặt thư viện Node.js cho Zalo Bridge..."
+        echo "Cài thư viện Node.js Zalo..."
     elif echo "$recent_lines" | grep -qi "COPY"; then
-        echo "Đang sao chép mã nguồn & tài nguyên..."
+        echo "Sao chép mã nguồn..."
     elif echo "$recent_lines" | grep -qi "apt-get\|unpacking\|setting up\|deb\|dpkg"; then
-        echo "Đang cài đặt Python 3, FFmpeg, SoX & Codecs..."
+        echo "Cài gói hệ thống & codec..."
     elif echo "$recent_lines" | grep -qi "curl\|downloading\|fetching"; then
-        echo "Đang tải dữ liệu cài đặt từ mạng..."
+        echo "Tải dữ liệu từ mạng..."
     elif echo "$recent_lines" | grep -qi "git clone\|cloning"; then
-        echo "Đang tải mã nguồn Heo-Agent từ GitHub..."
+        echo "Tải mã nguồn GitHub..."
     elif echo "$recent_lines" | grep -qi "tar -xzf\|extracting"; then
-        echo "Đang giải nén bộ cài Core Agent Google AGY..."
+        echo "Giải nén Core Agent AGY..."
     else
-        echo "Đang xử lý các tác vụ nền..."
+        echo "Đang xử lý tác vụ nền..."
     fi
 }
 
-# Thực thi một tác vụ trong nền với Spinner xoay động và thanh tiến độ %
+# Thực thi một tác vụ trong nền với Spinner xoay động và thanh tiến độ % trên 1 DÒNG DUY NHẤT
 run_step_with_progress() {
-    local step_title="$1"
-    local start_pct="$2"
-    local end_pct="$3"
-    shift 3
+    local step_idx="$1"
+    local step_title="$2"
+    local start_pct="$3"
+    local end_pct="$4"
+    shift 4
     local cmd="$*"
+    local total_steps=5
 
     local spin_chars=('⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏')
     local spin_idx=0
-    local start_time
-    start_time=$(date +%s)
     local is_tty=0
     [ -t 1 ] && is_tty=1
 
@@ -86,18 +86,31 @@ run_step_with_progress() {
     local pid=$!
 
     local current_pct=$start_pct
+    local tick=0
+
     while kill -0 "$pid" 2>/dev/null; do
         local now
         now=$(date +%s)
-        local elapsed=$((now - start_time))
+        local elapsed=$((now - TOTAL_INSTALL_START_TIME))
         local m=$((elapsed / 60))
         local s=$((elapsed % 60))
         local time_str
         printf -v time_str "%02d:%02d" "$m" "$s"
 
-        # Tăng dần % mượt mà theo thời gian
+        tick=$((tick + 1))
+
+        # Tăng dần % mượt mà theo thời gian thực
         if [ "$current_pct" -lt "$((end_pct - 1))" ]; then
-            current_pct=$((current_pct + 1))
+            if [ "$step_idx" -eq 4 ]; then
+                # Bước 4 build container kéo dài, tăng mỗi 3 nhịp (0.45s) để tiến độ đồng đều
+                if [ $((tick % 3)) -eq 0 ]; then
+                    current_pct=$((current_pct + 1))
+                fi
+            else
+                if [ $((tick % 2)) -eq 0 ]; then
+                    current_pct=$((current_pct + 1))
+                fi
+            fi
         fi
 
         local bar
@@ -105,12 +118,27 @@ run_step_with_progress() {
         local spin="${spin_chars[$spin_idx]}"
         spin_idx=$(((spin_idx + 1) % 10))
 
-        local hint
-        hint=$(get_step_hint)
-
         if [ "$is_tty" -eq 1 ]; then
-            printf "\r\033[K${CYAN}${spin} ${BOLD}%-38s${NC} [${GREEN}%s${NC}] ${BOLD}%3d%%${NC} ${DIM}(%s)${NC} ${DIM}↳ %s${NC}" \
-                "$step_title" "$bar" "$current_pct" "$time_str" "$hint"
+            local cols
+            cols=$(tput cols 2>/dev/null || echo 80)
+            [ -z "$cols" ] && cols=80
+            [ "$cols" -lt 60 ] && cols=60
+
+            local title_padded="$step_title"
+            while [ "${#title_padded}" -lt 18 ]; do title_padded="${title_padded} "; done
+            title_padded="${title_padded:0:18}"
+
+            local base_len=58
+            local max_hint=$((cols - base_len - 5))
+            local hint_str=""
+            if [ "$max_hint" -ge 12 ]; then
+                local hint
+                hint=$(get_step_hint)
+                hint_str=" \033[2m↳ ${hint:0:$max_hint}\033[0m"
+            fi
+
+            printf "\r\033[K${CYAN}%s${NC} ${DIM}[%d/%d]${NC} ${BOLD}%s${NC} [${GREEN}%s${NC}] ${BOLD}%3d%%${NC} ${DIM}(%s)${NC}%b" \
+                "$spin" "$step_idx" "$total_steps" "$title_padded" "$bar" "$current_pct" "$time_str" "$hint_str"
         fi
 
         sleep 0.15
@@ -118,24 +146,44 @@ run_step_with_progress() {
 
     wait "$pid"
     local exit_code=$?
-    local end_time
-    end_time=$(date +%s)
-    local total_elapsed=$((end_time - start_time))
+    local now
+    now=$(date +%s)
+    local total_elapsed=$((now - TOTAL_INSTALL_START_TIME))
     local tm=$((total_elapsed / 60))
     local ts=$((total_elapsed % 60))
+    local time_str
+    printf -v time_str "%02d:%02d" "$tm" "$ts"
     local bar_done
     bar_done=$(render_progress_bar "$end_pct")
 
-    if [ "$is_tty" -eq 1 ]; then
-        printf "\r\033[K"
-    fi
-
     if [ "$exit_code" -eq 0 ]; then
-        printf "${GREEN}✔ ${BOLD}%-38s${NC} [${GREEN}%s${NC}] ${BOLD}%3d%%${NC} ${DIM}(%dm %02ds)${NC}\n" \
-            "$step_title" "$bar_done" "$end_pct" "$tm" "$ts"
+        if [ "$step_idx" -eq "$total_steps" ]; then
+            if [ "$is_tty" -eq 1 ]; then
+                printf "\r\033[K${GREEN}✔ ${BOLD}[%d/%d] Hoàn tất cài đặt   ${NC} [${GREEN}%s${NC}] ${BOLD}%3d%%${NC} ${DIM}(%s)${NC} ${BOLD}${GREEN}Thành công!${NC}\n" \
+                    "$step_idx" "$total_steps" "$bar_done" "$end_pct" "$time_str"
+                printf "\033[?25h" # Hiện lại con trỏ terminal
+            else
+                echo "✔ [${step_idx}/${total_steps}] Hoàn tất cài đặt (${end_pct}%) - Thành công!"
+            fi
+        else
+            if [ "$is_tty" -eq 1 ]; then
+                local title_padded="$step_title"
+                while [ "${#title_padded}" -lt 18 ]; do title_padded="${title_padded} "; done
+                title_padded="${title_padded:0:18}"
+                printf "\r\033[K${GREEN}✔${NC} ${DIM}[%d/%d]${NC} ${BOLD}%s${NC} [${GREEN}%s${NC}] ${BOLD}%3d%%${NC} ${DIM}(%s)${NC}" \
+                    "$step_idx" "$total_steps" "$title_padded" "$bar_done" "$end_pct" "$time_str"
+            else
+                echo "✔ [${step_idx}/${total_steps}] ${step_title} (${end_pct}%) - Xong"
+            fi
+        fi
         return 0
     else
-        printf "${RED}✖ ${BOLD}%-38s (THẤT BẠI)${NC} ${DIM}(Mã lỗi: %d)${NC}\n" "$step_title" "$exit_code"
+        restore_cursor
+        if [ "$is_tty" -eq 1 ]; then
+            printf "\n${RED}✖ [LỖI TẠI BƯỚC %d/%d] %s (Mã lỗi: %d)${NC}\n" "$step_idx" "$total_steps" "$step_title" "$exit_code"
+        else
+            echo "✖ [LỖI TẠI BƯỚC ${step_idx}/${total_steps}] ${step_title} (Mã lỗi: ${exit_code})"
+        fi
         echo -e "\n${RED}========================== 25 DÒNG LOG LỖI GẦN NHẤT ==========================${NC}"
         tail -n 25 "$INSTALL_LOG" 2>/dev/null || true
         echo -e "${RED}==============================================================================${NC}"
@@ -162,19 +210,28 @@ echo -e " 📄 Nhật ký cài đặt chi tiết: ${CYAN}${INSTALL_LOG}${NC}"
 echo -e " 💡 Bạn có thể mở terminal khác và gõ: ${DIM}tail -f ${INSTALL_LOG}${NC} để theo dõi"
 echo -e " ${DIM}──────────────────────────────────────────────────────────────────────────────${NC}\n"
 
-# Đảm bảo quyền sudo trước nếu có
-if command -v sudo >/dev/null 2>&1 && [ -t 0 ]; then
-    sudo -v 2>/dev/null || true
-    # Giữ sudo token luôn sống trong quá trình cài đặt
-    (while true; do sudo -n true; sleep 50; kill -0 "$$" || exit; done 2>/dev/null &)
+# Giữ sudo token luôn sống trong quá trình cài đặt nếu người dùng đã có phiên sudo trước đó
+if command -v sudo >/dev/null 2>&1; then
+    if sudo -n true 2>/dev/null; then
+        (while true; do sudo -n true; sleep 50; kill -0 "$$" || exit; done 2>/dev/null &)
+    fi
 fi
 
 ensure_docker_running() {
+    if docker info >/dev/null 2>&1; then
+        return 0
+    fi
     if command -v systemctl &> /dev/null; then
         if ! systemctl is-active --quiet docker 2>/dev/null; then
-            sudo systemctl enable --now docker 2>/dev/null || true
+            if sudo -n true 2>/dev/null; then
+                sudo systemctl enable --now docker 2>/dev/null || true
+            fi
         fi
-        sudo usermod -aG docker "$USER" 2>/dev/null || true
+        if ! id -nG "$USER" 2>/dev/null | grep -qw "docker"; then
+            if sudo -n true 2>/dev/null; then
+                sudo usermod -aG docker "$USER" 2>/dev/null || true
+            fi
+        fi
     fi
 }
 
@@ -232,6 +289,8 @@ else
     needs_docker_install=true
 fi
 
+TOTAL_INSTALL_START_TIME=$(date +%s)
+
 if [ "$needs_docker_install" = true ]; then
     echo -e "${YELLOW}⚠️ Hệ thống chưa có Docker CE hoặc đang dùng Podman giả lập.${NC}"
     if [ -t 0 ]; then
@@ -244,9 +303,9 @@ if [ "$needs_docker_install" = true ]; then
         echo -e "${RED}Lỗi: Đã hủy cài đặt. Heo-Agent yêu cầu Docker Engine tiêu chuẩn.${NC}"
         exit 1
     fi
-    run_step_with_progress "[1/5] Cài đặt Docker Engine & Compose" 0 20 "install_docker_packages"
+    run_step_with_progress 1 "Cài Docker Engine" 0 20 "install_docker_packages"
 else
-    run_step_with_progress "[1/5] Kiểm tra Môi trường Docker" 0 20 "ensure_docker_running"
+    run_step_with_progress 1 "Môi trường Docker" 0 20 "ensure_docker_running"
 fi
 
 # Tự động chọn lệnh docker compose phù hợp
@@ -289,7 +348,7 @@ prepare_workspace_and_dirs() {
     fi
 }
 
-run_step_with_progress "[2/5] Chuẩn bị Mã nguồn & Cấu hình" 20 40 "prepare_workspace_and_dirs"
+run_step_with_progress 2 "Mã nguồn & Thư mục" 20 40 "prepare_workspace_and_dirs"
 
 # Đảm bảo biến WORKDIR khả dụng
 if [[ -f "docker-compose.yml" ]] && [[ -d "bridge" ]] && [[ -d "engine" ]]; then
@@ -339,7 +398,7 @@ setup_agy_cli() {
     fi
 }
 
-run_step_with_progress "[3/5] Tải & Thiết lập Core Agent AGY" 40 60 "setup_agy_cli"
+run_step_with_progress 3 "Core Agent AGY" 40 60 "setup_agy_cli"
 
 # ==============================================================================
 # BƯỚC 4/5: ĐÓNG GÓI & BIÊN DỊCH DOCKER CONTAINER (BUILD IMAGE)
@@ -348,7 +407,7 @@ build_docker_image() {
     $DOCKER_COMPOSE build
 }
 
-run_step_with_progress "[4/5] Đóng gói Docker Container" 60 90 "build_docker_image"
+run_step_with_progress 4 "Đóng gói Container" 60 90 "build_docker_image"
 
 # ==============================================================================
 # BƯỚC 5/5: CẤU HÌNH MÔI TRƯỜNG & ĐĂNG KÝ LỆNH TOÀN HỆ THỐNG
@@ -378,7 +437,7 @@ setup_system_commands() {
     fi
 }
 
-run_step_with_progress "[5/5] Cấu hình Lệnh toàn hệ thống" 90 100 "setup_system_commands"
+run_step_with_progress 5 "Cấu hình Lệnh CLI" 90 100 "setup_system_commands"
 
 # ==============================================================================
 # TỔNG KẾT VÀ CHUYỂN TIẾP TRÌNH CẤU HÌNH
