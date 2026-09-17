@@ -696,11 +696,37 @@ async function startBridge() {
   }
 
   let ownId = null;
+  let ownName = "";
+  try {
+    if (fs.existsSync(path.join(DATA_DIR, "zalo_profile.json"))) {
+      const pData = JSON.parse(fs.readFileSync(path.join(DATA_DIR, "zalo_profile.json"), "utf-8"));
+      if (pData.ownId) ownId = pData.ownId;
+      if (pData.ownName) ownName = pData.ownName;
+    }
+  } catch (_) {}
+
   try {
     ownId = api.getOwnId();
     log(`🤖 AGY Zalo Co-Pilot trực chiến! (Tài khoản ID: ${ownId})`);
     try {
-      fs.writeFileSync(path.join(DATA_DIR, "zalo_profile.json"), JSON.stringify({ ownId, updatedAt: new Date().toISOString() }, null, 2), "utf-8");
+      const myInfo = await api.fetchAccountInfo();
+      if (myInfo?.profile?.displayName || myInfo?.profile?.zaloName) {
+        ownName = myInfo.profile.displayName || myInfo.profile.zaloName;
+      }
+    } catch (_) {}
+    if (!ownName && ownId) {
+      try {
+        const disp = await getUserDisplayName(api, ownId);
+        if (disp && !disp.startsWith("Thành viên")) {
+          ownName = disp;
+        }
+      } catch (_) {}
+    }
+    if (ownName) {
+      log(`🤖 Tên nick Zalo của bot: "${ownName}"`);
+    }
+    try {
+      fs.writeFileSync(path.join(DATA_DIR, "zalo_profile.json"), JSON.stringify({ ownId, ownName: ownName || "", updatedAt: new Date().toISOString() }, null, 2), "utf-8");
     } catch (_) {}
   } catch (e) {
     log(`🤖 AGY Zalo Co-Pilot đã kết nối thành công!`);
@@ -711,7 +737,7 @@ async function startBridge() {
     const server = http.createServer(async (req, res) => {
       if (req.method === "GET" && req.url === "/api/info") {
         res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ ok: true, connected: true, ownId: ownId || "" }));
+        res.end(JSON.stringify({ ok: true, connected: true, ownId: ownId || "", ownName: ownName || "" }));
         return;
       }
 
@@ -1210,31 +1236,45 @@ async function startBridge() {
         });
 
         // ĐIỀU KIỆN KÍCH HOẠT TRONG GROUP CHAT:
+        // YÊU CẦU CỐ ĐỊNH: Heo CHỈ trả lời ai @tên_nó / tên nick Zalo trên group thôi, không tag tên nó thì nó KHÔNG trả lời!
         // 1. Tag menu Zalo chính thức (@) trỏ vào tài khoản bot
         const mentions = msg.data?.mentions || [];
-        const isMentioned = ownId && mentions.some(m => String(m.uid) === String(ownId));
-        // 2. Quote tin nhắn của Bot
-        const quoteUid = msg.data?.quote?.uidFrom;
-        const isQuotingBot = ownId && String(quoteUid) === String(ownId);
-        // 3. Có gõ tag đích danh kèm @: @heo, @Heo, @hêu, @Hêu
-        const tagRegex = /@(?:heo|hêu)(?!\p{L})/iu;
-        const hasExplicitTag = tagRegex.test(rawContent);
-        // 4. Gọi Heo ở đầu câu (Heo ơi, Heo à, Heo nè, Heo cho chị hỏi, Heo giúp, Heo tính, v.v.)
-        const startCallRegex = /^\s*(?:ê|alo|nè|dạ)?\s*(?:heo|hêu)(?:\s*(?:ơi|à|nè|này|nhe|nhé|cho|giúp|giùm|hộ|làm|tìm|tính|xem|soạn|viết|tra|hỏi|biết|trả lời|báo|tổng hợp|hỗ trợ|chỉ)(?!\p{L})|\s*$)/iu;
-        const hasStartCall = startCallRegex.test(rawContent);
-        // 5. Gọi Heo ở cuối câu (..., Heo ơi?, ... hả Heo?)
-        const endCallRegex = /[,\s]+(?:heo|hêu)(?:\s*(?:ơi|à|nè|nhe|nhé))?[\s.?!]*$/iu;
-        const hasEndCall = endCallRegex.test(rawContent);
-        // 6. Cụm từ nhờ/gọi Heo trong câu
-        const midCallRegex = /(?:nhờ|kêu|bảo|gọi)\s+(?:heo|hêu)(?!\p{L})/iu;
-        const actionCallRegex = /(?:heo|hêu)\s+(?:hỗ trợ|giúp|chỉ|trả lời|nghe|thấy)(?!\p{L})/iu;
-        const hasMidCall = midCallRegex.test(rawContent) || actionCallRegex.test(rawContent);
-        // 7. Lệnh chuyên môn rõ ràng: /task, /sheet, /doc, /calc, /baocao
-        const commandRegex = /^\/(ask|task|sheet|doc|calc|baocao)\b/iu;
-        const hasCommand = commandRegex.test(rawContent);
+        const isOfficialMention = Boolean(ownId && mentions.some(m => String(m.uid) === String(ownId)));
 
-        // QUY TẮC BẤT DI BẤT DỊCH: Khi không kêu tới Heo thì Heo im lặng 100%
-        if (!isMentioned && !isQuotingBot && !hasExplicitTag && !hasStartCall && !hasEndCall && !hasMidCall && !hasCommand) {
+        // 2. Thu thập danh sách tên & nick Zalo của Bot để nhận diện tag văn bản @tên_nó
+        const botNames = new Set(["heo", "bé heo", "be heo", "hêu", "bé hêu", "be hêu", "bot"]);
+        if (BOT_NAME && BOT_NAME.trim()) {
+          botNames.add(BOT_NAME.trim().toLowerCase());
+        }
+        if (ownName && ownName.trim()) {
+          botNames.add(ownName.trim().toLowerCase());
+        }
+        // Thử tìm thêm tên hiển thị của bot trong nhóm cụ thể này (active_groups.json)
+        try {
+          if (fs.existsSync(GROUPS_FILE)) {
+            const allG = JSON.parse(fs.readFileSync(GROUPS_FILE, "utf-8"));
+            const currentG = allG[threadId];
+            if (currentG?.members) {
+              const myMember = currentG.members.find(m => String(m.id) === String(ownId));
+              if (myMember?.name && !myMember.name.startsWith("Thành viên")) {
+                botNames.add(myMember.name.trim().toLowerCase());
+              }
+            }
+          }
+        } catch (_) {}
+
+        // Tạo Regex nhận diện tag @tên_nó (phía trước có ký tự @, sau tên là dấu cách hoặc ký tự kết thúc, không gắn liền chữ cái khác)
+        const sortedNames = Array.from(botNames)
+          .filter(n => typeof n === "string" && n.trim().length > 0)
+          .map(n => n.trim())
+          .sort((a, b) => b.length - a.length);
+        const escapedNames = sortedNames.map(n => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+        const tagRegex = new RegExp(`@\\s*(?:${escapedNames.join("|")})(?!\\p{L})`, "iu");
+        const hasExplicitTag = tagRegex.test(rawContent);
+
+        // QUY TẮC BẤT DI BẤT DỊCH: Không tag @ tên nick Zalo của Heo thì Heo IM LẶNG 100%!
+        // (Không trả lời nếu chỉ gọi "Heo ơi", quote không kèm @, hoặc lệnh không kèm @)
+        if (!isOfficialMention && !hasExplicitTag) {
           return; // IM LẶNG TUYỆT ĐỐI 100%, không xen ngang cuộc trò chuyện khác!
         }
 
@@ -1247,10 +1287,11 @@ async function startBridge() {
           }
         } catch (e) {}
 
+        // Làm sạch cú pháp @tên_nó và các tiền tố gọi tag khỏi câu hỏi gửi tới AI Engine
+        const cleanTagRegex = new RegExp(`@\\s*(?:${escapedNames.join("|")})\\s*(?:ơi|ạ|à|nè)?[:,-]?`, "giu");
         let cleanPrompt = rawContent
-          .replace(/@(?:heo|hêu)\s*(?:ơi|ạ)?/giu, " ")
-          .replace(/^\s*(?:ê|alo|nè|dạ)?\s*(?:heo|hêu)\s*(?:ơi|à|nè|này|nhe|nhé)?\s*/giu, " ")
-          .replace(commandRegex, "")
+          .replace(cleanTagRegex, " ")
+          .replace(/^\/(ask|task|sheet|doc|calc|baocao)\b/iu, "")
           .trim();
 
         if (msg.data?.quote && msg.data.quote.msg) {
