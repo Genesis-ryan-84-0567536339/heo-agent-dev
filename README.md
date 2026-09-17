@@ -1,8 +1,31 @@
-# 🚀 Zalo-AGY Copilot (Bé Heo)
+# 🚀 Zalo-AGY Copilot (Bé Heo) — Phiên Bản v2.1
 
-> **Antigravity Executive AI Co-Pilot — Zalo Edition**  
+[![Version](https://img.shields.io/badge/version-v2.1-blue.svg)](https://github.com/Genesis-ryan-84-0567536339/zalo-agy)
+[![Release Date](https://img.shields.io/badge/release-17%2F09%2F2026-green.svg)](https://github.com/Genesis-ryan-84-0567536339/zalo-agy/releases)
+[![License](https://img.shields.io/badge/license-MIT-orange.svg)](LICENSE)
+[![Docker](https://img.shields.io/badge/docker-ready-2496ED.svg)](docker-compose.yml)
+[![Tác giả](https://img.shields.io/badge/tác_giả-Ryan-purple.svg)](mailto:genesis.corp.os@gmail.com)
+
+> **Antigravity Executive AI Co-Pilot — Zalo Edition (Phiên bản v2.1)**  
 > Trợ lý Điều hành Cấp cao (Executive Assistant / Chief of Staff) độc lập, tự trị, kết nối trực tiếp tài khoản cá nhân & nhóm chat Zalo với **Google Antigravity (AGY) CLI**.  
-> Được đóng gói hoàn chỉnh bằng **Docker**, cài đặt nhanh chỉ với **1 lệnh duy nhất** cùng giao diện dòng lệnh tương tác **Terminal UI (TUI)**.
+> Được đóng gói hoàn chỉnh bằng **Docker**, cài đặt nhanh chỉ với **1 lệnh duy nhất**, giao diện Web Dashboard **Heo Console (HCS)** chuẩn Glassmorphism và **Terminal UI (TUI)** chuyên nghiệp.
+
+---
+
+## 📌 Điểm Mới Nổi Bật Trên Bản Phát Hành v2.1 (Release v2.1)
+* 🔐 **Mã PIN Bảo Mật Quản Trị Viên (Admin Security PIN):**
+  * Thiết lập và thay đổi mã PIN 4-8 chữ số trực tiếp trên Heo Console (HCS) với thuật toán mã hóa mật mã an toàn (`SHA-256` + salt).
+  * **Xác thực Chủ nhân an toàn (Owner Pairing via PIN):** Khi tài khoản kết bạn Zalo nhắn tin đầu tiên, hệ thống gửi tin nhắn yêu cầu nhập mã PIN để xác minh danh tính và cấp quyền Chủ nhân (Boss/Owner).
+  * Bảo vệ các thao tác nhạy cảm trên web (Hủy ghép nối Boss, thao tác quản trị).
+* ⚖️ **Quy Trình Chấp Thuận Điều Khoản & Miễn Trừ Trách Nhiệm (Disclaimer Lock):**
+  * Tuyên bố miễn trừ trách nhiệm toàn diện từ tác giả **Ryan** trong tài liệu [`DISCLAIMER.md`](DISCLAIMER.md).
+  * Khi khởi chạy lần đầu, giao diện HCS tự động khóa và yêu cầu người dùng đọc kỹ, đồng ý điều khoản trước khi bắt đầu sử dụng.
+* 📊 **Giám Sát Quota & Nhận Diện Gói Google AI Tự Động:**
+  * Tự động phát hiện và hiển thị chính xác gói dịch vụ (**Google AI Pro / Studio / Free**) từ tài khoản Google đang đăng nhập.
+  * Thẻ hiển thị trực quan hạn ngạch (Quota) còn lại, số lượt phản hồi, tốc độ phản hồi trung bình cho từng mô hình AI.
+* 📲 **Tối Ưu Hóa Quét Mã QR Zalo & Đăng Xuất An Toàn:**
+  * Cơ chế tạo mã QR độc lập với thanh tiến trình và tự động kiểm tra trạng thái đăng nhập theo thời gian thực.
+  * Nút Đăng xuất Zalo an toàn, xóa sạch session và giải phóng kết nối tức thì.
 
 ---
 
@@ -71,17 +94,83 @@ Khi khởi động lần đầu, màn hình TUI hướng dẫn bạn 4 bước �
 
 ---
 
-## 🌐 Giao Diện Quản Trị Web UI (Web Dashboard)
+## 🌐 Bảng Điều Khiển Heo Console (HCS — Web Dashboard)
 
-Bên cạnh giao diện Terminal UI (TUI), hệ thống tích hợp sẵn **Web Dashboard** hiện đại, trực quan tại cổng `5066`:
+Giao diện Web Dashboard hiện đại chuẩn **Glassmorphism**, vận hành độc lập tại cổng `5066`:
 
 👉 **`http://localhost:5066`** *(hoặc `http://<IP_MÁY_CHỦ>:5066`)*
 
-* 🎛️ **1-Click đổi Model**: Chuyển đổi tức thì giữa *Gemini 3.8 Flash, Gemini 3.1 Pro, Claude Sonnet 4.6, Claude Opus 4.6*.
-* ⚡ **1-Click đổi Effort**: Chỉnh mức suy luận logic (*Low, Medium, High*).
-* 🔐 **Quản lý Tài khoản**: Đăng xuất / Đăng nhập lại Google AGY & Zalo ngay trên giao diện; quét mã QR Zalo trực tiếp trong popup.
-* 📜 **Live Logs Console**: Theo dõi nhật ký luồng xử lý AI Engine và Zalo Bridge thời gian thực.
-* ⚙️ **Thiết lập Sếp**: Cập nhật Boss UID, Tên gọi, Danh xưng chỉ với một cú nhấp chuột.
+### Các tính năng cốt lõi trên Heo Console:
+* ⚖️ **Cổng Chấp Thuận Điều Khoản:** Tự động hiển thị và yêu cầu người dùng xác nhận Tuyên bố miễn trừ trách nhiệm khi khởi động lần đầu.
+* 🔐 **Bảo Mật Quản Trị & Mã PIN:** Thiết lập mã PIN bảo mật 4-8 số để bảo vệ việc ghép nối Chủ sở hữu (Owner Pairing) và hủy ghép nối an toàn.
+* 🎛️ **1-Click Đổi Mô Hình AI:** Chuyển đổi linh hoạt giữa *Gemini 3.8 Flash, Gemini 3.1 Pro, Claude Sonnet 4.6, Claude Opus 4.6, GPT-OSS 120B*.
+* ⚡ **1-Click Tinh Chỉnh Mức Suy Luận (Effort):** Tùy chỉnh mức độ tư duy *Low (Siêu tốc), Medium (Cân bằng), High (Đào sâu bản chất)*.
+* 📊 **Giám Sát Quota & Hiệu Năng Thời Gian Thực:** Nút *"Kiểm Tra Quota Ngay"*, hiển thị % Quota còn lại, số lượt phản hồi và độ trễ trung bình của từng model.
+* 📲 **Quản Trị Phiên Đăng Nhập:** Quét mã QR Zalo trực tiếp trong popup với cơ chế tự động kết nối, đổi tài khoản Google AGY và đăng xuất an toàn.
+* 📜 **Live Stream Terminal Logs:** Cửa sổ nhật ký thời gian thực hỗ trợ lọc theo *AI Engine* hoặc *Zalo Bridge*.
+
+---
+
+## 📖 Hướng Dẫn Sử Dụng Chi Tiết Từ A Đến Z (User Manual)
+
+### 1. Khởi Chạy Lần Đầu & Đọc Chấp Thuận Điều Khoản (Disclaimer)
+1. Sau khi cài đặt hoàn tất, truy cập vào đường link **`http://localhost:5066`** trên trình duyệt web.
+2. Hộp thoại **"Tuyên Bố Miễn Trừ Trách Nhiệm & Điều Khoản Sử Dụng"** sẽ tự động hiển thị ở chế độ khóa màn hình.
+3. Người dùng đọc kỹ các điều khoản về:
+   - Mục đích nghiên cứu & học tập mở của phần mềm.
+   - Cam kết miễn trừ trách nhiệm toàn diện của tác giả **Ryan** đối với mọi rủi ro tài khoản hoặc nội dung AI.
+   - Trách nhiệm của người dùng trong việc tuân thủ pháp luật và điều khoản bên thứ ba.
+4. Tích chọn vào ô: *"Tôi xác nhận đã đọc kỹ, hiểu rõ và chấp thuận vô điều kiện toàn bộ Điều khoản sử dụng & Tuyên bố miễn trừ mọi trách nhiệm..."*.
+5. Bấm nút **"✅ Chấp Thuận & Bắt Đầu Sử Dụng"** để mở khóa toàn bộ giao diện điều khiển.
+
+---
+
+### 2. Thiết Lập Mã PIN Bảo Mật (Admin Security PIN)
+1. Tại thẻ **"Thiết Lập Danh Xưng & Admin PIN"** ở góc dưới bên trái màn hình HCS:
+2. Bấm nút **"Tạo Mã PIN"** (hoặc **"Đổi Mã PIN"**).
+3. Nhập mã PIN bảo mật (từ 4 đến 8 chữ số, ví dụ: `123456`) và bấm **"Lưu Mã PIN"**.
+4. Hệ thống sẽ mã hóa và lưu trữ an toàn mã PIN này.
+
+---
+
+### 3. Đăng Nhập Tài Khoản Zalo Cho Bé Heo
+1. Trên thẻ **"TÀI KHOẢN ZALO"**, bấm nút **"Quét QR"**.
+2. Một hộp thoại popup sẽ hiển thị mã QR Code kèm vòng tròn tiến trình tải:
+   - Mở ứng dụng Zalo trên điện thoại của tài khoản dùng làm Bé Heo.
+   - Nhấn biểu tượng Quét mã QR $\rightarrow$ Quét mã trên màn hình máy tính $\rightarrow$ Chọn **"Đăng nhập trên máy tính"**.
+3. Hệ thống sẽ tự động nhận diện kết nối thành công, hiển thị thông báo chúc mừng và tự động đóng hộp thoại sau 2 giây.
+
+---
+
+### 4. Ghép Nối Quyền Chủ Nhân (Pairing Owner / Boss)
+Sau khi Bé Heo đã online Zalo:
+1. Tài khoản Zalo cá nhân của bạn (người muốn làm Chủ nhân/Sếp) cần **kết bạn Zalo** với tài khoản của Bé Heo.
+2. Từ Zalo cá nhân, bạn gửi một tin nhắn bất kỳ cho Bé Heo (ví dụ: *"Chào em"*).
+3. Bé Heo sẽ tự động phản hồi lại:
+   > 🔐 *Xin chào! Để xác thực quyền Sếp (Chủ sở hữu), vui lòng nhập mã PIN bảo mật của hệ thống:*
+4. Bạn chỉ cần gửi tin nhắn chứa đúng mã PIN (ví dụ: `123456`).
+5. Bé Heo sẽ lập tức xác thực thành công, ghi nhận tài khoản của bạn là **Chủ nhân (Boss)** với toàn quyền điều hành!
+
+---
+
+### 5. Điều Khiển Bằng Tin Nhắn Chat Zalo
+Sau khi đã được ghép nối làm Sếp, bạn có thể ra lệnh cho Bé Heo mọi lúc mọi nơi ngay trên khung chat Zalo:
+
+| Lệnh Chat Zalo | Ý Nghĩa / Tác Dụng |
+| :--- | :--- |
+| `/status` hoặc `/model` | Xem mô hình đang dùng, mức suy luận và trạng thái quota |
+| `/model flash` (hoặc `/model 3.8`) | Chuyển sang mô hình Gemini 3.8 Flash (tốc độ cao) |
+| `/model pro` (hoặc `/model 3.1`) | Chuyển sang mô hình Gemini 3.1 Pro (phân tích sâu, dữ liệu lớn) |
+| `/model sonnet` | Chuyển sang mô hình Claude Sonnet 4.6 (tư duy logic đa chiều) |
+| `/model opus` | Chuyển sang mô hình Claude Opus 4.6 (chuyên sâu nhất) |
+| `/effort low` | Chỉnh mức suy luận nhanh, câu trả lời tức thì |
+| `/effort medium` | Chỉnh mức suy luận tiêu chuẩn cân bằng |
+| `/effort high` | Chỉnh mức suy luận đào sâu, tư duy toàn diện |
+| `[Gửi file ghi âm thoại]` | Tự động chuyển voice thành văn bản, hỏi lại xác nhận trước khi làm |
+| `Heo làm một bài hát...` | Tự động sáng tác lời, ghép nhạc beat Ukulele/Acoustic và gửi file audio |
+| `Heo tạo cho anh một ảnh...` | Tự động sinh ảnh AI theo mô tả và gửi trực tiếp |
+| `Heo lập bảng tính Excel...` | Xuất bảng tính `.xlsx` chuẩn Corporate Navy với công thức tự động |
+| `Heo soạn thảo tờ trình/biên bản...` | Xuất file Word `.docx` chuẩn thể thức văn bản hành chính |
 
 ---
 
@@ -248,6 +337,15 @@ zalo-agy/
 > * **Trách nhiệm của người dùng**: Người dùng tự chịu trách nhiệm 100% trong việc tuân thủ pháp luật và Điều khoản dịch vụ của bên thứ ba (Google ToS, Zalo ToS).
 > 
 > 👉 Xem toàn văn chi tiết tại tài liệu chính thức: **[`DISCLAIMER.md`](DISCLAIMER.md)** (có sẵn trong mã nguồn tải về và trên giao diện Heo Console). Khi khởi động lần đầu, người dùng bắt buộc phải đọc và bấm chấp thuận điều khoản thì mới có thể bắt đầu sử dụng.
+
+---
+
+## 🏷️ Thông Tin Checkpoint & Phiên Bản
+
+* **Phiên bản chính thức:** `Zalo-AGY Copilot v2.1`
+* **Thời gian chốt phiên bản (Checkpoint Timestamp):** `2026-09-17 17:40:33 +07:00` (17/09/2026)
+* **Git Tag:** `v2.1`
+* **Kiểm duyệt an toàn thông tin (Security & Privacy Audit):** Đã rà soát và kiểm duyệt toàn diện (Zero Leak: không chứa bất kỳ Zalo UID cá nhân, cookie phiên đăng nhập, số điện thoại hay token bảo mật riêng tư nào trên Git repository).
 
 ---
 

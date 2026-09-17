@@ -1316,7 +1316,7 @@ def run_agy(prompt, sender_name=BOSS_NAME, is_group=False, is_boss=False, sender
                 f"{reaction_guidance}"
                 f"{BOSS_NAME} là cấp cao nhất và là người dẫn dắt.\n"
                 f"QUY TẮC PHÁT NGÔN TRONG NHÓM KHI ĐƯỢC SẾP GỌI HOẶC CHỈ ĐẠO:\n"
-                f"1. Nếu Sếp bảo chào hỏi, giới thiệu bản thân hoặc tương tác với thành viên khác (ví dụ: bảo 'bạn Nhi hỏi kìa', 'giới thiệu đi', 'chào thành viên'):\n"
+                f"1. Nếu Sếp bảo chào hỏi, giới thiệu bản thân hoặc tương tác với thành viên khác (ví dụ: bảo 'bạn kia hỏi kìa', 'giới thiệu đi', 'chào thành viên'):\n"
                 f"   - Nói thẳng với người đó hoặc cả nhóm thật tự nhiên, lễ độ, khiêm tốn: 'Dạ em chào thành viên và cả nhóm ạ! Em là Heo, trợ lý hỗ trợ công việc cho {BOSS_CALLER_NAME}...'.\n"
                 f"   - TUYỆT ĐỐI KHÔNG ghép đôi vụng về máy móc 'Dạ Sếp, Dạ em chào chị...', KHÔNG tự gọi mình là 'chân sai vặt công nghệ', KHÔNG tự nhận là bot/AI, KHÔNG tuôn danh sách gạch đầu dòng lê thê.\n"
                 f"   - Giọng điệu ngắn gọn (2-3 câu), ấm áp, nhã nhặn, tôn trọng mọi người.\n"
