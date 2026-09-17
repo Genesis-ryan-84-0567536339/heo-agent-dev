@@ -104,9 +104,9 @@ if [ "$DO_FACTORY_RESET" -eq 1 ]; then
     echo -e "${GREEN}✔ Đã gỡ bỏ symlink lệnh khỏi hệ thống.${NC}"
 
     echo -e "\n${CYAN}>>> Bước 4/6: Xóa sạch phiên kết nối Zalo, mã PIN và liên kết Sếp (Factory Reset)...${NC}"
-    rm -rf data/* data/.* 2>/dev/null || true
-    mkdir -p data/beats
-    touch data/.gitkeep data/beats/.gitkeep
+    # Xóa sạch toàn bộ phiên Zalo, lịch sử chat, QR và trạng thái model trong data/ (bảo lưu beats/ nhạc nền)
+    find data/ -mindepth 1 -maxdepth 1 ! -name 'beats' ! -name '.gitkeep' -exec rm -rf {} + 2>/dev/null || true
+    touch data/.gitkeep
     if [ -f "config/config.example.json" ]; then
         cp config/config.example.json config/config.json
     else
