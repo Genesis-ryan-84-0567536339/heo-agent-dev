@@ -2608,11 +2608,8 @@ class RequestHandler(BaseHTTPRequestHandler):
                 req = urllib.request.Request(feedback_url, data=payload, headers=headers, method="POST")
                 with urllib.request.urlopen(req, timeout=15) as resp:
                     resp_body = resp.read().decode("utf-8")
-                    log_event(f"💌 [Feedback] Đã gửi góp ý thành công tới Gen-hub: {raw_msg[:80]}...")
-                    self._send_json({
-                        "ok": True,
-                        "message": "Cảm ơn bạn đã gửi ý kiến đóng góp! Đội ngũ phát triển đã tiếp nhận phản hồi."
-                    }, 200)
+                    log_event(f"💌 [Feedback] Đã chuyển tiếp góp ý của người dùng tới Gen-hub: {raw_msg[:80]}...")
+                    self._send_json({"ok": True}, 200)
             except urllib.error.HTTPError as he:
                 err_text = he.read().decode("utf-8") if hasattr(he, "read") else str(he)
                 log_event(f"⚠️ [Feedback] Lỗi HTTP {he.code} từ Gen-hub: {err_text}")

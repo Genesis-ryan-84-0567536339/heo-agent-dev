@@ -1140,47 +1140,35 @@
       <div class="flex items-center space-x-3">
         <div class="relative">
           <div class="w-10 h-10 rounded-2xl bg-cyan-500/15 border border-cyan-500/30 text-cyan-400 flex items-center justify-center text-xl">
-            🐷
+            💬
           </div>
           <span class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-dark-950"></span>
         </div>
         <div>
           <h3 class="font-bold text-white text-sm flex items-center space-x-1.5">
-            <span>Bé Heo Support & Góp Ý</span>
+            <span>Góp Ý & Báo Lỗi</span>
             <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 font-mono">Gen-hub</span>
           </h3>
-          <p class="text-[11px] text-slate-400">Trực tiếp tới Nhà phát triển Ryan</p>
+          <p class="text-[11px] text-slate-400">Gửi trực tiếp tới Gen-hub Ingest</p>
         </div>
       </div>
       <button type="button" onclick="closeFeedbackWidget()" class="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center text-lg transition cursor-pointer">&times;</button>
     </div>
 
-    <!-- Chat Message Stream -->
-    <div id="feedbackChatStream" class="flex-1 p-4 overflow-y-auto space-y-3 max-h-[320px] text-xs custom-scroll">
-      <!-- Bot welcome message -->
-      <div class="flex items-start space-x-2.5">
-        <div class="w-7 h-7 rounded-xl bg-cyan-500/15 text-cyan-400 flex items-center justify-center text-sm shrink-0 border border-cyan-500/20">
-          🐷
-        </div>
-        <div class="p-3 rounded-2xl rounded-tl-none bg-dark-950/80 border border-slate-800 text-slate-300 space-y-1 max-w-[85%] shadow-sm">
-          <div class="font-bold text-cyan-400 text-[11px]">Bé Heo Trợ Lý</div>
-          <div class="leading-relaxed">Chào Sếp! Em là kênh tiếp nhận phản hồi & góp ý trực tiếp. Sếp có ý kiến đóng góp, tính năng muốn thêm hoặc gặp bất kỳ sự cố gì hãy nhắn cho em nhé! Ý kiến của Sếp sẽ được chuyển tự động tới <strong>Gen-hub Feedback Ingest</strong> ❤️</div>
-        </div>
+    <!-- Message Stream -->
+    <div id="feedbackChatStream" class="flex-1 p-4 overflow-y-auto space-y-3 max-h-[320px] text-xs custom-scroll min-h-[140px]">
+      <div id="feedbackEmptyNotice" class="text-center py-8 text-slate-500 text-xs space-y-2">
+        <div class="w-10 h-10 mx-auto rounded-2xl bg-slate-800/80 border border-slate-700/60 flex items-center justify-center text-lg text-slate-400">📝</div>
+        <p class="text-slate-300 font-medium">Nhập nội dung góp ý hoặc báo lỗi</p>
+        <p class="text-[11px] text-slate-500">Tin nhắn của bạn sẽ được gửi trực tiếp tới hệ thống.</p>
       </div>
-    </div>
-
-    <!-- Quick suggestion chips -->
-    <div class="px-4 py-2 bg-dark-950/40 border-t border-slate-800/60 flex items-center space-x-1.5 overflow-x-auto text-[11px] shrink-0 no-scrollbar">
-      <button type="button" onclick="setFeedbackChip('💡 Góp ý tính năng: ')" class="px-2.5 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white whitespace-nowrap transition cursor-pointer border border-slate-700/60">💡 Thêm tính năng</button>
-      <button type="button" onclick="setFeedbackChip('🐛 Báo lỗi: ')" class="px-2.5 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white whitespace-nowrap transition cursor-pointer border border-slate-700/60">🐛 Báo lỗi</button>
-      <button type="button" onclick="setFeedbackChip('⭐ Nhận xét: ')" class="px-2.5 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white whitespace-nowrap transition cursor-pointer border border-slate-700/60">⭐ Nhận xét</button>
     </div>
 
     <!-- Input Footer -->
     <div class="p-3 bg-dark-950 border-t border-slate-800 shrink-0 space-y-2">
       <form id="feedbackForm" onsubmit="handleSendFeedback(event)" class="space-y-2">
         <div class="relative">
-          <textarea id="feedbackInputText" rows="2" required maxlength="1000"
+          <textarea id="feedbackInputText" rows="3" required maxlength="2000"
             placeholder="Nhập nội dung góp ý hoặc báo lỗi... (Enter để gửi)"
             class="w-full px-3 py-2 rounded-xl bg-dark-850 border border-slate-700 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 resize-none font-sans leading-relaxed"
             onkeydown="if(event.key==='Enter' && !event.shiftKey){ event.preventDefault(); handleSendFeedback(event); }"></textarea>
@@ -1191,7 +1179,7 @@
             <span>Gen-hub Ingest</span>
           </span>
           <button type="submit" id="btnSendFeedback" class="py-1.5 px-4 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold text-xs shadow-lg shadow-cyan-600/20 transition flex items-center space-x-1.5 cursor-pointer disabled:opacity-50">
-            <span id="feedbackSendText">Gửi Góp Ý</span>
+            <span id="feedbackSendText">Gửi</span>
             <span id="feedbackSendIcon">✈️</span>
           </button>
         </div>
@@ -3086,15 +3074,6 @@
       if (closeIcon) closeIcon.classList.add('hidden');
     }
 
-    function setFeedbackChip(prefix) {
-      const inp = document.getElementById('feedbackInputText');
-      if (!inp) return;
-      if (!inp.value.startsWith(prefix)) {
-        inp.value = prefix + inp.value;
-      }
-      inp.focus();
-    }
-
     async function handleSendFeedback(e) {
       if (e) e.preventDefault();
       const inp = document.getElementById('feedbackInputText');
@@ -3102,10 +3081,13 @@
       const sendText = document.getElementById('feedbackSendText');
       const sendIcon = document.getElementById('feedbackSendIcon');
       const stream = document.getElementById('feedbackChatStream');
+      const emptyNotice = document.getElementById('feedbackEmptyNotice');
 
       if (!inp) return;
       const text = inp.value.trim();
       if (!text) return;
+
+      if (emptyNotice) emptyNotice.classList.add('hidden');
 
       if (btn) btn.disabled = true;
       if (sendText) sendText.textContent = 'Đang gửi...';
@@ -3113,12 +3095,17 @@
 
       // Tạo bubble tin nhắn của người dùng
       const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const bubbleId = 'fb_msg_' + Date.now();
       const userBubble = document.createElement('div');
+      userBubble.id = bubbleId;
       userBubble.className = 'flex items-start justify-end space-x-2.5';
       userBubble.innerHTML = `
         <div class="p-3 rounded-2xl rounded-tr-none bg-gradient-to-r from-cyan-600 to-blue-600 text-white text-xs space-y-1 max-w-[85%] shadow-md">
           <div class="leading-relaxed whitespace-pre-wrap">${escapeHtml(text)}</div>
-          <div class="text-[10px] text-cyan-200 text-right font-mono">${nowStr}</div>
+          <div class="flex items-center justify-between space-x-3 text-[10px] text-cyan-200 font-mono mt-1">
+            <span id="${bubbleId}_status" class="text-cyan-200/80">Đang gửi...</span>
+            <span>${nowStr}</span>
+          </div>
         </div>
       `;
       stream.appendChild(userBubble);
@@ -3133,55 +3120,31 @@
           body: JSON.stringify({ message: text })
         });
         const data = await res.json();
+        const statusEl = document.getElementById(`${bubbleId}_status`);
 
         if (data.ok) {
-          const botBubble = document.createElement('div');
-          botBubble.className = 'flex items-start space-x-2.5';
-          botBubble.innerHTML = `
-            <div class="w-7 h-7 rounded-xl bg-cyan-500/15 text-cyan-400 flex items-center justify-center text-sm shrink-0 border border-cyan-500/20">
-              🐷
-            </div>
-            <div class="p-3 rounded-2xl rounded-tl-none bg-dark-950/80 border border-emerald-500/30 text-slate-300 space-y-1 max-w-[85%] shadow-sm">
-              <div class="font-bold text-emerald-400 text-[11px] flex items-center space-x-1">
-                <span>✓ Đã chuyển thành công tới Gen-hub Ingest</span>
-              </div>
-              <div class="leading-relaxed text-slate-300">${escapeHtml(data.message || 'Cảm ơn Sếp rất nhiều, đội ngũ phát triển đã tiếp nhận góp ý!')}</div>
-            </div>
-          `;
-          stream.appendChild(botBubble);
-          showToast('🎉 Đã gửi góp ý tới Gen-hub thành công!');
+          if (statusEl) {
+            statusEl.className = 'text-emerald-300 font-medium flex items-center space-x-1';
+            statusEl.innerHTML = '<span>✓ Đã gửi</span>';
+          }
+          showToast('Đã gửi góp ý thành công!');
         } else {
-          const errBubble = document.createElement('div');
-          errBubble.className = 'flex items-start space-x-2.5';
-          errBubble.innerHTML = `
-            <div class="w-7 h-7 rounded-xl bg-red-500/15 text-red-400 flex items-center justify-center text-sm shrink-0 border border-red-500/20">
-              ⚠️
-            </div>
-            <div class="p-3 rounded-2xl rounded-tl-none bg-red-950/40 border border-red-500/30 text-red-300 space-y-1 max-w-[85%]">
-              <div class="font-bold text-red-400 text-[11px]">Chưa thể gửi tới Gen-hub</div>
-              <div class="leading-relaxed">${escapeHtml(data.error || 'Vui lòng thử lại sau.')}</div>
-            </div>
-          `;
-          stream.appendChild(errBubble);
+          if (statusEl) {
+            statusEl.className = 'text-rose-300 font-medium flex items-center space-x-1';
+            statusEl.innerHTML = '<span>⚠️ Lỗi gửi</span>';
+          }
           showToast(data.error || 'Lỗi gửi góp ý', true);
         }
       } catch (err) {
-        const errBubble = document.createElement('div');
-        errBubble.className = 'flex items-start space-x-2.5';
-        errBubble.innerHTML = `
-          <div class="w-7 h-7 rounded-xl bg-red-500/15 text-red-400 flex items-center justify-center text-sm shrink-0 border border-red-500/20">
-            ⚠️
-          </div>
-          <div class="p-3 rounded-2xl rounded-tl-none bg-red-950/40 border border-red-500/30 text-red-300 space-y-1 max-w-[85%]">
-            <div class="font-bold text-red-400 text-[11px]">Lỗi kết nối máy chủ</div>
-            <div class="leading-relaxed">${escapeHtml(err.message)}</div>
-          </div>
-        `;
-        stream.appendChild(errBubble);
+        const statusEl = document.getElementById(`${bubbleId}_status`);
+        if (statusEl) {
+          statusEl.className = 'text-rose-300 font-medium flex items-center space-x-1';
+          statusEl.innerHTML = '<span>⚠️ Lỗi kết nối</span>';
+        }
         showToast('Lỗi kết nối máy chủ', true);
       } finally {
         if (btn) btn.disabled = false;
-        if (sendText) sendText.textContent = 'Gửi Góp Ý';
+        if (sendText) sendText.textContent = 'Gửi';
         if (sendIcon) sendIcon.innerHTML = '✈️';
         stream.scrollTop = stream.scrollHeight;
       }
