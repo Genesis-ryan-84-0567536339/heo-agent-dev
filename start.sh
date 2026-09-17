@@ -34,6 +34,18 @@ get_docker_compose() {
 
 DOCKER_COMPOSE="$(get_docker_compose)"
 
+# Tự động cấu hình alias cho Podman để tránh hỏi lựa chọn Registry
+if command -v podman &>/dev/null; then
+    mkdir -p "$HOME/.config/containers/registries.conf.d" 2>/dev/null || true
+    if [ ! -f "$HOME/.config/containers/registries.conf.d/shortnames.conf" ] || ! grep -q "localhost/heo-agent" "$HOME/.config/containers/registries.conf.d/shortnames.conf" 2>/dev/null; then
+        cat << 'EOF_REG' > "$HOME/.config/containers/registries.conf.d/shortnames.conf" 2>/dev/null || true
+[aliases]
+"heo-agent" = "localhost/heo-agent"
+"heo-agent:latest" = "localhost/heo-agent:latest"
+EOF_REG
+    fi
+fi
+
 open_web_ui() {
     local url="http://localhost:5066"
     local lock="/tmp/.heo_agent_web_open.lock"
