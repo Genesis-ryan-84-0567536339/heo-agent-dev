@@ -201,6 +201,29 @@ except Exception as e:
         rm -f "$PROJECT_DIR/workspace/zalo_qr.png"
         echo "✔ Đã xóa phiên đăng nhập Zalo. Để đăng nhập tài khoản khác: $CMD_NAME login-zalo"
         ;;
+    doctor|check|heal|repair)
+        shift
+        "$PROJECT_DIR/doctor.sh" "$@"
+        ;;
+    help|--help|-h)
+        echo "🐷 HEO-AGENT (BÉ HEO) — BỘ LỆNH ĐIỀU HÀNH TOÀN HỆ THỐNG:"
+        echo "   👉 $CMD_NAME               : Mở Web Dashboard & Kiểm tra trạng thái trực tiếp"
+        echo "   👉 $CMD_NAME doctor        : Chẩn đoán sức khỏe hệ thống toàn diện"
+        echo "   👉 $CMD_NAME doctor --fix  : Tự động sửa chữa & phục hồi khi hệ thống bị lỗi"
+        echo "   👉 $CMD_NAME web           : Mở Web Console quản trị (cổng 5066)"
+        echo "   👉 $CMD_NAME --bg          : Khởi chạy chế độ nền (Daemon trực chiến 24/7)"
+        echo "   👉 $CMD_NAME status        : Kiểm tra trạng thái chi tiết (Model, Zalo, Google AGY)"
+        echo "   👉 $CMD_NAME model         : Xem và chuyển đổi mô hình AI (flash, pro, sonnet, opus)"
+        echo "   👉 $CMD_NAME effort        : Điều chỉnh mức suy luận logic (low, medium, high)"
+        echo "   👉 $CMD_NAME logs          : Theo dõi luồng nhật ký hoạt động thời gian thực"
+        echo "   👉 $CMD_NAME restart       : Khởi động lại toàn bộ hệ thống"
+        echo "   👉 $CMD_NAME stop          : Dừng hệ thống an toàn"
+        echo "   👉 $CMD_NAME login-zalo    : Quét mã QR đăng nhập tài khoản Zalo"
+        echo "   👉 $CMD_NAME logout-zalo   : Đăng xuất tài khoản Zalo"
+        echo "   👉 $CMD_NAME login-google  : Đăng nhập Google AGY Core Agent"
+        echo "   👉 $CMD_NAME logout-google : Đăng xuất tài khoản Google AGY"
+        echo "   👉 $CMD_NAME uninstall     : Dọn dẹp & khôi phục cài đặt gốc (Factory Reset)"
+        ;;
     uninstall|clean)
         shift
         "$PROJECT_DIR/uninstall.sh" "$@"
@@ -223,6 +246,7 @@ try:
     print('🔹 Google AGY Auth:', 'Đã xác thực' if d.get('google', {}).get('authenticated') else 'Chưa xác thực')
     print('🔹 Sếp nhận diện:', d.get('config', {}).get('boss_name', 'Sếp'))
     print('\n💡 Tiện ích nhanh:')
+    print(f'   • {cmd} doctor  : Chẩn đoán & tự động sửa chữa phục hồi khi bị lỗi')
     print(f'   • {cmd} logs    : Xem luồng log thời gian thực')
     print(f'   • {cmd} model   : Xem và đổi mô hình AI')
     print(f'   • {cmd} restart : Khởi động lại hệ thống')

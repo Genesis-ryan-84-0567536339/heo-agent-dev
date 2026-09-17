@@ -43,10 +43,12 @@ COPY data/beats/ ./data/beats/
 COPY entrypoint.sh ./
 COPY start.sh ./
 COPY stop.sh ./
+COPY doctor.sh ./
+COPY uninstall.sh ./
 COPY DISCLAIMER.md ./
 
 # Cấp quyền thực thi cho các script
-RUN chmod +x entrypoint.sh start.sh stop.sh engine/agy_exec.sh scripts/*.py cli/tui.py
+RUN chmod +x entrypoint.sh start.sh stop.sh doctor.sh uninstall.sh engine/agy_exec.sh scripts/*.py cli/tui.py
 
 # Cổng dịch vụ
 EXPOSE 5051 5066

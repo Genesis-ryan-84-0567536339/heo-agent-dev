@@ -1895,10 +1895,24 @@ class RequestHandler(BaseHTTPRequestHandler):
                 self.send_header("Cache-Control", "no-store, no-cache, must-revalidate")
                 self.send_header("Content-Length", str(len(data)))
                 self.send_header("Connection", "close")
-                self.end_headers()
-                self.wfile.write(data)
             else:
                 self._send_json({"error": "Mã QR chưa sẵn sàng hoặc đã hết hạn"}, 404)
+        elif path_clean == "/api/doctor":
+            doc_f = os.path.join(BASE_DIR, "doctor.sh")
+            if os.path.exists(doc_f):
+                try:
+                    res = subprocess.run([doc_f, "--json"], cwd=BASE_DIR, capture_output=True, text=True, timeout=12)
+                    raw_json = res.stdout.strip()
+                    if raw_json.startswith("{"):
+                        self.send_response(200)
+                        self.send_header("Content-Type", "application/json; charset=utf-8")
+                        self.end_headers()
+                        self.wfile.write(raw_json.encode("utf-8"))
+                        return
+                except Exception as e:
+                    self._send_json({"ok": False, "error": str(e)}, 500)
+                    return
+            self._send_json({"healthy": True, "ok_count": 10, "warn_count": 0, "err_count": 0, "issues": []}, 200)
         else:
             try:
                 self.send_response(404)
@@ -2281,6 +2295,17 @@ class RequestHandler(BaseHTTPRequestHandler):
         elif path_clean == "/api/login_google_status":
             info = get_google_auth_info()
             self._send_json({"done": info.get("authenticated", False), "google": info}, 200)
+        elif path_clean in ["/api/doctor_repair", "/api/doctor_fix"]:
+            doc_f = os.path.join(BASE_DIR, "doctor.sh")
+            if os.path.exists(doc_f):
+                try:
+                    proc = subprocess.run([doc_f, "--fix"], cwd=BASE_DIR, capture_output=True, text=True, timeout=30)
+                    self._send_json({"ok": True, "output": proc.stdout}, 200)
+                    return
+                except Exception as e:
+                    self._send_json({"ok": False, "error": str(e)}, 500)
+                    return
+            self._send_json({"ok": False, "error": "doctor.sh not found"}, 404)
         else:
             try:
                 self.send_response(404)

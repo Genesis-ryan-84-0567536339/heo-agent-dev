@@ -227,14 +227,16 @@ Sau khi cài đặt, hệ thống tự động đăng ký lệnh `heo-agent` (v�
 
 ```bash
 # === Quản Trị & Vận Hành ===
+heo-agent                  # Mở Web Dashboard & Kiểm tra trạng thái trực tiếp
+heo-agent doctor           # Chẩn đoán sức khỏe hệ thống toàn diện (10 tiêu chuẩn)
+heo-agent doctor --fix     # Tự động sửa chữa & phục hồi khi hệ thống bị lỗi / hỏng
 heo-agent web              # Mở đường link giao diện Web Dashboard (http://localhost:5066)
-heo-agent                  # Mở giao diện tương tác Terminal TUI Dashboard
 heo-agent --bg             # Khởi chạy chế độ nền (Daemon 24/7) trong Docker
 heo-agent status           # Kiểm tra trạng thái hoạt động của hệ thống
 heo-agent logs             # Xem luồng nhật ký thời gian thực (live stream logs)
 heo-agent restart          # Khởi động lại toàn bộ dịch vụ
 heo-agent stop             # Dừng an toàn toàn bộ hệ thống
-heo-agent uninstall        # Dọn dẹp và gỡ bỏ toàn bộ container, images, symlinks
+heo-agent uninstall        # Dọn dẹp & khôi phục cài đặt gốc (Factory Reset 100%)
 
 # === Thay Đổi Model & Mức Suy Luận (Effort) ===
 heo-agent model            # Xem model hiện tại và danh sách các mô hình hỗ trợ
@@ -249,6 +251,34 @@ heo-agent login-zalo       # Mở màn hình quét mã QR để đăng nhập t�
 heo-agent logout-google    # Đăng xuất tài khoản Google của AGY CLI
 heo-agent login-google     # Đăng nhập tài khoản Google mới cho AGY CLI
 ```
+
+---
+
+## 🩺 Bác Sĩ Hệ Thống (`heo-agent doctor`) — Chẩn Đoán & Phục Hồi Tự Động Khi Bị Lỗi
+
+Khi hệ thống gặp sự cố (mất kết nối Zalo, xung đột cổng, lỗi phân quyền file, hỏng cấu hình `config.json`, thiếu file nhị phân `bin/agy`, container bị treo), bạn không cần phải cài lại từ đầu:
+
+```bash
+# 1. Chẩn đoán toàn diện sức khỏe hệ thống (10 tiêu chuẩn vận hành)
+heo-agent doctor
+
+# 2. Tự động sửa chữa, vá lỗi & phục hồi dịch vụ chỉ với 1 dòng lệnh
+heo-agent doctor --fix
+```
+
+### 10 Tiêu chuẩn chẩn đoán & phục hồi tự động:
+1. **Hệ điều hành & Lệnh CLI**: Kiểm tra phân quyền, biến môi trường `$PATH`, symlink lệnh `heo-agent`.
+2. **Nền tảng Docker**: Kiểm tra Docker Daemon, quyền hạn user, Docker Compose v2.
+3. **Cấu trúc dữ liệu & Quyền hạn**: Tạo lại các thư mục thiếu, sửa broken symlink `auth/gemini_profile`, cấp quyền `+x`.
+4. **Tệp cấu hình `config/config.json`**: Kiểm tra cú pháp JSON, tự động phục hồi cấu trúc chuẩn nếu bị hỏng.
+5. **Core Agent `bin/agy`**: Kiểm tra tính toàn vẹn binary, tương thích thư viện hệ điều hành, tự động tải lại nếu thiếu.
+6. **Xung đột cổng mạng**: Quét cổng 5051 (Bridge) và 5066 (Console), tự động giải phóng tiến trình zombie chiếm dụng cổng.
+7. **Trạng thái Container**: Phát hiện container crash loop, tự động khởi động lại an toàn.
+8. **Phiên đăng nhập Zalo**: Kiểm tra tính hợp lệ của file session `data/zalo_session.json`.
+9. **Xác thực Google AGY**: Kiểm tra token đăng nhập Google và trạng thái Quota.
+10. **Kết nối Internet**: Kiểm tra thông suốt đường truyền đến máy chủ Zalo, Google Auth và GitHub Release.
+
+> 💡 **Mẹo:** Bạn cũng có thể mở Bác Sĩ Hệ Thống trực tiếp trên Web Console (cổng 5066) bằng nút **🩺 Bác Sĩ** trên thanh Header!
 
 ---
 

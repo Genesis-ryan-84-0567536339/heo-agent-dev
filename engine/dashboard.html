@@ -75,6 +75,12 @@
           <span id="liveStatusText">Online Trực Chiến</span>
         </div>
 
+        <!-- Nút Bác Sĩ Hệ Thống (System Doctor) -->
+        <button onclick="openDoctorModal()" class="px-3 py-1.5 rounded-full text-xs font-bold transition flex items-center space-x-1.5 shadow-sm border border-cyan-500/30 bg-cyan-500/10 text-cyan-300 hover:bg-cyan-500/20 cursor-pointer" title="Chẩn đoán sức khỏe & sửa chữa phục hồi hệ thống">
+          <span>🩺</span>
+          <span class="hidden sm:inline">Bác Sĩ</span>
+        </button>
+
         <button onclick="refreshData()" class="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition" title="Làm mới dữ liệu">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
         </button>
@@ -882,6 +888,66 @@
     </div>
   </div>
 
+  <!-- Modal Bác Sĩ Hệ Thống (System Doctor) -->
+  <div id="doctorModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 hidden">
+    <div class="bg-dark-900 border border-slate-700 rounded-3xl max-w-2xl w-full p-6 space-y-4 shadow-2xl relative max-h-[92vh] flex flex-col">
+      <button type="button" onclick="closeDoctorModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white text-xl cursor-pointer">&times;</button>
+      
+      <!-- Modal Header -->
+      <div class="text-center space-y-1 shrink-0 pb-2 border-b border-slate-800">
+        <div class="w-12 h-12 rounded-2xl bg-cyan-500/15 text-cyan-400 flex items-center justify-center text-2xl mx-auto mb-1">
+          🩺
+        </div>
+        <h3 class="font-bold text-white text-base md:text-lg">Bác Sĩ Hệ Thống (Heo-Agent Doctor)</h3>
+        <p class="text-xs text-slate-400">
+          Chẩn đoán 10 tiêu chuẩn vận hành toàn diện & Tự động sửa chữa phục hồi 1-Click
+        </p>
+      </div>
+
+      <!-- Thống Kê Tổng Quan -->
+      <div class="grid grid-cols-3 gap-3 shrink-0">
+        <div class="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-center">
+          <div id="doctorOkCount" class="text-xl font-extrabold text-emerald-400">--</div>
+          <div class="text-[10px] text-emerald-300 font-semibold uppercase tracking-wider">Đạt Chuẩn (OK)</div>
+        </div>
+        <div class="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-center">
+          <div id="doctorWarnCount" class="text-xl font-extrabold text-amber-400">--</div>
+          <div class="text-[10px] text-amber-300 font-semibold uppercase tracking-wider">Cảnh Báo (WARN)</div>
+        </div>
+        <div class="p-3 rounded-2xl bg-red-500/10 border border-red-500/20 text-center">
+          <div id="doctorErrCount" class="text-xl font-extrabold text-red-400">--</div>
+          <div class="text-[10px] text-red-300 font-semibold uppercase tracking-wider">Lỗi Cần Sửa (ERR)</div>
+        </div>
+      </div>
+
+      <!-- Danh Sách Vấn Đề / Chi Tiết -->
+      <div id="doctorDetailsContainer" class="flex-1 overflow-y-auto space-y-2 p-3 bg-dark-950/60 rounded-2xl border border-slate-800 text-xs">
+        <div class="text-center text-slate-400 py-6">
+          <div class="animate-spin inline-block w-6 h-6 border-2 border-current border-t-transparent text-cyan-400 rounded-full mb-2"></div>
+          <div>Đang thăm khám sức khỏe hệ thống...</div>
+        </div>
+      </div>
+
+      <!-- Footer Buttons -->
+      <div class="shrink-0 pt-2 border-t border-slate-800 flex items-center justify-between flex-wrap gap-2">
+        <button type="button" onclick="loadDoctorReport()" class="py-2 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition cursor-pointer flex items-center space-x-1.5">
+          <span>🔄</span>
+          <span>Khám Lại</span>
+        </button>
+
+        <div class="flex items-center space-x-2">
+          <button id="btnDoctorRepair" type="button" onclick="submitDoctorRepair()" class="py-2 px-5 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-xs font-bold transition shadow-lg shadow-cyan-600/20 cursor-pointer flex items-center space-x-1.5">
+            <span>🛠️</span>
+            <span id="btnDoctorRepairText">Tự Động Sửa Chữa (Auto-Repair)</span>
+          </button>
+          <button type="button" onclick="closeDoctorModal()" class="py-2 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold transition cursor-pointer">
+            Đóng
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal Tuyên Bố Miễn Trừ Trách Nhiệm (Disclaimer Modal) -->
   <div id="disclaimerModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 hidden">
     <div class="bg-dark-900 border border-slate-700 rounded-3xl max-w-2xl w-full p-6 space-y-4 shadow-2xl relative max-h-[92vh] flex flex-col">
@@ -998,6 +1064,90 @@
     function closeQuotaExhaustedModal() {
       document.getElementById('quotaExhaustedModal').classList.add('hidden');
       quotaModalDismissedThisIncident = true;
+    }
+
+    function openDoctorModal() {
+      document.getElementById('doctorModal').classList.remove('hidden');
+      loadDoctorReport();
+    }
+
+    function closeDoctorModal() {
+      document.getElementById('doctorModal').classList.add('hidden');
+    }
+
+    async function loadDoctorReport() {
+      const container = document.getElementById('doctorDetailsContainer');
+      const okElem = document.getElementById('doctorOkCount');
+      const warnElem = document.getElementById('doctorWarnCount');
+      const errElem = document.getElementById('doctorErrCount');
+
+      if (container) {
+        container.innerHTML = `
+          <div class="text-center text-slate-400 py-6">
+            <div class="animate-spin inline-block w-6 h-6 border-2 border-current border-t-transparent text-cyan-400 rounded-full mb-2"></div>
+            <div>Đang thăm khám sức khỏe hệ thống...</div>
+          </div>
+        `;
+      }
+
+      try {
+        const res = await fetch('/api/doctor');
+        const data = await res.json();
+        if (okElem) okElem.textContent = data.ok_count ?? 0;
+        if (warnElem) warnElem.textContent = data.warn_count ?? 0;
+        if (errElem) errElem.textContent = data.err_count ?? 0;
+
+        if (container) {
+          if (!data.issues || data.issues.length === 0) {
+            container.innerHTML = `
+              <div class="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-center space-y-1">
+                <div class="text-2xl">🎉</div>
+                <div class="font-bold text-sm">Hệ thống hoàn toàn khỏe mạnh 100%!</div>
+                <div class="text-slate-400 text-xs">Tất cả 10 tiêu chuẩn vận hành (Docker, Cổng mạng, AGY Core Agent, Session Zalo, Token Google, Quyền thư mục) đều đạt chuẩn.</div>
+              </div>
+            `;
+          } else {
+            let html = '<div class="space-y-2">';
+            data.issues.forEach(issue => {
+              const isErr = issue.includes('[LỖI]');
+              const cls = isErr 
+                ? 'p-3 rounded-xl bg-red-500/10 border border-red-500/25 text-red-300' 
+                : 'p-3 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-300';
+              html += `<div class="${cls} flex items-start space-x-2"><span>${isErr ? '✖' : '⚠️'}</span><div class="font-medium">${issue}</div></div>`;
+            });
+            html += '</div>';
+            container.innerHTML = html;
+          }
+        }
+      } catch (e) {
+        if (container) {
+          container.innerHTML = `<div class="p-4 text-center text-red-400">Lỗi kết nối kiểm tra: ${e.message}</div>`;
+        }
+      }
+    }
+
+    async function submitDoctorRepair() {
+      const btn = document.getElementById('btnDoctorRepair');
+      const btnText = document.getElementById('btnDoctorRepairText');
+      if (btn) btn.disabled = true;
+      if (btnText) btnText.textContent = 'Đang tự động phục hồi...';
+
+      try {
+        const res = await fetch('/api/doctor_repair', { method: 'POST' });
+        const data = await res.json();
+        if (data.ok) {
+          showToast('🎉 Đã phục hồi và sửa chữa hệ thống thành công!');
+          await loadDoctorReport();
+          refreshData();
+        } else {
+          showToast(data.error || 'Lỗi trong quá trình sửa chữa', true);
+        }
+      } catch (e) {
+        showToast('Lỗi gửi lệnh phục hồi: ' + e.message, true);
+      } finally {
+        if (btn) btn.disabled = false;
+        if (btnText) btnText.textContent = 'Tự Động Sửa Chữa (Auto-Repair)';
+      }
     }
 
     function formatSecondsToMMSS(sec) {

@@ -354,7 +354,7 @@ run_step_with_progress "[4/5] Đóng gói Docker Container" 60 90 "build_docker_
 # BƯỚC 5/5: CẤU HÌNH MÔI TRƯỜNG & ĐĂNG KÝ LỆNH TOÀN HỆ THỐNG
 # ==============================================================================
 setup_system_commands() {
-    chmod +x bin/heo-agent bin/heo-zalo 2>/dev/null || true
+    chmod +x bin/heo-agent bin/heo-zalo doctor.sh start.sh stop.sh uninstall.sh 2>/dev/null || true
     mkdir -p "$HOME/.local/bin"
     ln -sf "$WORKDIR/bin/heo-agent" "$HOME/.local/bin/heo-agent"
     ln -sf "$WORKDIR/bin/heo-agent" "$HOME/.local/bin/heo-zalo"
@@ -390,6 +390,7 @@ echo -e "Lệnh điều hành toàn hệ thống đã sẵn sàng: ${BOLD}${CYAN
 echo -e "Bảng điều khiển quản trị Web Console:      ${BOLD}${CYAN}http://localhost:5066${NC}"
 echo -e "\n📌 ${BOLD}BỘ LỆNH ĐIỀU HÀNH NHANH:${NC}"
 echo -e "   👉 ${CYAN}heo-agent${NC}              : Mở Web Dashboard & Kiểm tra trạng thái"
+echo -e "   👉 ${CYAN}heo-agent doctor${NC}       : Chẩn đoán & tự động sửa chữa phục hồi khi bị lỗi"
 echo -e "   👉 ${CYAN}heo-agent web${NC}          : Khởi chạy giao diện Web Console (cổng 5066)"
 echo -e "   👉 ${CYAN}heo-agent --bg${NC}         : Chạy chế độ nền (Daemon 24/7 trực chiến)"
 echo -e "   👉 ${CYAN}heo-agent status${NC}       : Giám sát trạng thái Zalo, Quota & Bot"
@@ -398,7 +399,7 @@ echo -e "   👉 ${CYAN}heo-agent effort${NC}       : Điều chỉnh mức tư 
 echo -e "   👉 ${CYAN}heo-agent logs${NC}         : Xem luồng nhật ký hoạt động thời gian thực"
 echo -e "   👉 ${CYAN}heo-agent restart${NC}      : Khởi động lại dịch vụ Heo-Agent"
 echo -e "   👉 ${CYAN}heo-agent stop${NC}         : Dừng toàn bộ hệ thống an toàn"
-echo -e "   👉 ${CYAN}heo-agent uninstall${NC}    : Dọn dẹp & gỡ bỏ container"
+echo -e "   👉 ${CYAN}heo-agent uninstall${NC}    : Dọn dẹp & khôi phục cài đặt gốc (Factory Reset)"
 echo -e " ${DIM}──────────────────────────────────────────────────────────────────────────────${NC}"
 echo -e "💡 Mẹo: Nếu vừa cài xong gõ 'heo-agent' chưa nhận ngay, gõ: ${CYAN}source ~/.bashrc${NC}\n"
 
