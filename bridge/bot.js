@@ -116,8 +116,8 @@ async function getUserDisplayName(api, userId) {
   try {
     const res = await api.getUserInfo(userId);
     const profile = res?.changed_profiles?.[userId] || res?.unchanged_profiles?.[userId];
-    if (profile && (profile.displayName || profile.zaloName)) {
-      const name = profile.displayName || profile.zaloName;
+    if (profile && (profile.zaloName || profile.displayName)) {
+      const name = profile.zaloName || profile.displayName;
       userCache.set(userId, name);
       return name;
     }
@@ -226,7 +226,7 @@ async function syncAllActiveGroups(api) {
           const profs = memInfo?.profiles || {};
           memberProfiles = memberIds.map(mid => {
             const p = profs[mid];
-            let name = p?.displayName || p?.zaloName || mid;
+            let name = p?.zaloName || p?.displayName || mid;
             if (String(mid) === BOSS_UID) name = "${BOSS_NAME}";
             return {
               id: String(mid),
