@@ -124,12 +124,14 @@ Trình cài đặt tự động:
 Khi khởi động lần đầu, màn hình TUI hướng dẫn bạn 4 bước đơn giản:
 
 ```text
-  _____       _             _    ______   __ 
- |__  / __ _| | ___       / \  / ___\ \ / / 
-   / / / _` | |/ _ \ ___ / _ \| |  _ \ V /  
-  / /_| (_| | | (_) |___/ ___ \ |_| | | |   
- |____|\__,_|_|\___/   /_/   \_\____| |_|   
-    Executive AI Assistant — Powered by Google Antigravity & Zalo
+     ( \___/ )         _    _                  _                         _   
+     /       \        | |  | |                / \                       | |  
+    |  ●   ●  |       | |__| | ___  ___ ____ / _ \   __ _  ___ _ __  ___| |_ 
+    |  ( oo ) |       |  __  |/ _ \/ _ \____/ ___ \ / _` |/ _ \ '_ \/ __| __|
+     \   ──  /        | |  | |  __/ (_) |  / /   \ \ (_| |  __/ | | \__ \ |_ 
+      `-----'         |_|  |_|\___|\___/  /_/     \_\__, |\___|_| |_|___/\__|
+   [ Bé Heo 3D ]                                    |___/                    
+ 🐷 HEO-AGENT (BÉ HEO) — Executive AI Co-Pilot Suite
 ```
 
 1. **Bước 1 — Xác thực Google AGY:** Đăng nhập tài khoản Google để kích hoạt Antigravity CLI (chạy trực tiếp trong terminal).

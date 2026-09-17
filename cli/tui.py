@@ -115,12 +115,15 @@ def check_or_extract_agy():
 
 def render_banner():
     banner = r"""
-[bold cyan]  _____       _             _    ______   __ [/bold cyan]
-[bold cyan] |__  / __ _| | ___       / \  / ___\ \ / / [/bold cyan]
-[bold cyan]   / / / _` | |/ _ \ ___ / _ \| |  _ \ V /  [/bold cyan]
-[bold cyan]  / /_| (_| | | (_) |___/ ___ \ |_| | | |   [/bold cyan]
-[bold cyan] |____|\__,_|_|\___/   /_/   \_\____| |_|   [/bold cyan]
-[bold magenta]    Executive AI Assistant — Powered by Google Antigravity & Zalo[/bold magenta]
+[bold magenta]     ( \___/ )[/bold magenta]         [bold cyan]_    _                  _                         _   [/bold cyan]
+[bold magenta]     /       \[/bold magenta]        [bold cyan]| |  | |                / \                       | |  [/bold cyan]
+[bold magenta]    |  ●   ●  |[/bold magenta]       [bold cyan]| |__| | ___  ___ ____ / _ \   __ _  ___ _ __  ___| |_ [/bold cyan]
+[bold magenta]    |  ( oo ) |[/bold magenta]       [bold cyan]|  __  |/ _ \/ _ \____/ ___ \ / _` |/ _ \ '_ \/ __| __|[/bold cyan]
+[bold magenta]     \   ──  /[/bold magenta]        [bold cyan]| |  | |  __/ (_) |  / /   \ \ (_| |  __/ | | \__ \ |_ [/bold cyan]
+[bold magenta]      `-----' [/bold magenta]        [bold cyan]|_|  |_|\___|\___/  /_/     \_\__, |\___|_| |_|___/\__|[/bold cyan]
+[bold yellow]   [ Bé Heo 3D ][/bold yellow]                                    [bold cyan]|___/                    [/bold cyan]
+[bold magenta] 🐷 HEO-AGENT (BÉ HEO) — TRỢ LÝ AI ĐIỀU HÀNH DOANH NGHIỆP[/bold magenta]
+[dim cyan]    Executive AI Co-Pilot Suite • Powered by Google Antigravity & Zalo[/dim cyan]
     """
     console.print(banner)
 

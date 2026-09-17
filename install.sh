@@ -144,19 +144,16 @@ run_step_with_progress() {
     fi
 }
 
-# Banner khởi động hiện đại chuẩn thương hiệu Heo-Agent
+# Banner khởi động hiện đại chuẩn thương hiệu Heo-Agent kèm Avatar Đầu Heo 3D
 clear 2>/dev/null || true
-echo -e "${CYAN}"
-cat << 'EOF'
-  _    _                   _                         _   
- | |  | |                 / \                       | |  
- | |__| | ___  ___ ____  / _ \   __ _  ___ _ __  ___| |_ 
- |  __  |/ _ \/ _ \____|/ ___ \ / _` |/ _ \ '_ \/ __| __|
- | |  | |  __/ (_) |   / /   \ \ (_| |  __/ | | \__ \ |_ 
- |_|  |_|\___|\___/   /_/     \_\__, |\___|_| |_|___/\__|
-                                |___/                    
-EOF
-echo -e "${NC}"
+echo -e "${MAGENTA}     ( \\___/ )         ${CYAN}_    _                  _                         _   "
+echo -e "${MAGENTA}     /       \\        ${CYAN}| |  | |                / \\                       | |  "
+echo -e "${MAGENTA}    |  ●   ●  |       ${CYAN}| |__| | ___  ___ ____ / _ \\   __ _  ___ _ __  ___| |_ "
+echo -e "${MAGENTA}    |  ( oo ) |       ${CYAN}|  __  |/ _ \\/ _ \\____/ ___ \\ / _\` |/ _ \\ '_ \\/ __| __|"
+echo -e "${MAGENTA}     \\   ──  /        ${CYAN}| |  | |  __/ (_) |  / /   \\ \\ (_| |  __/ | | \\__ \\ |_ "
+echo -e "${MAGENTA}      \`-----\x27         ${CYAN}|_|  |_|\\___|\\___/  /_/     \\_\\__, |\\___|_| |_|___/\\__|"
+echo -e "${YELLOW}   [ Bé Heo 3D ]                                    ${CYAN}|___/                    ${NC}"
+echo -e ""
 echo -e " 🐷 ${BOLD}${MAGENTA}HEO-AGENT (BÉ HEO) — TRỢ LÝ AI ĐIỀU HÀNH DOANH NGHIỆP${NC}"
 echo -e "    Executive AI Co-Pilot Suite • Powered by Google Antigravity & Zalo"
 echo -e "    Tác giả: ${BOLD}Ryan${NC} (${CYAN}genesis.corp.os@gmail.com${NC} • ${CYAN}(+84)090.919.8823${NC})"
