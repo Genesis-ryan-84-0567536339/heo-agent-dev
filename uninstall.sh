@@ -35,23 +35,23 @@ fi
 
 # Xóa podman container cũ nếu từng chạy bằng podman
 if command -v podman &> /dev/null; then
-    podman rm -f zalo-agy-copilot 2>/dev/null || true
+    podman rm -f heo-agent-copilot zalo-agy-copilot 2>/dev/null || true
 fi
 
 # 3. Hỏi người dùng có muốn xóa Docker Image không
 if [ -t 0 ]; then
-    read -r -p "👉 Bạn có muốn xóa Docker Image 'zalo-agy:latest' để giải phóng dung lượng không? [Y/n]: " remove_image
+    read -r -p "👉 Bạn có muốn xóa Docker Image 'heo-agent:latest' để giải phóng dung lượng không? [Y/n]: " remove_image
 else
-    read -r -p "👉 Bạn có muốn xóa Docker Image 'zalo-agy:latest' để giải phóng dung lượng không? [Y/n]: " remove_image || remove_image="y"
+    read -r -p "👉 Bạn có muốn xóa Docker Image 'heo-agent:latest' để giải phóng dung lượng không? [Y/n]: " remove_image || remove_image="y"
 fi
 remove_image=${remove_image:-y}
 if [[ "$remove_image" =~ ^[Yy]$ ]]; then
-    echo -e "${CYAN}Đang xóa Docker Image 'zalo-agy:latest'...${NC}"
+    echo -e "${CYAN}Đang xóa Docker Image 'heo-agent:latest' / 'zalo-agy:latest'...${NC}"
     if command -v docker &> /dev/null; then
-        docker rmi -f zalo-agy:latest 2>/dev/null || sudo docker rmi -f zalo-agy:latest 2>/dev/null || true
+        docker rmi -f heo-agent:latest zalo-agy:latest 2>/dev/null || sudo docker rmi -f heo-agent:latest zalo-agy:latest 2>/dev/null || true
     fi
     if command -v podman &> /dev/null; then
-        podman rmi -f zalo-agy:latest 2>/dev/null || true
+        podman rmi -f heo-agent:latest zalo-agy:latest 2>/dev/null || true
         podman rmi -f $(podman images -q -f "dangling=true") 2>/dev/null || true
     fi
     echo -e "${GREEN}✔ Đã xóa image.${NC}"

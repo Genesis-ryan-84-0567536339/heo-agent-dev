@@ -1,14 +1,19 @@
-# 🚀 Zalo-AGY Copilot (Bé Heo) — Phiên Bản v2.1
+# 🐷 Heo-Agent (Bé Heo) — Executive AI Co-Pilot v2.1
 
-[![Version](https://img.shields.io/badge/version-v2.1-blue.svg)](https://github.com/Genesis-ryan-84-0567536339/zalo-agy)
-[![Release Date](https://img.shields.io/badge/release-17%2F09%2F2026-green.svg)](https://github.com/Genesis-ryan-84-0567536339/zalo-agy/releases)
+<p align="center">
+  <img src="assets/heo_avatar.png" alt="Heo-Agent Mascot" width="130" style="border-radius: 24px; box-shadow: 0 8px 30px rgba(236,72,153,0.3);">
+</p>
+
+[![Version](https://img.shields.io/badge/version-v2.1-blue.svg)](https://github.com/Genesis-ryan-84-0567536339/Heo-Agent)
+[![Release Date](https://img.shields.io/badge/release-17%2F09%2F2026-green.svg)](https://github.com/Genesis-ryan-84-0567536339/Heo-Agent/releases)
+[![Community](https://img.shields.io/badge/community-heo--agent--free-pink.svg)](https://github.com/Genesis-ryan-84-0567536339/heo-agent-free)
 [![License](https://img.shields.io/badge/license-MIT-orange.svg)](LICENSE)
 [![Docker](https://img.shields.io/badge/docker-ready-2496ED.svg)](docker-compose.yml)
 [![Tác giả](https://img.shields.io/badge/tác_giả-Ryan-purple.svg)](mailto:genesis.corp.os@gmail.com)
 
-> **Antigravity Executive AI Co-Pilot — Zalo Edition (Phiên bản v2.1)**  
+> **Heo-Agent Executive AI Assistant Suite — Zalo Edition (Phiên bản v2.1)**  
 > Trợ lý Điều hành Cấp cao (Executive Assistant / Chief of Staff) độc lập, tự trị, kết nối trực tiếp tài khoản cá nhân & nhóm chat Zalo với **Google Antigravity (AGY) CLI**.  
-> Được đóng gói hoàn chỉnh bằng **Docker**, cài đặt nhanh chỉ với **1 lệnh duy nhất**, giao diện Web Dashboard **Heo Console (HCS)** chuẩn Glassmorphism và **Terminal UI (TUI)** chuyên nghiệp.
+> Được đóng gói hoàn chỉnh bằng **Docker**, cài đặt nhanh chỉ với **1 lệnh duy nhất**, giao diện Web Dashboard **Heo-Agent Console (HCS)** chuẩn Glassmorphism và **Terminal UI (TUI)** chuyên nghiệp.
 
 ---
 
@@ -100,7 +105,7 @@ Hệ thống **Zalo-AGY Copilot (Bé Heo)** được xây dựng trên kiến tr
 Chạy lệnh sau trên bất kỳ máy chủ Linux nào (Ubuntu, Debian, Fedora, CentOS, Arch...) hoặc macOS / Windows WSL2:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Genesis-ryan-84-0567536339/zalo-agy/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Genesis-ryan-84-0567536339/heo-agent-free/main/install.sh | bash
 ```
 
 > [!NOTE]
@@ -109,7 +114,7 @@ curl -fsSL https://raw.githubusercontent.com/Genesis-ryan-84-0567536339/zalo-agy
 Trình cài đặt tự động:
 1. Kiểm tra và thiết lập môi trường Docker Engine & Docker Compose v2 tiêu chuẩn.
 2. Tải mã nguồn và chuẩn bị binary `agy`.
-3. Tự động đóng gói Docker Container (`zalo-agy:latest`).
+3. Tự động đóng gói Docker Container (`heo-agent:latest`).
 4. Mở ngay **Terminal UI (TUI)** tương tác để bạn đăng nhập Google AGY và quét mã QR Zalo trên điện thoại.
 
 ---
@@ -320,7 +325,7 @@ Tệp `config/config.json` lưu trữ các thiết lập linh hoạt:
 ## 📁 Cấu Trúc Mã Nguồn
 
 ```text
-zalo-agy/
+heo-agent/
 ├── Dockerfile                  # Định nghĩa môi trường container chuẩn hóa
 ├── docker-compose.yml          # Cấu hình dịch vụ, volume mount dữ liệu và cổng
 ├── install.sh                  # Script cài đặt tự động 1 lệnh

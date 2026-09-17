@@ -157,13 +157,13 @@ else
 fi
 
 # Kiểm tra thư mục hiện tại
-INSTALL_DIR="zalo-agy"
+INSTALL_DIR="heo-agent"
 if [[ -f "docker-compose.yml" ]] && [[ -d "bridge" ]] && [[ -d "engine" ]]; then
     WORKDIR="$(pwd)"
 else
     if [[ ! -d "$INSTALL_DIR" ]]; then
         echo -e "${YELLOW}>>> Đang tải mã nguồn từ GitHub...${NC}"
-        git clone https://github.com/Genesis-ryan-84-0567536339/zalo-agy.git "$INSTALL_DIR"
+        git clone https://github.com/Genesis-ryan-84-0567536339/heo-agent-free.git "$INSTALL_DIR"
     fi
     WORKDIR="$(pwd)/$INSTALL_DIR"
     cd "$WORKDIR"
@@ -190,7 +190,7 @@ if [[ ! -f "bin/agy" ]]; then
         chmod +x bin/agy
     else
         echo -e "${CYAN}Đang tải AGY CLI binary từ GitHub Release...${NC}"
-        curl -fsSL -o bin/agy.tar.gz https://github.com/Genesis-ryan-84-0567536339/zalo-agy/releases/download/v1.0.0/agy.tar.gz || true
+        curl -fsSL -o bin/agy.tar.gz https://github.com/Genesis-ryan-84-0567536339/heo-agent-free/releases/download/v1.0.0/agy.tar.gz || curl -fsSL -o bin/agy.tar.gz https://github.com/Genesis-ryan-84-0567536339/Heo-Agent/releases/download/v1.0.0/agy.tar.gz || true
         if [[ -f "bin/agy.tar.gz" ]]; then
             tar -xzf bin/agy.tar.gz -C bin/
             chmod +x bin/agy

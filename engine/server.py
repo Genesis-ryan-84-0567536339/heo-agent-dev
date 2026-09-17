@@ -1651,6 +1651,35 @@ class RequestHandler(BaseHTTPRequestHandler):
                 self.wfile.write(content)
             else:
                 self._send_json({"error": "Dashboard template not found"}, 404)
+        elif path_clean in ["/avatar.png", "/heo_avatar.png"]:
+            img_path = os.path.join(Path(__file__).parent, "heo_avatar.png")
+            if not os.path.exists(img_path):
+                img_path = os.path.join(BASE_DIR, "assets", "heo_avatar.png")
+            if os.path.exists(img_path):
+                with open(img_path, "rb") as f:
+                    img_data = f.read()
+                self.send_response(200)
+                self.send_header("Content-Type", "image/png")
+                self.send_header("Content-Length", str(len(img_data)))
+                self.send_header("Cache-Control", "public, max-age=86400")
+                self.end_headers()
+                self.wfile.write(img_data)
+            else:
+                self._send_json({"error": "Avatar not found"}, 404)
+        elif path_clean in ["/favicon.ico"]:
+            ico_path = os.path.join(Path(__file__).parent, "favicon.ico")
+            if os.path.exists(ico_path):
+                with open(ico_path, "rb") as f:
+                    ico_data = f.read()
+                self.send_response(200)
+                self.send_header("Content-Type", "image/x-icon")
+                self.send_header("Content-Length", str(len(ico_data)))
+                self.send_header("Cache-Control", "public, max-age=86400")
+                self.end_headers()
+                self.wfile.write(ico_data)
+            else:
+                self.send_response(204)
+                self.end_headers()
         elif path_clean in ["/api/status", "/api/model_status"]:
             state = load_model_state()
             elapsed = time.time() - state.get("exhausted_at", 0) if state.get("is_fallback") else 0

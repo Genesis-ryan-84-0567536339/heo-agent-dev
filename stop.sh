@@ -35,8 +35,8 @@ fi
 
 # Dừng các container podman cũ nếu có
 if command -v podman &> /dev/null; then
-    podman stop zalo-agy-copilot 2>/dev/null || true
-    podman rm zalo-agy-copilot 2>/dev/null || true
+    podman stop heo-agent-copilot zalo-agy-copilot 2>/dev/null || true
+    podman rm heo-agent-copilot zalo-agy-copilot 2>/dev/null || true
 fi
 
 # Dừng cả các tiến trình native nếu có

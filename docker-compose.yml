@@ -3,13 +3,14 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: zalo-agy:latest
-    container_name: zalo-agy-copilot
+    image: heo-agent:latest
+    container_name: heo-agent-copilot
     restart: unless-stopped
     ports:
       - "5051:5051"
       - "5066:5066"
     volumes:
+      - ./assets:/app/assets:Z
       - ./data:/app/data:Z
       - ./workspace:/app/workspace:Z
       - ./logs:/app/logs:Z

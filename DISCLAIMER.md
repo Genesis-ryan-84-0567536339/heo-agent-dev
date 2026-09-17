@@ -1,16 +1,17 @@
 # ⚖️ TUYÊN BỐ MIỄN TRỪ TRÁCH NHIỆM & ĐIỀU KHOẢN SỬ DỤNG
 ### (DISCLAIMER OF WARRANTIES & LIMITATION OF LIABILITY)
 
-**Dự án:** Zalo-AGY Copilot (Bé Heo)  
+**Dự án:** Heo-Agent (Bé Heo) — Executive AI Co-Pilot  
 **Tác giả sáng lập & phát triển:** Ryan  
 **Email liên hệ:** [genesis.corp.os@gmail.com](mailto:genesis.corp.os@gmail.com)  
 **Số điện thoại / Zalo:** [(+84)090.919.8823](tel:+84909198823)  
-**Mã nguồn chính thức:** [https://github.com/Genesis-ryan-84-0567536339/zalo-agy](https://github.com/Genesis-ryan-84-0567536339/zalo-agy)  
+**Mã nguồn chính thức:** [https://github.com/Genesis-ryan-84-0567536339/Heo-Agent](https://github.com/Genesis-ryan-84-0567536339/Heo-Agent)  
+**Bản cộng đồng (Public):** [https://github.com/Genesis-ryan-84-0567536339/heo-agent-free](https://github.com/Genesis-ryan-84-0567536339/heo-agent-free)  
 
 ---
 
 ### 1. Thông Tin Tác Giả & Quyền Sở Hữu Trí Tuệ
-Phần mềm **Zalo-AGY Copilot (Bé Heo)** và các tài liệu, công cụ đi kèm được nghiên cứu, phát triển và phát hành bởi tác giả **Ryan** (`genesis.corp.os@gmail.com` | `(+84)090.919.8823`). Phần mềm được cung cấp công khai dưới hình thức mã nguồn mở phục vụ cộng đồng.
+Phần mềm **Heo-Agent (Bé Heo)** và các tài liệu, công cụ đi kèm được nghiên cứu, phát triển và phát hành bởi tác giả **Ryan** (`genesis.corp.os@gmail.com` | `(+84)090.919.8823`). Phần mềm được cung cấp công khai dưới hình thức mã nguồn mở phục vụ cộng đồng.
 
 ---
 
@@ -53,7 +54,7 @@ Người dùng cam kết và tự chịu trách nhiệm hoàn toàn về các v�
 
 ### 5. Hiệu Lực Và Sự Chấp Thuận
 
-- Việc người dùng bắt đầu khởi chạy phần mềm, quét mã QR, đăng nhập tài khoản hoặc bấm nút **"Tôi đã đọc & Chấp thuận"** trên Heo Console (HCS) là bằng chứng xác nhận rằng Người dùng đã đọc kỹ, hiểu trọn vẹn và chấp thuận vô điều kiện toàn bộ nội dung Tuyên bố Miễn trừ Trách nhiệm này.
+- Việc người dùng bắt đầu khởi chạy phần mềm, quét mã QR, đăng nhập tài khoản hoặc bấm nút **"Tôi đã đọc & Chấp thuận"** trên Heo-Agent Console (HCS) là bằng chứng xác nhận rằng Người dùng đã đọc kỹ, hiểu trọn vẹn và chấp thuận vô điều kiện toàn bộ nội dung Tuyên bố Miễn trừ Trách nhiệm này.
 - Nếu bạn không đồng ý với bất kỳ điều khoản nào trong văn bản này, vui lòng **ngừng sử dụng ngay lập tức** và xóa toàn bộ mã nguồn cũng như các dữ liệu liên quan khỏi hệ thống của bạn.
 
 ---

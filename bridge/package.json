@@ -1,7 +1,7 @@
 {
-  "name": "zalo-agy-bridge",
+  "name": "heo-agent-bridge",
   "version": "2.1.0",
-  "description": "Zalo bridge for Antigravity (AGY) engine",
+  "description": "Zalo bridge for Heo-Agent & Antigravity (AGY) engine",
   "main": "bot.js",
   "scripts": {
     "start": "node bot.js"
