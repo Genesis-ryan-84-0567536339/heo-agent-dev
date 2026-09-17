@@ -402,13 +402,6 @@ echo -e "   👉 ${CYAN}heo-agent uninstall${NC}    : Dọn dẹp & gỡ bỏ co
 echo -e " ${DIM}──────────────────────────────────────────────────────────────────────────────${NC}"
 echo -e "💡 Mẹo: Nếu vừa cài xong gõ 'heo-agent' chưa nhận ngay, gõ: ${CYAN}source ~/.bashrc${NC}\n"
 
-# Tự động mở Web UI sau khi cài đặt thành công nếu có màn hình đồ họa
-if [ -n "${DISPLAY:-}" ] || [ -n "${WAYLAND_DISPLAY:-}" ]; then
-    if command -v xdg-open &>/dev/null; then
-        xdg-open "http://localhost:5066" >/dev/null 2>&1 &
-    fi
-fi
-
 # Chạy Trình hướng dẫn cấu hình tương tác Terminal (TUI)
 echo -e "${YELLOW}>>> Đang mở Trình Cấu Hình Tương Tác (TUI Setup Wizard)...${NC}\n"
 $DOCKER_COMPOSE run --rm app tui

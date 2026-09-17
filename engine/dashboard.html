@@ -973,19 +973,21 @@
 
     let lastStatusData = null;
     let onboardingModalShown = false;
+    let onboardingModalDismissedThisVisit = false;
     let quotaModalDismissedThisIncident = false;
     let lastKnownQuotaExhausted = false;
     let quotaRemainingSeconds = 0;
     let quotaCountdownInterval = null;
 
     function openOnboardingModal() {
+      onboardingModalDismissedThisVisit = false;
       renderOnboardingModalState();
       document.getElementById('onboardingModal').classList.remove('hidden');
     }
 
     function closeOnboardingModal() {
       document.getElementById('onboardingModal').classList.add('hidden');
-      sessionStorage.setItem('onboarding_dismissed', '1');
+      onboardingModalDismissedThisVisit = true;
     }
 
     function openQuotaExhaustedModal() {
@@ -1566,8 +1568,8 @@
           }
         }
 
-        // Tự động bật popup thiết lập từng bước cho người mới nếu chưa hoàn tất và chưa bị tắt trong session
-        if (hasAcceptedDisclaimer && completedSetupSteps < 3 && !onboardingModalShown && !sessionStorage.getItem('onboarding_dismissed')) {
+        // Tự động bật popup thiết lập từng bước cho người mới nếu chưa hoàn tất
+        if (hasAcceptedDisclaimer && completedSetupSteps < 3 && !onboardingModalShown && !onboardingModalDismissedThisVisit) {
           onboardingModalShown = true;
           openOnboardingModal();
         }
@@ -2415,6 +2417,8 @@
           hasAcceptedDisclaimer = true;
           document.getElementById('disclaimerModal').classList.add('hidden');
           showToast('🎉 Đã chấp thuận Điều khoản & Tuyên bố miễn trừ trách nhiệm thành công!');
+          onboardingModalShown = false;
+          onboardingModalDismissedThisVisit = false;
           refreshData();
         } else {
           showToast(data.error || 'Lỗi ghi nhận chấp thuận', true);

@@ -32,7 +32,19 @@ DOCKER_COMPOSE="$(get_docker_compose)"
 
 open_web_ui() {
     local url="http://localhost:5066"
-    for i in {1..10}; do
+    local lock="/tmp/.heo_agent_web_open.lock"
+    local now
+    now=$(date +%s 2>/dev/null || echo 0)
+    if [ -f "$lock" ]; then
+        local last
+        last=$(cat "$lock" 2>/dev/null || echo 0)
+        if [ $((now - last)) -lt 4 ]; then
+            return 0
+        fi
+    fi
+    echo "$now" > "$lock" 2>/dev/null || true
+
+    for i in {1..15}; do
         if curl -s -m 1 "$url" >/dev/null 2>&1; then
             break
         fi
