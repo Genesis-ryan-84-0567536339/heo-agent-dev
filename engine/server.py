@@ -928,36 +928,36 @@ def restart_zalo_bridge():
 def zalo_bridge_watchdog():
     """
     Giám sát Zalo Bridge định kỳ 10 giây.
-    Nếu đã đăng nhập Zalo mà cổng 5051 không mở và không có process node bot.js,
-    hoặc process bị treo cổng 5051 quá 30 giây, tự động khôi phục.
+    Đảm bảo node bot.js luôn luôn chạy (kể cả khi chưa đăng nhập để sinh QR).
+    Nếu đã đăng nhập mà cổng 5051 bị treo quá 30s, tự động khôi phục.
     """
     time.sleep(5)
     consecutive_dead = 0
     while True:
         try:
-            zalo_session_file = os.path.join(DATA_DIR, "zalo_session.json")
-            if os.path.exists(zalo_session_file) and os.path.getsize(zalo_session_file) > 20:
-                alive = check_zalo_bridge_alive()
-                if not alive:
-                    consecutive_dead += 1
-                    proc_check = subprocess.run(["pgrep", "-f", "node.*bot.js"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                    is_running = (proc_check.returncode == 0)
-                    if not is_running:
-                        # Đợi 3s xem supervisor có tự khởi chạy không
-                        time.sleep(3)
-                        proc_check2 = subprocess.run(["pgrep", "-f", "node.*bot.js"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                        if proc_check2.returncode != 0:
-                            print("⚠️ [Watchdog] Zalo Bridge không hoạt động. Đang tự động kích hoạt lại...")
-                            log_event("🔄 [Watchdog] Zalo Bridge đã dừng. Đang tự động kết nối lại...")
-                            spawn_zalo_bridge()
+            proc_check = subprocess.run(["pgrep", "-f", "node.*bot.js"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            is_running = (proc_check.returncode == 0)
+            if not is_running:
+                time.sleep(3)
+                proc_check2 = subprocess.run(["pgrep", "-f", "node.*bot.js"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                if proc_check2.returncode != 0:
+                    print("⚠️ [Watchdog] Zalo Bridge không hoạt động. Đang tự động kích hoạt lại...")
+                    log_event("🔄 [Watchdog] Zalo Bridge đã dừng. Đang tự động kết nối lại...")
+                    spawn_zalo_bridge()
+                consecutive_dead = 0
+            else:
+                zalo_session_file = os.path.join(DATA_DIR, "zalo_session.json")
+                if os.path.exists(zalo_session_file) and os.path.getsize(zalo_session_file) > 20:
+                    alive = check_zalo_bridge_alive()
+                    if not alive:
+                        consecutive_dead += 1
+                        if consecutive_dead >= 3:
+                            print("⚠️ [Watchdog] Zalo Bridge bị treo (port 5051 không phản hồi 30s). Đang khởi động lại...")
+                            log_event("🔄 [Watchdog] Zalo Bridge không phản hồi. Đang khởi động lại...")
+                            restart_zalo_bridge()
+                            consecutive_dead = 0
+                    else:
                         consecutive_dead = 0
-                    elif consecutive_dead >= 3:
-                        print("⚠️ [Watchdog] Zalo Bridge bị treo (port 5051 không phản hồi 30s). Đang khởi động lại...")
-                        log_event("🔄 [Watchdog] Zalo Bridge không phản hồi. Đang khởi động lại...")
-                        restart_zalo_bridge()
-                        consecutive_dead = 0
-                else:
-                    consecutive_dead = 0
         except Exception as e:
             print(f"⚠️ [Watchdog] Exception in zalo_bridge_watchdog: {e}")
         time.sleep(10)
@@ -1718,6 +1718,12 @@ class RequestHandler(BaseHTTPRequestHandler):
                 qr_age = int(time.time() - os.path.getmtime(qr_f))
                 if qr_age > 120:  # QR Zalo hết hạn sau 2 phút
                     qr_expired = True
+
+            # Đảm bảo nếu chưa đăng nhập thì tiến trình bot.js phải đang chạy để sinh QR
+            if not zalo_info.get("logged_in"):
+                proc_check = subprocess.run(["pgrep", "-f", "node.*bot.js"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                if proc_check.returncode != 0:
+                    spawn_zalo_bridge()
 
             self._send_json({
                 "ok": True,

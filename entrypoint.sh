@@ -31,6 +31,7 @@ if [ "$1" = "daemon" ]; then
 
     # Khởi chạy AI Engine với auto-restart supervisor
     (
+        set +e
         while true; do
             python3 /app/engine/server.py >> /app/logs/engine.log 2>&1
             EXIT_C=$?
@@ -42,6 +43,7 @@ if [ "$1" = "daemon" ]; then
 
     # Khởi chạy Zalo Bridge với auto-restart supervisor
     (
+        set +e
         cd /app/bridge
         while true; do
             node bot.js >> /app/logs/zalo.log 2>&1

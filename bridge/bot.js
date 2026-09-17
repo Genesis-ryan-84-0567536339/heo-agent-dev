@@ -306,118 +306,116 @@ async function initZaloClient() {
     }
   }
 
-  log("⚡ Đang tạo mã QR đăng nhập Zalo...");
-  api = await zalo.loginQR({ qrPath: QR_PATH }, async (evt) => {
-    switch (evt.type) {
-      case LoginQRCallbackEventType.QRCodeGenerated: {
-        log("📱 ĐÃ TẠO MÃ QR ĐĂNG NHẬP!");
-        let qrPayload = "";
+  while (true) {
+    try {
+      log("⚡ Đang tạo mã QR đăng nhập Zalo...");
+      api = await zalo.loginQR({ qrPath: QR_PATH }, async (evt) => {
+        switch (evt.type) {
+          case LoginQRCallbackEventType.QRCodeGenerated: {
+            log("📱 ĐÃ TẠO MÃ QR ĐĂNG NHẬP!");
+            let qrPayload = "";
 
-        // 1. Thử giải mã trực tiếp từ ảnh QR chính thức của Zalo bằng jsQR & pngjs
-        try {
-          if (evt.data && evt.data.image) {
-            const { PNG } = require("pngjs");
-            const jsQR = require("jsqr");
-            const imgBuffer = Buffer.from(evt.data.image, "base64");
-            const png = PNG.sync.read(imgBuffer);
-            const qrResult = jsQR(new Uint8ClampedArray(png.data.buffer), png.width, png.height);
-            if (qrResult && qrResult.data) {
-              qrPayload = qrResult.data;
+            // 1. Thử giải mã trực tiếp từ ảnh QR chính thức của Zalo bằng jsQR & pngjs
+            try {
+              if (evt.data && evt.data.image) {
+                const { PNG } = require("pngjs");
+                const jsQR = require("jsqr");
+                const imgBuffer = Buffer.from(evt.data.image, "base64");
+                const png = PNG.sync.read(imgBuffer);
+                const qrResult = jsQR(new Uint8ClampedArray(png.data.buffer), png.width, png.height);
+                if (qrResult && qrResult.data) {
+                  qrPayload = qrResult.data;
+                }
+              }
+            } catch (_) {}
+
+            // 2. Dự phòng: Sử dụng evt.data.token theo đúng giao thức Zalo login
+            if (!qrPayload && evt.data && evt.data.token) {
+              qrPayload = evt.data.token.startsWith("http")
+                ? evt.data.token
+                : `http://zaloapp.com/qr/l?tk=${evt.data.token}`;
             }
+
+            // 3. Dự phòng cuối cùng: evt.data.code
+            if (!qrPayload && evt.data && evt.data.code) {
+              qrPayload = evt.data.code.startsWith("http")
+                ? evt.data.code
+                : (evt.data.code.startsWith("zaloqr:")
+                    ? `http://zaloapp.com/qr/l?tk=${evt.data.code}`
+                    : evt.data.code);
+            }
+
+            if (qrPayload) {
+              console.log("\n" + "═".repeat(60));
+              console.log("👉 BẮT BUỘC: Mở app ZALO trên điện thoại di động");
+              console.log("👉 Bấm biểu tượng [ -|- ] (Quét mã QR) ở góc trên bên phải Zalo");
+              console.log("   (LƯU Ý: Không dùng camera thường của máy để quét!)");
+              console.log("👉 Quét mã QR dưới đây, rồi bấm 'ĐĂNG NHẬP' trên điện thoại");
+              console.log("═".repeat(60) + "\n");
+              qrcode.generate(qrPayload, { small: true });
+            }
+
+            if (evt.actions && evt.actions.saveToFile) {
+              await evt.actions.saveToFile(QR_PATH);
+            } else if (evt.data && evt.data.image) {
+              fs.writeFileSync(QR_PATH, Buffer.from(evt.data.image, "base64"));
+            }
+
+            try {
+              const dataQrPath = path.join(DATA_DIR, "zalo_qr.png");
+              if (fs.existsSync(QR_PATH)) {
+                fs.copyFileSync(QR_PATH, dataQrPath);
+              }
+              const qrInfoPath = path.join(DATA_DIR, "zalo_qr_info.json");
+              fs.writeFileSync(qrInfoPath, JSON.stringify({ created_at: Date.now(), expires_in: 120 }), "utf-8");
+            } catch (_) {}
+
+            console.log(`\n🖼️ Ảnh QR gốc đã được lưu tại: ${QR_PATH}`);
+            console.log("   (Sếp cũng có thể mở trực tiếp file ảnh này để quét nếu terminal bị vỡ dòng!)\n");
+            break;
           }
-        } catch (_) {}
-
-        // 2. Dự phòng: Sử dụng evt.data.token theo đúng giao thức Zalo login
-        if (!qrPayload && evt.data && evt.data.token) {
-          qrPayload = evt.data.token.startsWith("http")
-            ? evt.data.token
-            : `http://zaloapp.com/qr/l?tk=${evt.data.token}`;
-        }
-
-        // 3. Dự phòng cuối cùng: evt.data.code
-        if (!qrPayload && evt.data && evt.data.code) {
-          qrPayload = evt.data.code.startsWith("http")
-            ? evt.data.code
-            : (evt.data.code.startsWith("zaloqr:")
-                ? `http://zaloapp.com/qr/l?tk=${evt.data.code}`
-                : evt.data.code);
-        }
-
-        if (qrPayload) {
-          console.log("\n" + "═".repeat(60));
-          console.log("👉 BẮT BUỘC: Mở app ZALO trên điện thoại di động");
-          console.log("👉 Bấm biểu tượng [ -|- ] (Quét mã QR) ở góc trên bên phải Zalo");
-          console.log("   (LƯU Ý: Không dùng camera thường của máy để quét!)");
-          console.log("👉 Quét mã QR dưới đây, rồi bấm 'ĐĂNG NHẬP' trên điện thoại");
-          console.log("═".repeat(60) + "\n");
-          qrcode.generate(qrPayload, { small: true });
-        }
-
-        if (evt.actions && evt.actions.saveToFile) {
-          await evt.actions.saveToFile(QR_PATH);
-        } else if (evt.data && evt.data.image) {
-          fs.writeFileSync(QR_PATH, Buffer.from(evt.data.image, "base64"));
-        }
-
-        try {
-          const dataQrPath = path.join(DATA_DIR, "zalo_qr.png");
-          if (fs.existsSync(QR_PATH)) {
-            fs.copyFileSync(QR_PATH, dataQrPath);
+          case LoginQRCallbackEventType.QRCodeScanned:
+            log("👁️ Sếp đã quét mã QR! Đang chờ xác nhận trên điện thoại...");
+            break;
+          case LoginQRCallbackEventType.GotLoginInfo: {
+            log("🎉 NHẬN THÔNG TIN XÁC THỰC ZALO THÀNH CÔNG!");
+            fs.writeFileSync(SESSION_FILE, JSON.stringify(evt.data, null, 2), "utf-8");
+            log(`Đã lưu phiên làm việc vào: ${SESSION_FILE}`);
+            try {
+              if (fs.existsSync(QR_PATH)) fs.unlinkSync(QR_PATH);
+              const dataQrPath = path.join(DATA_DIR, "zalo_qr.png");
+              if (fs.existsSync(dataQrPath)) fs.unlinkSync(dataQrPath);
+              const qrInfoPath = path.join(DATA_DIR, "zalo_qr_info.json");
+              if (fs.existsSync(qrInfoPath)) fs.unlinkSync(qrInfoPath);
+            } catch (_) {}
+            if (QR_ONLY) {
+              log("✅ [QR Setup] Đã xác thực Zalo thành công! Thoát chế độ thiết lập QR.");
+              setTimeout(() => process.exit(0), 1000);
+            }
+            break;
           }
-          const qrInfoPath = path.join(DATA_DIR, "zalo_qr_info.json");
-          fs.writeFileSync(qrInfoPath, JSON.stringify({ created_at: Date.now(), expires_in: 120 }), "utf-8");
-        } catch (_) {}
-
-        console.log(`\n🖼️ Ảnh QR gốc đã được lưu tại: ${QR_PATH}`);
-        console.log("   (Sếp cũng có thể mở trực tiếp file ảnh này để quét nếu terminal bị vỡ dòng!)\n");
-        break;
-      }
-      case LoginQRCallbackEventType.QRCodeScanned:
-        log("👁️ Sếp đã quét mã QR! Đang chờ xác nhận trên điện thoại...");
-        break;
-      case LoginQRCallbackEventType.GotLoginInfo: {
-        log("🎉 NHẬN THÔNG TIN XÁC THỰC ZALO THÀNH CÔNG!");
-        fs.writeFileSync(SESSION_FILE, JSON.stringify(evt.data, null, 2), "utf-8");
-        log(`Đã lưu phiên làm việc vào: ${SESSION_FILE}`);
-        try {
-          if (fs.existsSync(QR_PATH)) fs.unlinkSync(QR_PATH);
-          const dataQrPath = path.join(DATA_DIR, "zalo_qr.png");
-          if (fs.existsSync(dataQrPath)) fs.unlinkSync(dataQrPath);
-          const qrInfoPath = path.join(DATA_DIR, "zalo_qr_info.json");
-          if (fs.existsSync(qrInfoPath)) fs.unlinkSync(qrInfoPath);
-        } catch (_) {}
-        if (QR_ONLY) {
-          log("✅ [QR Setup] Đã xác thực Zalo thành công! Thoát chế độ thiết lập QR.");
-          setTimeout(() => process.exit(0), 1000);
+          case LoginQRCallbackEventType.QRCodeExpired:
+            log("⏳ Mã QR hết hạn trên Zalo. Đang tự động làm mới mã QR mới...");
+            break;
+          case LoginQRCallbackEventType.QRCodeDeclined:
+            log("❌ Từ chối đăng nhập trên điện thoại. Đang tạo mã QR mới...");
+            break;
         }
-        break;
-      }
-      case LoginQRCallbackEventType.QRCodeExpired:
-        log("⏳ Mã QR hết hạn. Đang tự động làm mới mã QR mới sau 2s...");
-        try {
-          if (fs.existsSync(QR_PATH)) fs.unlinkSync(QR_PATH);
-          const dataQrPath = path.join(DATA_DIR, "zalo_qr.png");
-          if (fs.existsSync(dataQrPath)) fs.unlinkSync(dataQrPath);
-          const qrInfoPath = path.join(DATA_DIR, "zalo_qr_info.json");
-          if (fs.existsSync(qrInfoPath)) fs.unlinkSync(qrInfoPath);
-        } catch (_) {}
-        setTimeout(() => process.exit(1), 2000);
-        break;
-      case LoginQRCallbackEventType.QRCodeDeclined:
-        log("❌ Từ chối đăng nhập trên điện thoại. Đang tạo mã QR mới...");
-        try {
-          if (fs.existsSync(QR_PATH)) fs.unlinkSync(QR_PATH);
-          const dataQrPath = path.join(DATA_DIR, "zalo_qr.png");
-          if (fs.existsSync(dataQrPath)) fs.unlinkSync(dataQrPath);
-          const qrInfoPath = path.join(DATA_DIR, "zalo_qr_info.json");
-          if (fs.existsSync(qrInfoPath)) fs.unlinkSync(qrInfoPath);
-        } catch (_) {}
-        setTimeout(() => process.exit(1), 2000);
-        break;
+      });
+
+      if (api) return api;
+    } catch (qrErr) {
+      log(`⚠️ Quá trình quét mã QR (${qrErr.message}). Đang tự động tạo lại mã QR mới sau 2s...`);
+      try {
+        if (fs.existsSync(QR_PATH)) fs.unlinkSync(QR_PATH);
+        const dataQrPath = path.join(DATA_DIR, "zalo_qr.png");
+        if (fs.existsSync(dataQrPath)) fs.unlinkSync(dataQrPath);
+        const qrInfoPath = path.join(DATA_DIR, "zalo_qr_info.json");
+        if (fs.existsSync(qrInfoPath)) fs.unlinkSync(qrInfoPath);
+      } catch (_) {}
+      await new Promise(r => setTimeout(r, 2000));
     }
-  });
-
-  return api;
+  }
 }
 
 function getRandomInterimMessage(isGroup, isBoss, senderName, prompt) {
