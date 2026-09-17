@@ -29,6 +29,46 @@
 
 ---
 
+## 🧠 Kiến Trúc Core Agent: Google Antigravity CLI (The Central Intelligence)
+
+Hệ thống **Zalo-AGY Copilot (Bé Heo)** được xây dựng trên kiến trúc **Module Phân Lớp Độc Lập**, trong đó:
+
+> 🎯 **Google Antigravity (AGY) CLI chính thức được định danh là CORE AGENT (Bộ Não Trí Tuệ & Điều Phối Trung Tâm)** của toàn bộ hệ thống.
+
+```text
+       ┌─────────────────────────────────────────────────────────────┐
+       │                 NGƯỜI DÙNG & CHỦ SỞ HỮU                     │
+       │    (Ứng dụng Zalo Mobile/PC  •  Web Console HCS 5066)       │
+       └──────────────────────────────┬──────────────────────────────┘
+                                      │ (Tin nhắn, Voice, Lệnh)
+                                      ▼
+       ┌─────────────────────────────────────────────────────────────┐
+       │                  TẦNG KẾT NỐI & ĐIỀU PHỐI                   │
+       │   • Zalo Bridge (zca-js WebSocket - Port 5051)              │
+       │   • AI Engine Orchestrator (Python HTTP Server - Port 5066) │
+       └──────────────────────────────┬──────────────────────────────┘
+                                      │ (Ngữ cảnh hội thoại, Nhiệm vụ)
+                                      ▼
+       ┌─────────────────────────────────────────────────────────────┐
+       │            🧠 CORE AGENT: GOOGLE ANTIGRAVITY CLI            │
+       │                                                             │
+       │   • Suy luận logic đa tầng (Gemini 3.8 / Pro, Claude...)    │
+       │   • Tự trị thực thi công cụ (Autonomous Tool Execution)     │
+       │   • Nạp động bộ kỹ năng điều hành (Progressive Skills)      │
+       │   • Điều phối công cụ đa phương tiện (STT, TTS, Image, Song)│
+       │   • Tự sinh bảng tính Excel, văn bản Word vào workspace/    │
+       └─────────────────────────────────────────────────────────────┘
+```
+
+### 5 Trụ Cột Của Core Agent (Google Antigravity CLI):
+1. **Trí tuệ suy luận đa mô hình (Multi-Model Intelligence):** Khai thác tối đa sức mạnh tính toán từ các mô hình AI tiên tiến (*Gemini 3.8 Flash, Gemini 3.1 Pro, Claude Sonnet 4.6, Claude Opus 4.6, GPT-OSS 120B*).
+2. **Quyền năng tự trị (Autonomous Tool Execution):** Core Agent tự phân tích yêu cầu, tự lựa chọn script cần thực thi (`create_song.py`, `generate_image.py`, `corporate_sheet_builder.py`), tự viết mã và tự kiểm tra kết quả mà không cần can thiệp thủ công.
+3. **Cơ chế nạp kỹ năng tiến trình (Progressive Skills Discovery):** Tự động phát hiện và nạp động 7 kỹ năng điều hành tại thư mục `skills/` theo nhu cầu thực tế.
+4. **Hệ thống quy chuẩn phân tầng (Hierarchical Rules):** Tuân thủ tuyệt đối quy tắc ứng xử con người (`workspace/AGENTS.md`) và bảo mật thông tin nội bộ của Sếp.
+5. **Tính mở & Độc lập kiến trúc (Modular Extensibility):** Tầng kết nối Zalo và Web HCS hoàn toàn tách biệt với Core Agent. Thiết kế này giúp hệ thống dễ dàng nâng cấp Core Agent hoặc mở rộng kết nối sang các kênh tương tác khác trong tương lai.
+
+---
+
 ## ✨ Điểm nổi bật & Tính năng cốt lõi (100% Feature Parity)
 
 * 🗣️ **Năng lực Đa Ngôn Ngữ Chuẩn Bản Địa (Multilingual Mirroring):**
