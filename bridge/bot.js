@@ -688,6 +688,14 @@ async function startBridge() {
       res.writeHead(404);
       res.end();
     });
+    server.on("error", (err) => {
+      if (err.code === "EADDRINUSE") {
+        log(`⚠️ Cổng ${OUTBOUND_PORT} đang bận (EADDRINUSE). Chờ giải phóng và khởi động lại sau 2s...`);
+        setTimeout(() => process.exit(1), 2000);
+      } else {
+        log(`⚠️ Lỗi HTTP Server: ${err.message}`);
+      }
+    });
     server.listen(OUTBOUND_PORT, "127.0.0.1", () => {
       log(`🚀 Zalo Outbound HTTP Server listening on http://127.0.0.1:${OUTBOUND_PORT} (/api/send, /api/react)`);
     });

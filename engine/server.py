@@ -908,13 +908,21 @@ def restart_zalo_bridge():
         subprocess.run(["pkill", "-9", "-f", "node.*bot.js"], timeout=5)
     except Exception:
         pass
-    time.sleep(1.0)
-    for _ in range(4):
+    # Chờ supervisor trong entrypoint.sh khởi động lại (đợi tối đa 5s)
+    for _ in range(5):
+        time.sleep(1.0)
         if check_zalo_bridge_alive():
             return True
-        time.sleep(1.0)
-    spawn_zalo_bridge()
-    time.sleep(2.0)
+        proc_check = subprocess.run(["pgrep", "-f", "node.*bot.js"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if proc_check.returncode == 0:
+            time.sleep(1.5)
+            if check_zalo_bridge_alive():
+                return True
+    # Chỉ spawn thủ công nếu supervisor không chạy và không có process nào
+    proc_check = subprocess.run(["pgrep", "-f", "node.*bot.js"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if proc_check.returncode != 0:
+        spawn_zalo_bridge()
+        time.sleep(2.0)
     return check_zalo_bridge_alive()
 
 def zalo_bridge_watchdog():
@@ -935,9 +943,13 @@ def zalo_bridge_watchdog():
                     proc_check = subprocess.run(["pgrep", "-f", "node.*bot.js"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                     is_running = (proc_check.returncode == 0)
                     if not is_running:
-                        print("⚠️ [Watchdog] Zalo Bridge không hoạt động. Đang tự động kích hoạt lại...")
-                        log_event("🔄 [Watchdog] Zalo Bridge đã dừng. Đang tự động kết nối lại...")
-                        spawn_zalo_bridge()
+                        # Đợi 3s xem supervisor có tự khởi chạy không
+                        time.sleep(3)
+                        proc_check2 = subprocess.run(["pgrep", "-f", "node.*bot.js"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                        if proc_check2.returncode != 0:
+                            print("⚠️ [Watchdog] Zalo Bridge không hoạt động. Đang tự động kích hoạt lại...")
+                            log_event("🔄 [Watchdog] Zalo Bridge đã dừng. Đang tự động kết nối lại...")
+                            spawn_zalo_bridge()
                         consecutive_dead = 0
                     elif consecutive_dead >= 3:
                         print("⚠️ [Watchdog] Zalo Bridge bị treo (port 5051 không phản hồi 30s). Đang khởi động lại...")
