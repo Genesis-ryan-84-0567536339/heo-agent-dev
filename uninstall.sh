@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# Zalo-AGY Copilot (Bé Heo) — Clean & Uninstall Script
+# Heo-Agent (Bé Heo) — Clean & Uninstall Script
 # ==============================================================================
 set -euo pipefail
 

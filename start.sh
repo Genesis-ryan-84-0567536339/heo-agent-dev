@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# start.sh: Khởi động nhanh hệ thống Zalo-AGY Copilot
+# start.sh: Khởi động nhanh hệ thống Heo-Agent (Bé Heo)
 set -euo pipefail
 
 SOURCE="${BASH_SOURCE[0]}"

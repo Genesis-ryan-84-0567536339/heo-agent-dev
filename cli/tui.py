@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-tui.py: Giao diện Terminal TUI Độc lập và Toàn diện cho Zalo-AGY Copilot (Bé Heo)
+tui.py: Giao diện Terminal TUI Độc lập và Toàn diện cho Heo-Agent (Bé Heo)
 - Xác thực tài khoản Google cho Antigravity CLI (agy) trực tiếp trên Terminal
 - Hiển thị mã QR Code Zalo quét trên điện thoại (qua qrcode-terminal)
 - Cấu hình quyền Chủ sở hữu (Boss UID)

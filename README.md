@@ -36,7 +36,7 @@
 
 ## 🧠 Kiến Trúc Core Agent: Google Antigravity CLI (The Central Intelligence)
 
-Hệ thống **Zalo-AGY Copilot (Bé Heo)** được xây dựng trên kiến trúc **Module Phân Lớp Độc Lập**, trong đó:
+Hệ thống **Heo-Agent (Bé Heo)** được xây dựng trên kiến trúc **Module Phân Lớp Độc Lập**, trong đó:
 
 > 🎯 **Google Antigravity (AGY) CLI chính thức được định danh là CORE AGENT (Bộ Não Trí Tuệ & Điều Phối Trung Tâm)** của toàn bộ hệ thống.
 
@@ -387,7 +387,7 @@ heo-agent/
 
 ## 🏷️ Thông Tin Checkpoint & Phiên Bản
 
-* **Phiên bản chính thức:** `Zalo-AGY Copilot v2.1`
+* **Phiên bản chính thức:** `Heo-Agent v2.1`
 * **Thời gian chốt phiên bản (Checkpoint Timestamp):** `2026-09-17 17:40:33 +07:00` (17/09/2026)
 * **Git Tag:** `v2.1`
 * **Kiểm duyệt an toàn thông tin (Security & Privacy Audit):** Đã rà soát và kiểm duyệt toàn diện (Zero Leak: không chứa bất kỳ Zalo UID cá nhân, cookie phiên đăng nhập, số điện thoại hay token bảo mật riêng tư nào trên Git repository).

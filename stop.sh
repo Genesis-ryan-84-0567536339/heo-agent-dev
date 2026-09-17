@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# stop.sh: Dừng an toàn toàn bộ hệ thống Zalo-AGY Copilot
+# stop.sh: Dừng an toàn toàn bộ hệ thống Heo-Agent (Bé Heo)
 set -euo pipefail
 
 SOURCE="${BASH_SOURCE[0]}"
@@ -11,7 +11,7 @@ done
 BASE_DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
 cd "$BASE_DIR"
 
-echo "🛑 Đang dừng Zalo-AGY Copilot..."
+echo "🛑 Đang dừng Heo-Agent (Bé Heo)..."
 
 get_docker_compose() {
     if docker compose version &> /dev/null 2>&1; then

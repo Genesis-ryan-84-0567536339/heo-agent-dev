@@ -1,7 +1,7 @@
 FROM node:20-bookworm
 
 LABEL maintainer="Genesis <contact@genesis.local>"
-LABEL description="Zalo-AGY Copilot (Bé Heo) - Full Executive Assistant Suite"
+LABEL description="Heo-Agent (Bé Heo) - Full Executive Assistant Suite"
 
 # Cài đặt Python 3, ffmpeg, sox, audio codecs và các công cụ cần thiết
 RUN apt-get update && apt-get install -y --no-install-recommends \

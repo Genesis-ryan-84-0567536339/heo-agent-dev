@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# Zalo-AGY Copilot (Bé Heo) — One-Line Installer & Setup Wizard
-# Tiêu chuẩn hóa 100% trên Docker Engine & Docker Compose v2 (Cross-Platform)
+# Heo-Agent (Bé Heo) — One-Line Installer & Setup Wizard
+# Tiêu chuẩn hóa 100% trên Docker Engine & Docker Compose v2
 # ==============================================================================
 set -euo pipefail
 
@@ -61,7 +61,7 @@ check_and_install_engine() {
     if [ "$is_podman_wrapper" = true ]; then
         echo -e "${YELLOW}⚠️ Phát hiện hệ thống đang sử dụng Podman / podman-docker giả lập.${NC}"
         echo -e "${CYAN}Do podman-compose có nhiều lỗi cú pháp và không tương thích đầy đủ với Docker Compose v2,"
-        echo -e "Zalo-AGY Copilot được thống nhất 100% trên Docker Engine chính thức (Docker CE & Compose v2)"
+        echo -e "Heo-Agent (Bé Heo) được thống nhất 100% trên Docker Engine chính thức (Docker CE & Compose v2)"
         echo -e "nhằm đảm bảo chạy mượt mà, đồng nhất trên mọi hệ điều hành (Ubuntu, Debian, Fedora, Arch, macOS, WSL2).${NC}"
         echo -e "${YELLOW}==============================================================================${NC}"
         if [ -t 0 ]; then
@@ -71,7 +71,7 @@ check_and_install_engine() {
         fi
     else
         echo -e "${YELLOW}⚠️ Chưa tìm thấy Docker Engine & Docker Compose trên hệ thống.${NC}"
-        echo -e "${CYAN}Zalo-AGY Copilot yêu cầu Docker Engine tiêu chuẩn để vận hành container.${NC}"
+        echo -e "${CYAN}Heo-Agent (Bé Heo) yêu cầu Docker Engine tiêu chuẩn để vận hành container.${NC}"
         echo -e "${YELLOW}==============================================================================${NC}"
         if [ -t 0 ]; then
             read -r -p "👉 Bạn có muốn tự động cài đặt Docker CE & Docker Compose ngay bây giờ không? [Y/n]: " do_install

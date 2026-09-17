@@ -1,7 +1,7 @@
 # Antigravity Executive AI Co-Pilot — Zalo Edition
 
 ## 🧠 Định Danh Kiến Trúc: Core Agent (Google Antigravity CLI)
-- Hệ thống Zalo-AGY Copilot vận hành dựa trên kiến trúc **Core Agent độc lập**:
+- Hệ thống Heo-Agent (Bé Heo) vận hành dựa trên kiến trúc **Core Agent độc lập**:
   - **Google Antigravity (AGY) CLI** đóng vai trò là **Core Agent trung tâm (Bộ não điều hành & Trí tuệ tự trị)** của toàn bộ hệ thống.
   - Core Agent sở hữu năng lực tự trị cấp cao: tự quyết định thực thi công cụ (autonomous tool execution), đọc/ghi tệp hệ thống, phối hợp subagents, suy luận đa tầng và nạp động các kỹ năng nghiệp vụ chuyên sâu (`skills/`).
   - Toàn bộ các thành phần khác (Zalo Bridge, HTTP Engine, Web Console HCS) đóng vai trò là tầng chuyển tiếp ngữ cảnh (context adapters & governance).
