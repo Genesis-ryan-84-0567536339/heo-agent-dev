@@ -81,6 +81,13 @@
           <span class="hidden sm:inline">Bác Sĩ</span>
         </button>
 
+        <!-- Nút Kiểm Tra & Cập Nhật Phiên Bản -->
+        <button id="headerUpdateBtn" onclick="openUpdateModal()" class="px-3 py-1.5 rounded-full text-xs font-bold transition flex items-center space-x-1.5 shadow-sm border border-purple-500/30 bg-purple-500/10 text-purple-300 hover:bg-purple-500/20 cursor-pointer" title="Kiểm tra & Cập nhật phiên bản mới">
+          <span id="updateIcon">🔄</span>
+          <span class="hidden sm:inline" id="headerUpdateText">Cập Nhật</span>
+          <span id="updateDot" class="w-2 h-2 rounded-full bg-emerald-400 hidden animate-pulse"></span>
+        </button>
+
         <button onclick="refreshData()" class="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition" title="Làm mới dữ liệu">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
         </button>
@@ -920,6 +927,64 @@
     </div>
   </div>
 
+  <!-- Modal Cập Nhật Phiên Bản (System Update Modal) -->
+  <div id="updateModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 hidden">
+    <div class="bg-dark-900 border border-slate-700 rounded-3xl max-w-lg w-full p-6 space-y-4 shadow-2xl relative flex flex-col">
+      <button type="button" onclick="closeUpdateModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white text-xl cursor-pointer">&times;</button>
+
+      <!-- Modal Header -->
+      <div class="text-center space-y-1 shrink-0 pb-2 border-b border-slate-800">
+        <div class="w-12 h-12 rounded-2xl bg-purple-500/15 text-purple-400 flex items-center justify-center text-2xl mx-auto mb-1">
+          🔄
+        </div>
+        <h3 class="font-bold text-white text-base md:text-lg">Cập Nhật Phiên Bản Heo-Agent</h3>
+        <p class="text-xs text-slate-400">
+          Kiểm tra & Cập nhật mã nguồn mới nhất từ GitHub chỉ với 1-Click
+        </p>
+      </div>
+
+      <!-- Thẻ thông tin phiên bản -->
+      <div class="p-3.5 rounded-2xl bg-dark-850 border border-slate-800 space-y-2.5 text-xs">
+        <div class="flex items-center justify-between">
+          <span class="text-slate-400">Phiên bản đang chạy:</span>
+          <span id="updateLocalCommit" class="font-mono font-bold text-cyan-400 bg-slate-800/80 px-2 py-0.5 rounded text-[11px]">Đang kiểm tra...</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="text-slate-400">Bản mới nhất trên GitHub:</span>
+          <span id="updateRemoteCommit" class="font-mono font-bold text-emerald-400 bg-slate-800/80 px-2 py-0.5 rounded text-[11px]">Đang kiểm tra...</span>
+        </div>
+        <div id="updateCommitMsgBox" class="hidden pt-2 border-t border-slate-800 text-slate-300">
+          <span class="text-slate-500 block text-[10px] uppercase font-semibold tracking-wider mb-0.5">Nội dung cập nhật mới:</span>
+          <span id="updateCommitMsg" class="font-medium text-white text-xs leading-relaxed block bg-dark-950 p-2 rounded-xl border border-slate-800/80 font-mono"></span>
+        </div>
+      </div>
+
+      <!-- Hộp thông báo trạng thái -->
+      <div id="updateStatusNotice" class="p-3 rounded-xl bg-cyan-950/30 border border-cyan-500/20 text-cyan-300 text-xs flex items-center space-x-2">
+        <span class="animate-spin text-sm">⏳</span>
+        <span id="updateStatusText">Đang kiểm tra phiên bản mới từ GitHub...</span>
+      </div>
+
+      <!-- Nút hành động -->
+      <div class="flex space-x-2 pt-1">
+        <button id="btnCheckUpdateNow" type="button" onclick="checkUpdateManual(true)" class="flex-1 py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs border border-slate-700 transition flex items-center justify-center space-x-1.5 cursor-pointer">
+          <span>🔍</span>
+          <span>Kiểm Tra Lại</span>
+        </button>
+        <button id="btnApplyUpdateNow" type="button" onclick="applyUpdateNow()" class="hidden flex-1 py-2.5 px-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs shadow-lg transition flex items-center justify-center space-x-1.5 cursor-pointer">
+          <span>⬇️</span>
+          <span>Cập Nhật Ngay (1-Click)</span>
+        </button>
+      </div>
+
+      <!-- Output log khi update -->
+      <div id="updateLogBox" class="hidden space-y-1">
+        <div class="text-[11px] text-slate-400 font-medium">Tiến trình cập nhật:</div>
+        <pre id="updateLogContent" class="p-2.5 rounded-xl bg-dark-950 border border-slate-800 text-[11px] font-mono text-slate-300 overflow-x-auto max-h-32 custom-scroll leading-relaxed"></pre>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal Bác Sĩ Hệ Thống (System Doctor) -->
   <div id="doctorModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 hidden">
     <div class="bg-dark-900 border border-slate-700 rounded-3xl max-w-2xl w-full p-6 space-y-4 shadow-2xl relative max-h-[92vh] flex flex-col">
@@ -1105,6 +1170,133 @@
 
     function closeDoctorModal() {
       document.getElementById('doctorModal').classList.add('hidden');
+    }
+
+    let lastUpdateInfo = null;
+
+    async function checkUpdateManual(force = false) {
+      const notice = document.getElementById('updateStatusNotice');
+      const text = document.getElementById('updateStatusText');
+      const localElem = document.getElementById('updateLocalCommit');
+      const remoteElem = document.getElementById('updateRemoteCommit');
+      const msgBox = document.getElementById('updateCommitMsgBox');
+      const msgElem = document.getElementById('updateCommitMsg');
+      const applyBtn = document.getElementById('btnApplyUpdateNow');
+      const logBox = document.getElementById('updateLogBox');
+      if (logBox) logBox.classList.add('hidden');
+
+      if (notice) {
+        notice.className = 'p-3 rounded-xl bg-cyan-950/30 border border-cyan-500/20 text-cyan-300 text-xs flex items-center space-x-2';
+        notice.innerHTML = '<span class="animate-spin text-sm">⏳</span><span>Đang kiểm tra phiên bản mới từ GitHub...</span>';
+      }
+
+      try {
+        const url = '/api/check_update' + (force ? '?force=1' : '');
+        const res = await fetch(url);
+        const data = await res.json();
+        lastUpdateInfo = data;
+
+        if (localElem) localElem.textContent = data.local_commit || 'N/A';
+        if (remoteElem) remoteElem.textContent = data.remote_commit || 'N/A';
+
+        if (data.message && msgBox && msgElem) {
+          msgElem.textContent = data.message;
+          msgBox.classList.remove('hidden');
+        }
+
+        const updateDot = document.getElementById('updateDot');
+        const headerBtn = document.getElementById('headerUpdateBtn');
+
+        if (data.has_update) {
+          if (notice) {
+            notice.className = 'p-3 rounded-xl bg-emerald-950/40 border border-emerald-500/40 text-emerald-300 text-xs flex items-center space-x-2';
+            notice.innerHTML = '<span class="text-base">🎉</span><div><strong class="font-bold">Đã có phiên bản mới (' + (data.remote_commit || '') + ')!</strong><div class="text-[11px] text-emerald-400 mt-0.5">Bấm nút "Cập Nhật Ngay" bên dưới để nâng cấp tự động.</div></div>';
+          }
+          if (applyBtn) applyBtn.classList.remove('hidden');
+          if (updateDot) updateDot.classList.remove('hidden');
+          if (headerBtn) headerBtn.classList.add('border-emerald-500/50', 'text-emerald-300');
+        } else {
+          if (notice) {
+            notice.className = 'p-3 rounded-xl bg-slate-800/40 border border-slate-700/50 text-slate-300 text-xs flex items-center space-x-2';
+            notice.innerHTML = '<span>✅</span><span>Heo-Agent đang ở phiên bản mới nhất (' + (data.local_commit || '') + ').</span>';
+          }
+          if (applyBtn) applyBtn.classList.add('hidden');
+          if (updateDot) updateDot.classList.add('hidden');
+        }
+      } catch (e) {
+        if (notice) {
+          notice.className = 'p-3 rounded-xl bg-red-950/30 border border-red-500/30 text-red-300 text-xs flex items-center space-x-2';
+          notice.innerHTML = '<span>❌</span><span>Lỗi kiểm tra: ' + e.message + '</span>';
+        }
+      }
+    }
+
+    function openUpdateModal() {
+      document.getElementById('updateModal').classList.remove('hidden');
+      checkUpdateManual(false);
+    }
+
+    function closeUpdateModal() {
+      document.getElementById('updateModal').classList.add('hidden');
+    }
+
+    async function applyUpdateNow() {
+      const applyBtn = document.getElementById('btnApplyUpdateNow');
+      const checkBtn = document.getElementById('btnCheckUpdateNow');
+      const notice = document.getElementById('updateStatusNotice');
+      const logBox = document.getElementById('updateLogBox');
+      const logContent = document.getElementById('updateLogContent');
+
+      if (applyBtn) {
+        applyBtn.disabled = true;
+        applyBtn.innerHTML = '<span class="animate-spin">🔄</span><span>Đang tải và cập nhật...</span>';
+      }
+      if (checkBtn) checkBtn.disabled = true;
+
+      if (notice) {
+        notice.className = 'p-3 rounded-xl bg-cyan-950/40 border border-cyan-500/40 text-cyan-300 text-xs flex items-center space-x-2';
+        notice.innerHTML = '<span class="animate-spin text-sm">🔄</span><span>Đang tải mã nguồn mới từ GitHub và cập nhật hệ thống...</span>';
+      }
+
+      try {
+        const res = await fetch('/api/do_update', { method: 'POST' });
+        const data = await res.json();
+        if (logBox && logContent) {
+          logBox.classList.remove('hidden');
+          logContent.textContent = (data.output || data.message || 'Hoàn tất.');
+        }
+
+        if (data.ok) {
+          if (notice) {
+            notice.className = 'p-3 rounded-xl bg-emerald-950/40 border border-emerald-500/40 text-emerald-300 text-xs flex items-center space-x-2';
+            notice.innerHTML = '<span>🎉</span><span><strong>' + (data.message || 'Cập nhật thành công!') + '</strong> Đang tải lại Bảng điều khiển...</span>';
+          }
+          showToast('🎉 Cập nhật thành công! Hệ thống đang tự khởi động lại...');
+          setTimeout(() => {
+            window.location.reload();
+          }, 3500);
+        } else {
+          if (notice) {
+            notice.className = 'p-3 rounded-xl bg-red-950/40 border border-red-500/40 text-red-300 text-xs flex items-center space-x-2';
+            notice.innerHTML = '<span>❌</span><span>' + (data.error || 'Cập nhật thất bại') + '</span>';
+          }
+          if (applyBtn) {
+            applyBtn.disabled = false;
+            applyBtn.innerHTML = '<span>⬇️</span><span>Thử lại</span>';
+          }
+          if (checkBtn) checkBtn.disabled = false;
+        }
+      } catch (e) {
+        if (notice) {
+          notice.className = 'p-3 rounded-xl bg-red-950/40 border border-red-500/40 text-red-300 text-xs flex items-center space-x-2';
+          notice.innerHTML = '<span>❌</span><span>Lỗi kết nối máy chủ: ' + e.message + '</span>';
+        }
+        if (applyBtn) {
+          applyBtn.disabled = false;
+          applyBtn.innerHTML = '<span>⬇️</span><span>Thử lại</span>';
+        }
+        if (checkBtn) checkBtn.disabled = false;
+      }
     }
 
     async function loadDoctorReport() {
@@ -2718,6 +2910,10 @@
     fetchLogs();
     setInterval(refreshData, 3000);
     setInterval(fetchLogs, 3000);
+
+    // Tự động kiểm tra bản cập nhật mới từ GitHub (sau 2s và định kỳ mỗi 10 phút)
+    setTimeout(() => checkUpdateManual(false), 2000);
+    setInterval(() => checkUpdateManual(false), 10 * 60 * 1000);
   </script>
 </body>
 </html>

@@ -24,6 +24,7 @@ services:
       - ./entrypoint.sh:/app/entrypoint.sh:Z
       - ./DISCLAIMER.md:/app/DISCLAIMER.md:Z
       - ./skills:/app/skills:Z
+      - ./.git:/app/.git:Z
     environment:
       - HOME=/app/auth/home
       - BASE_DIR=/app

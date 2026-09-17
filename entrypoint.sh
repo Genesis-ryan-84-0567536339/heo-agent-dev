@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -e
 
+git config --global --add safe.directory '*' 2>/dev/null || true
+
 # Đảm bảo các thư mục dữ liệu và profile người dùng tồn tại
 mkdir -p /app/data /app/workspace /app/logs /app/auth/xdg-data /app/auth/home/.gemini /app/bin
 if [ -L /app/auth/gemini_profile ] && [ ! -e /app/auth/gemini_profile ]; then

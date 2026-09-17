@@ -387,6 +387,7 @@ def _get_oauth_creds():
 GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET = _get_oauth_creds()
 GOOGLE_OAUTH_SCOPES = "openid https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/cloud-platform https://www.googleapis.com/auth/cclog"
 _oauth_pending_sessions = {}
+_update_cache = {"expires_at": 0, "data": {}}
 
 
 def _refresh_oauth_token(refresh_token, token_file, existing_data):
@@ -622,6 +623,81 @@ def start_token_refresh_loop():
     """Khởi động background thread tự refresh OAuth token."""
     t = threading.Thread(target=_token_refresh_loop, daemon=True)
     t.start()
+
+
+def get_local_commit():
+    """Lấy mã commit HEAD hiện tại của Heo-Agent."""
+    try:
+        out = subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=BASE_DIR, stderr=subprocess.DEVNULL, timeout=2
+        ).decode().strip()
+        if out:
+            return out
+    except Exception:
+        pass
+    try:
+        head_path = os.path.join(BASE_DIR, ".git", "HEAD")
+        if os.path.exists(head_path):
+            with open(head_path, "r", encoding="utf-8") as f:
+                ref_line = f.read().strip()
+            if ref_line.startswith("ref: "):
+                ref_subpath = ref_line.split("ref: ", 1)[1].strip()
+                ref_file = os.path.join(BASE_DIR, ".git", ref_subpath)
+                if os.path.exists(ref_file):
+                    with open(ref_file, "r", encoding="utf-8") as f:
+                        return f.read().strip()[:7]
+            elif len(ref_line) >= 7:
+                return ref_line[:7]
+    except Exception:
+        pass
+    commit_file = os.path.join(BASE_DIR, ".git_commit")
+    if os.path.exists(commit_file):
+        try:
+            with open(commit_file, "r", encoding="utf-8") as f:
+                return f.read().strip()[:7]
+        except Exception:
+            pass
+    return "41f7fc0"
+
+
+def get_remote_update_info():
+    """Lấy thông tin commit mới nhất từ GitHub API (caching 60 giây)."""
+    global _update_cache
+    now = time.time()
+    if _update_cache.get("expires_at", 0) > now:
+        return _update_cache.get("data", {})
+
+    local_sha = get_local_commit()
+    url = "https://api.github.com/repos/Genesis-ryan-84-0567536339/heo-agent-free/commits/main"
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "Heo-Agent-Updater"})
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            remote_sha = data.get("sha", "")[:7]
+            message = data.get("commit", {}).get("message", "").split("\n")[0]
+            date_str = data.get("commit", {}).get("committer", {}).get("date", "")
+            res = {
+                "ok": True,
+                "local_commit": local_sha,
+                "remote_commit": remote_sha,
+                "has_update": bool(remote_sha and local_sha and remote_sha.lower() != local_sha.lower()),
+                "message": message,
+                "date": date_str
+            }
+            _update_cache = {"expires_at": now + 60, "data": res}
+            return res
+    except Exception as e:
+        return {
+            "ok": False,
+            "error": str(e),
+            "local_commit": local_sha,
+            "remote_commit": local_sha,
+            "has_update": False,
+            "message": "Không thể kết nối máy chủ GitHub kiểm tra cập nhật.",
+            "date": ""
+        }
+
 
 # Mapping model_id (API response) -> quota_stats key
 _MODEL_ID_TO_STAT_KEY = {
@@ -1799,6 +1875,14 @@ class RequestHandler(BaseHTTPRequestHandler):
                 self._send_json({"done": True, "google": sess.get("google", {})}, 200)
             else:
                 self._send_json({"done": False}, 200)
+        elif path_clean == "/api/check_update":
+            import urllib.parse
+            parsed = urllib.parse.urlparse(self.path)
+            qs = urllib.parse.parse_qs(parsed.query)
+            if qs.get("force", ["0"])[0] == "1":
+                _update_cache["expires_at"] = 0
+            res = get_remote_update_info()
+            self._send_json(res, 200)
         elif path_clean == "/api/oauth_callback":
             # Google OAuth redirect callback
             import urllib.parse
@@ -2386,6 +2470,48 @@ class RequestHandler(BaseHTTPRequestHandler):
                     self._send_json({"ok": False, "error": str(e)}, 500)
                     return
             self._send_json({"ok": False, "error": "doctor.sh not found"}, 404)
+        elif path_clean == "/api/do_update":
+            try:
+                # 1. Thử git pull
+                pull_cmd = ["git", "pull", "origin", "main"]
+                proc = subprocess.run(pull_cmd, cwd=BASE_DIR, capture_output=True, text=True, timeout=35)
+                if proc.returncode == 0:
+                    new_sha = get_local_commit()
+                    log_event(f"🎉 [Update] Đã cập nhật thành công lên commit {new_sha} qua git pull!")
+                    _update_cache["expires_at"] = 0
+                    threading.Timer(1.5, lambda: os._exit(0)).start()
+                    self._send_json({
+                        "ok": True,
+                        "new_commit": new_sha,
+                        "message": f"Cập nhật thành công ({new_sha})! Hệ thống đang tự động khởi động lại sau 2 giây...",
+                        "output": proc.stdout or "Đã cập nhật mới nhất."
+                    }, 200)
+                    return
+
+                # 2. Nếu git pull lỗi, tải tarball từ GitHub
+                tar_url = "https://github.com/Genesis-ryan-84-0567536339/heo-agent-free/archive/refs/heads/main.tar.gz"
+                tmp_tar = "/tmp/heo_agent_update.tar.gz"
+                urllib.request.urlretrieve(tar_url, tmp_tar)
+                extract_cmd = ["tar", "-xzf", tmp_tar, "--strip-components=1", "-C", BASE_DIR]
+                sub_proc = subprocess.run(extract_cmd, capture_output=True, text=True, timeout=25)
+                if sub_proc.returncode == 0:
+                    info = get_remote_update_info()
+                    new_sha = info.get("remote_commit", "")
+                    with open(os.path.join(BASE_DIR, ".git_commit"), "w", encoding="utf-8") as f:
+                        f.write(new_sha)
+                    log_event(f"🎉 [Update] Đã cập nhật thành công qua GitHub Tarball lên phiên bản {new_sha}!")
+                    _update_cache["expires_at"] = 0
+                    threading.Timer(1.5, lambda: os._exit(0)).start()
+                    self._send_json({
+                        "ok": True,
+                        "new_commit": new_sha,
+                        "message": f"Cập nhật thành công ({new_sha})! Hệ thống đang tự động khởi động lại sau 2 giây...",
+                        "output": "Cập nhật thành công qua gói GitHub chính thức."
+                    }, 200)
+                else:
+                    self._send_json({"ok": False, "error": f"Lỗi giải nén: {sub_proc.stderr}"}, 500)
+            except Exception as e:
+                self._send_json({"ok": False, "error": str(e)}, 500)
         else:
             try:
                 self.send_response(404)
