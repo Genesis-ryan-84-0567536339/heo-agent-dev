@@ -292,6 +292,16 @@ fi
 
 TOTAL_INSTALL_START_TIME=$(date +%s)
 
+# Kiểm tra tương thích đặc biệt cho macOS
+if [ "$(uname -s)" = "Darwin" ]; then
+    if [ "$needs_docker_install" = true ] || ! docker info >/dev/null 2>&1; then
+        echo -e "\n${RED}✖ [macOS] Chưa tìm thấy Docker Engine hoặc Docker Desktop chưa khởi động.${NC}"
+        echo -e "${YELLOW}👉 Trên macOS, vui lòng cài đặt và bật Docker Desktop (https://www.docker.com/products/docker-desktop/) hoặc OrbStack (https://orbstack.dev/).${NC}"
+        echo -e "${YELLOW}   Sau khi Docker Desktop đã chạy, hãy dán lại lệnh cài đặt để tiếp tục nhé!${NC}\n"
+        exit 1
+    fi
+fi
+
 if [ "$needs_docker_install" = true ]; then
     echo -e "${YELLOW}⚠️ Hệ thống chưa có Docker CE hoặc đang dùng Podman giả lập.${NC}"
     if [ -t 0 ]; then
