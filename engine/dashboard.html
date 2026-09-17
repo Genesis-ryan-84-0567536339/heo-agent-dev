@@ -52,6 +52,18 @@
       </div>
 
       <div class="flex items-center space-x-3">
+        <!-- Nút Hướng Dẫn / Thiết Lập Từng Bước Cho Người Mới -->
+        <button id="headerOnboardingBtn" onclick="openOnboardingModal()" class="hidden px-3 py-1.5 rounded-full text-xs font-bold transition flex items-center space-x-1.5 shadow-sm border border-amber-500/30 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20 cursor-pointer" title="Xem hướng dẫn thiết lập hệ thống">
+          <span>🚀</span>
+          <span id="headerOnboardingText">Thiết Lập (0/3)</span>
+        </button>
+
+        <!-- Nút Cảnh Báo Quota Header -->
+        <button id="headerQuotaAlertBtn" onclick="openQuotaExhaustedModal()" class="hidden px-3 py-1.5 rounded-full text-xs font-bold transition flex items-center space-x-1.5 shadow-sm border border-red-500/40 bg-red-500/15 text-red-300 hover:bg-red-500/25 animate-pulse cursor-pointer" title="Bấm để xem chi tiết cảnh báo Quota">
+          <span>🚨</span>
+          <span id="headerQuotaAlertText">Hết Quota</span>
+        </button>
+
         <!-- Nút Bật/Tắt Bot nhanh -->
         <button id="headerPauseToggle" onclick="toggleBotPause()" class="px-3 py-1.5 rounded-full text-xs font-bold transition flex items-center space-x-1.5 shadow-sm border" title="Bấm để Bật hoặc Tắt phản hồi">
           <span id="headerPauseDot" class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
@@ -76,6 +88,65 @@
     <!-- Toast Notification -->
     <div id="toast" class="fixed bottom-5 right-5 z-50 transform transition-all duration-300 translate-y-20 opacity-0 pointer-events-none">
       <div id="toastContent" class="px-4 py-3 rounded-xl shadow-2xl text-sm font-medium flex items-center space-x-2 border"></div>
+    </div>
+
+    <!-- BANNER CẢNH BÁO CORE AGENT HẾT QUOTA (RESOURCE_EXHAUSTED) -->
+    <div id="quotaAlertBanner" class="hidden p-4 rounded-2xl bg-gradient-to-r from-red-950/80 via-red-900/60 to-dark-900 border-2 border-red-500/50 shadow-xl shadow-red-950/50 text-xs">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div class="flex items-start space-x-3">
+          <div class="w-10 h-10 rounded-xl bg-red-500/20 border border-red-500/40 text-red-400 flex items-center justify-center text-xl shrink-0 animate-bounce">
+            🚨
+          </div>
+          <div>
+            <div class="flex items-center space-x-2 flex-wrap">
+              <span class="font-bold text-red-300 text-sm">CẢNH BÁO: CORE AGENT HẾT QUOTA (HTTP 429 RESOURCE_EXHAUSTED)</span>
+              <span id="bannerCooldownTag" class="px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 border border-red-500/30 text-[11px] font-mono font-bold">Chờ hồi phục: --:--</span>
+            </div>
+            <p class="text-slate-300 text-xs mt-1">
+              Google Antigravity CLI chính đã chạm hạn mức. Hệ thống đang tự động kích hoạt Failover sang mô hình dự phòng để duy trì phản hồi tin nhắn Zalo.
+            </p>
+          </div>
+        </div>
+        <div class="flex items-center space-x-2 shrink-0 flex-wrap gap-y-2">
+          <button type="button" onclick="switchModel('gemini-3.8-flash')" class="px-3 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold transition shadow-md flex items-center space-x-1 cursor-pointer">
+            <span>⚡ Chuyển Flash</span>
+          </button>
+          <button type="button" onclick="checkAllQuota()" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold border border-slate-700 transition flex items-center space-x-1 cursor-pointer">
+            <span>🔄 Kiểm Tra Quota</span>
+          </button>
+          <button type="button" onclick="openGoogleLoginModal()" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold border border-slate-700 transition flex items-center space-x-1 cursor-pointer">
+            <span>🔑 Đổi Tài Khoản</span>
+          </button>
+          <button type="button" onclick="openQuotaExhaustedModal()" class="px-3 py-1.5 rounded-xl bg-red-600/30 hover:bg-red-600/50 text-red-200 font-bold border border-red-500/40 transition cursor-pointer">
+            <span>Chi Tiết & Xử Lý ❯</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- BANNER CẢNH BÁO THIẾU THIẾT LẬP (DÀNH CHO NGƯỜI MỚI) -->
+    <div id="onboardingAlertBanner" class="hidden p-4 rounded-2xl bg-gradient-to-r from-amber-950/70 via-amber-900/40 to-dark-900 border border-amber-500/40 shadow-xl text-xs">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div class="flex items-start space-x-3">
+          <div class="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 text-amber-400 flex items-center justify-center text-xl shrink-0">
+            🚀
+          </div>
+          <div>
+            <div class="flex items-center space-x-2 flex-wrap">
+              <span class="font-bold text-amber-300 text-sm">HƯỚNG DẪN THIẾT LẬP CHO NGƯỜI MỚI (CHƯA HOÀN TẤT)</span>
+              <span id="onboardingProgressBadge" class="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[11px] font-bold">Hoàn thành 0/3 bước</span>
+            </div>
+            <p id="onboardingMissingSummary" class="text-slate-300 text-xs mt-1">
+              Bạn cần hoàn tất: Mã PIN bảo mật, Quét QR kết nối Zalo, và Đăng nhập Core Agent Google AGY để bot vận hành.
+            </p>
+          </div>
+        </div>
+        <div class="flex items-center space-x-2 shrink-0 flex-wrap gap-y-2">
+          <button type="button" onclick="openOnboardingModal()" class="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-dark-950 font-bold transition shadow-lg shadow-amber-500/20 flex items-center space-x-1.5 cursor-pointer">
+            <span>🚀 Mở Trình Thiết Lập Từng Bước</span>
+          </button>
+        </div>
+      </div>
     </div>
 
     <!-- Top Stats Row (5 Cards) -->
@@ -601,6 +672,214 @@
         </div>
       </form>
     </div>
+  <!-- Modal Hướng Dẫn & Cảnh Báo Thiết Lập Từng Bước Cho Người Mới -->
+  <div id="onboardingModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 hidden">
+    <div class="bg-dark-900 border border-slate-700 rounded-3xl max-w-2xl w-full p-6 space-y-4 shadow-2xl relative max-h-[92vh] flex flex-col">
+      <button type="button" onclick="closeOnboardingModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white text-xl cursor-pointer">&times;</button>
+      
+      <!-- Modal Header -->
+      <div class="text-center space-y-1 shrink-0 pb-2 border-b border-slate-800">
+        <div class="w-12 h-12 rounded-2xl bg-amber-500/15 text-amber-400 flex items-center justify-center text-2xl mx-auto mb-1">
+          🚀
+        </div>
+        <h3 class="font-bold text-white text-base md:text-lg">Thiết Lập Hệ Thống Từng Bước Cho Người Mới</h3>
+        <p class="text-xs text-slate-400">
+          Vui lòng hoàn tất đủ <strong class="text-amber-300">3 bước cốt lõi</strong> để kích hoạt toàn diện trợ lý AI Heo-Agent
+        </p>
+      </div>
+
+      <!-- Thanh Tiến Độ Cài Đặt -->
+      <div class="shrink-0 p-3.5 rounded-2xl bg-dark-950/70 border border-slate-800 space-y-2">
+        <div class="flex items-center justify-between text-xs">
+          <span class="text-slate-400 font-medium">Tiến độ thiết lập:</span>
+          <span id="onboardingProgressText" class="font-bold text-amber-400">0/3 bước hoàn tất</span>
+        </div>
+        <div class="w-full bg-slate-800 rounded-full h-2">
+          <div id="onboardingProgressBar" class="h-2 rounded-full bg-gradient-to-r from-amber-500 to-emerald-500 transition-all duration-500" style="width: 0%"></div>
+        </div>
+        <div id="onboardingNoticeAlert" class="text-[11px] text-amber-300 flex items-center space-x-1.5">
+          <span>⚠️</span>
+          <span>Hệ thống cảnh báo: Thiếu 1 trong 3 bước này, bot sẽ không thể trả lời tin nhắn Zalo!</span>
+        </div>
+      </div>
+
+      <!-- Danh Sách 3 Bước Thiết Lập -->
+      <div class="flex-1 overflow-y-auto pr-1 space-y-3">
+
+        <!-- BƯỚC 1: MÃ PIN BẢO MẬT -->
+        <div id="stepCardPin" class="p-4 rounded-2xl border transition bg-dark-850 border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div class="flex items-start space-x-3">
+            <div class="w-9 h-9 rounded-xl bg-cyan-500/15 text-cyan-400 flex items-center justify-center text-lg shrink-0">
+              🔒
+            </div>
+            <div>
+              <div class="flex items-center space-x-2">
+                <span class="font-bold text-white text-sm">Bước 1: Thiết Lập Mã PIN Quản Trị</span>
+                <span id="stepPinBadge" class="text-[10px] px-2 py-0.5 rounded-full font-bold">Đang kiểm tra...</span>
+              </div>
+              <p class="text-xs text-slate-400 mt-1">
+                Bảo vệ bảng điều khiển Web Console và dùng để xác thực lệnh ghép nối Sếp (Owner Pairing) qua tin nhắn Zalo.
+              </p>
+            </div>
+          </div>
+          <div class="shrink-0 flex sm:justify-end">
+            <button id="stepPinActionBtn" type="button" onclick="closeOnboardingModal(); openManagePinModal();" class="w-full sm:w-auto px-4 py-2 rounded-xl text-xs font-bold transition shadow-md cursor-pointer flex items-center justify-center space-x-1">
+              <span>➕ Tạo PIN Ngay</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- BƯỚC 2: KẾT NỐI ZALO -->
+        <div id="stepCardZalo" class="p-4 rounded-2xl border transition bg-dark-850 border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div class="flex items-start space-x-3">
+            <div class="w-9 h-9 rounded-xl bg-blue-500/15 text-blue-400 flex items-center justify-center text-lg shrink-0">
+              📱
+            </div>
+            <div>
+              <div class="flex items-center space-x-2">
+                <span class="font-bold text-white text-sm">Bước 2: Quét QR & Kết Nối Zalo</span>
+                <span id="stepZaloBadge" class="text-[10px] px-2 py-0.5 rounded-full font-bold">Đang kiểm tra...</span>
+              </div>
+              <p class="text-xs text-slate-400 mt-1">
+                Quét mã QR bằng ứng dụng Zalo trên điện thoại để tài khoản bot nhận diện tin nhắn đến và gửi phản hồi tự động.
+              </p>
+            </div>
+          </div>
+          <div class="shrink-0 flex sm:justify-end">
+            <button id="stepZaloActionBtn" type="button" onclick="closeOnboardingModal(); openZaloQRModal();" class="w-full sm:w-auto px-4 py-2 rounded-xl text-xs font-bold transition shadow-md cursor-pointer flex items-center justify-center space-x-1">
+              <span>📱 Quét QR Zalo</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- BƯỚC 3: ĐĂNG NHẬP CORE AGENT GOOGLE AGY -->
+        <div id="stepCardGoogle" class="p-4 rounded-2xl border transition bg-dark-850 border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div class="flex items-start space-x-3">
+            <div class="w-9 h-9 rounded-xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center text-lg shrink-0">
+              🧠
+            </div>
+            <div>
+              <div class="flex items-center space-x-2">
+                <span class="font-bold text-white text-sm">Bước 3: Đăng Nhập Core Agent Google AGY</span>
+                <span id="stepGoogleBadge" class="text-[10px] px-2 py-0.5 rounded-full font-bold">Đang kiểm tra...</span>
+              </div>
+              <p class="text-xs text-slate-400 mt-1">
+                Kích hoạt trí tuệ nhân tạo (Google Antigravity CLI) với Gemini 3.8 Flash, Claude Sonnet 4.6 & khả năng suy luận đa bước.
+              </p>
+            </div>
+          </div>
+          <div class="shrink-0 flex sm:justify-end">
+            <button id="stepGoogleActionBtn" type="button" onclick="closeOnboardingModal(); openGoogleLoginModal();" class="w-full sm:w-auto px-4 py-2 rounded-xl text-xs font-bold transition shadow-md cursor-pointer flex items-center justify-center space-x-1">
+              <span>🔐 Đăng Nhập Google</span>
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Footer Buttons -->
+      <div class="shrink-0 pt-2 border-t border-slate-800 flex items-center justify-between flex-wrap gap-2">
+        <span class="text-[11px] text-slate-400">
+          💡 Bạn có thể mở lại trình hướng dẫn này bất cứ lúc nào qua nút <strong class="text-amber-400">🚀 Thiết Lập</strong> trên thanh Menu.
+        </span>
+        <button type="button" onclick="closeOnboardingModal()" class="py-2 px-5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold transition cursor-pointer">
+          Đóng / Làm Sau
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Cảnh Báo Core Agent Hết Quota -->
+  <div id="quotaExhaustedModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 hidden">
+    <div class="bg-dark-900 border-2 border-red-500/50 rounded-3xl max-w-xl w-full p-6 space-y-4 shadow-2xl relative max-h-[92vh] flex flex-col">
+      <button type="button" onclick="closeQuotaExhaustedModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white text-xl cursor-pointer">&times;</button>
+      
+      <!-- Header cảnh báo -->
+      <div class="text-center space-y-1 shrink-0 pb-2 border-b border-slate-800">
+        <div class="w-12 h-12 rounded-2xl bg-red-500/20 text-red-400 flex items-center justify-center text-2xl mx-auto mb-1 animate-pulse border border-red-500/40">
+          🚨
+        </div>
+        <h3 class="font-bold text-red-400 text-base md:text-lg">Cảnh Báo: Core Agent Hết Quota!</h3>
+        <p class="text-xs text-slate-300">
+          Mô hình AI chính (Google Antigravity CLI) đã chạm ngưỡng giới hạn <strong class="text-red-300 font-mono">HTTP 429 RESOURCE_EXHAUSTED</strong>
+        </p>
+      </div>
+
+      <!-- Nội dung chi tiết & Cooldown -->
+      <div class="shrink-0 p-3.5 rounded-2xl bg-red-950/30 border border-red-500/30 space-y-2.5">
+        <div class="flex items-center justify-between text-xs">
+          <span class="text-slate-300 font-semibold">Trạng thái tự phục hồi Quota:</span>
+          <span id="quotaCooldownTimer" class="font-mono font-bold text-red-400 bg-red-500/10 px-2.5 py-0.5 rounded-md border border-red-500/20 text-sm">--:--</span>
+        </div>
+        <p class="text-xs text-slate-300 leading-relaxed">
+          Google AGY áp dụng giới hạn số lượt hỏi (Request Quota) theo từng phút và từng ngày. Khi vượt quá hạn mức, hệ thống tự động kích hoạt <strong>Failover Mode</strong> chuyển sang mô hình dự phòng để đảm bảo tin nhắn Zalo không bị gián đoạn.
+        </p>
+        <div class="text-[11px] text-amber-300 bg-amber-500/10 p-2.5 rounded-xl border border-amber-500/20">
+          💡 <strong>Gợi ý:</strong> Bạn có thể kiểm tra xem Quota đã hồi phục chưa, chuyển sang mô hình Flash nhẹ hơn, hoặc đăng nhập tài khoản Google dự phòng để tiếp tục ngay.
+        </div>
+      </div>
+
+      <!-- Các giải pháp xử lý nhanh (Action Buttons) -->
+      <div class="space-y-2.5 pt-1">
+        <div class="text-xs font-bold text-slate-300">Chọn giải pháp khắc phục ngay:</div>
+        
+        <!-- Action 1: Chuyển sang Flash -->
+        <button type="button" onclick="switchModel('gemini-3.8-flash'); closeQuotaExhaustedModal();" class="w-full p-3 rounded-2xl bg-dark-850 hover:bg-dark-800 border border-slate-800 hover:border-cyan-500/50 text-left transition flex items-center justify-between group cursor-pointer">
+          <div class="flex items-center space-x-3">
+            <span class="text-xl">⚡</span>
+            <div>
+              <div class="text-xs font-bold text-white group-hover:text-cyan-400 transition">Chuyển Ngay Sang Gemini 3.8 Flash</div>
+              <div class="text-[11px] text-slate-400">Mô hình tốc độ cao, hạn mức Quota rộng nhất trong hệ thống</div>
+            </div>
+          </div>
+          <span class="text-cyan-400 text-xs font-bold">Kích Hoạt ❯</span>
+        </button>
+
+        <!-- Action 2: Chuyển sang GPT-OSS (Open Source) -->
+        <button type="button" onclick="switchModel('gpt-oss-120b'); closeQuotaExhaustedModal();" class="w-full p-3 rounded-2xl bg-dark-850 hover:bg-dark-800 border border-slate-800 hover:border-amber-500/50 text-left transition flex items-center justify-between group cursor-pointer">
+          <div class="flex items-center space-x-3">
+            <span class="text-xl">🤖</span>
+            <div>
+              <div class="text-xs font-bold text-white group-hover:text-amber-400 transition">Chuyển Sang Mô Hình Mã Nguồn Mở (GPT-OSS 120B)</div>
+              <div class="text-[11px] text-slate-400">Không bị phụ thuộc vào quota tài khoản Gemini cá nhân</div>
+            </div>
+          </div>
+          <span class="text-amber-400 text-xs font-bold">Kích Hoạt ❯</span>
+        </button>
+
+        <!-- Action 3: Kiểm tra Quota ngay -->
+        <button type="button" onclick="checkAllQuota()" class="w-full p-3 rounded-2xl bg-dark-850 hover:bg-dark-800 border border-slate-800 hover:border-emerald-500/50 text-left transition flex items-center justify-between group cursor-pointer">
+          <div class="flex items-center space-x-3">
+            <span class="text-xl">🔄</span>
+            <div>
+              <div class="text-xs font-bold text-white group-hover:text-emerald-400 transition">Kiểm Tra Lại Quota Toàn Bộ Các Mô Hình Ngay</div>
+              <div class="text-[11px] text-slate-400">Thăm dò trực tiếp máy chủ Google để xác định mô hình đã sẵn sàng lại chưa</div>
+            </div>
+          </div>
+          <span class="text-emerald-400 text-xs font-bold">Kiểm Tra ❯</span>
+        </button>
+
+        <!-- Action 4: Đổi tài khoản Google -->
+        <button type="button" onclick="closeQuotaExhaustedModal(); openGoogleLoginModal();" class="w-full p-3 rounded-2xl bg-dark-850 hover:bg-dark-800 border border-slate-800 hover:border-purple-500/50 text-left transition flex items-center justify-between group cursor-pointer">
+          <div class="flex items-center space-x-3">
+            <span class="text-xl">🔑</span>
+            <div>
+              <div class="text-xs font-bold text-white group-hover:text-purple-400 transition">Đăng Nhập Tài Khoản Google Khác</div>
+              <div class="text-[11px] text-slate-400">Chuyển sang tài khoản Google phụ có Quota mới 100%</div>
+            </div>
+          </div>
+          <span class="text-purple-400 text-xs font-bold">Đổi Nick ❯</span>
+        </button>
+      </div>
+
+      <!-- Footer -->
+      <div class="shrink-0 pt-2 border-t border-slate-800 flex items-center justify-between">
+        <span class="text-[11px] text-slate-400">Thanh cảnh báo đỏ vẫn hiển thị trên đầu trang để bạn theo dõi đếm ngược.</span>
+        <button type="button" onclick="closeQuotaExhaustedModal()" class="py-2 px-5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold transition cursor-pointer">
+          Đã Hiểu / Đóng
+        </button>
+      </div>
+    </div>
   </div>
 
   <!-- Modal Tuyên Bố Miễn Trừ Trách Nhiệm (Disclaimer Modal) -->
@@ -691,6 +970,147 @@
     let hasAcceptedDisclaimer = false;
     let disclaimerModalShown = false;
     let cachedDisclaimerContent = '';
+
+    let lastStatusData = null;
+    let onboardingModalShown = false;
+    let quotaModalDismissedThisIncident = false;
+    let lastKnownQuotaExhausted = false;
+    let quotaRemainingSeconds = 0;
+    let quotaCountdownInterval = null;
+
+    function openOnboardingModal() {
+      renderOnboardingModalState();
+      document.getElementById('onboardingModal').classList.remove('hidden');
+    }
+
+    function closeOnboardingModal() {
+      document.getElementById('onboardingModal').classList.add('hidden');
+      sessionStorage.setItem('onboarding_dismissed', '1');
+    }
+
+    function openQuotaExhaustedModal() {
+      updateQuotaCooldownDisplay();
+      document.getElementById('quotaExhaustedModal').classList.remove('hidden');
+    }
+
+    function closeQuotaExhaustedModal() {
+      document.getElementById('quotaExhaustedModal').classList.add('hidden');
+      quotaModalDismissedThisIncident = true;
+    }
+
+    function formatSecondsToMMSS(sec) {
+      if (sec <= 0) return '00:00 (Đang hồi phục)';
+      const m = Math.floor(sec / 60);
+      const s = sec % 60;
+      return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    }
+
+    function updateQuotaCooldownDisplay() {
+      const formatted = formatSecondsToMMSS(quotaRemainingSeconds);
+      const timerModal = document.getElementById('quotaCooldownTimer');
+      if (timerModal) timerModal.textContent = formatted;
+      const tagBanner = document.getElementById('bannerCooldownTag');
+      if (tagBanner) tagBanner.textContent = 'Chờ hồi phục: ' + formatted;
+    }
+
+    // Khởi tạo interval đếm ngược Quota theo từng giây
+    if (!quotaCountdownInterval) {
+      quotaCountdownInterval = setInterval(() => {
+        if (quotaRemainingSeconds > 0) {
+          quotaRemainingSeconds--;
+          updateQuotaCooldownDisplay();
+        }
+      }, 1000);
+    }
+
+    function renderOnboardingModalState(isPinDone, isZaloDone, isGoogleDone, completedCount, data) {
+      if (isPinDone === undefined) {
+        isPinDone = Boolean(hasSystemPin);
+        isZaloDone = Boolean(lastStatusData?.zalo?.logged_in);
+        isGoogleDone = Boolean(lastStatusData?.google?.authenticated);
+        completedCount = (isPinDone ? 1 : 0) + (isZaloDone ? 1 : 0) + (isGoogleDone ? 1 : 0);
+      }
+      const currentData = data || lastStatusData;
+      const pct = Math.round((completedCount / 3) * 100);
+      const progressBar = document.getElementById('onboardingProgressBar');
+      const progressText = document.getElementById('onboardingProgressText');
+      const noticeAlert = document.getElementById('onboardingNoticeAlert');
+
+      if (progressBar) progressBar.style.width = pct + '%';
+      if (progressText) progressText.textContent = `${completedCount}/3 bước hoàn tất (${pct}%)`;
+
+      if (noticeAlert) {
+        if (completedCount === 3) {
+          noticeAlert.className = 'text-[11px] text-emerald-400 flex items-center space-x-1.5 font-bold';
+          noticeAlert.innerHTML = '<span>🎉</span><span>Tuyệt vời! Toàn bộ 3 bước thiết lập đã hoàn thành 100%. Heo-Agent sẵn sàng trực chiến!</span>';
+        } else {
+          noticeAlert.className = 'text-[11px] text-amber-300 flex items-center space-x-1.5';
+          noticeAlert.innerHTML = '<span>⚠️</span><span>Hệ thống cảnh báo: Thiếu 1 trong 3 bước này, bot sẽ không thể trả lời tin nhắn Zalo!</span>';
+        }
+      }
+
+      // Step 1: PIN
+      const stepPinBadge = document.getElementById('stepPinBadge');
+      const stepPinBtn = document.getElementById('stepPinActionBtn');
+      const stepCardPin = document.getElementById('stepCardPin');
+      if (stepPinBadge && stepPinBtn && stepCardPin) {
+        if (isPinDone) {
+          stepCardPin.className = 'p-4 rounded-2xl border transition bg-emerald-500/5 border-emerald-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3';
+          stepPinBadge.className = 'text-[10px] px-2 py-0.5 rounded-full font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30';
+          stepPinBadge.textContent = '✓ ĐÃ THIẾT LẬP';
+          stepPinBtn.className = 'w-full sm:w-auto px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 transition cursor-pointer';
+          stepPinBtn.textContent = 'Đổi PIN';
+        } else {
+          stepCardPin.className = 'p-4 rounded-2xl border transition bg-amber-500/5 border-amber-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3';
+          stepPinBadge.className = 'text-[10px] px-2 py-0.5 rounded-full font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse';
+          stepPinBadge.textContent = '⚠️ CHƯA THIẾT LẬP';
+          stepPinBtn.className = 'w-full sm:w-auto px-4 py-2 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-400 text-dark-950 transition shadow-md shadow-amber-500/20 cursor-pointer';
+          stepPinBtn.textContent = '➕ Tạo PIN Ngay';
+        }
+      }
+
+      // Step 2: Zalo
+      const stepZaloBadge = document.getElementById('stepZaloBadge');
+      const stepZaloBtn = document.getElementById('stepZaloActionBtn');
+      const stepCardZalo = document.getElementById('stepCardZalo');
+      const zaloUidText = currentData?.zalo?.user_id ? `UID: ${currentData.zalo.user_id}` : 'Online';
+      if (stepZaloBadge && stepZaloBtn && stepCardZalo) {
+        if (isZaloDone) {
+          stepCardZalo.className = 'p-4 rounded-2xl border transition bg-emerald-500/5 border-emerald-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3';
+          stepZaloBadge.className = 'text-[10px] px-2 py-0.5 rounded-full font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30';
+          stepZaloBadge.textContent = `✓ ĐÃ KẾT NỐI (${zaloUidText})`;
+          stepZaloBtn.className = 'w-full sm:w-auto px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 transition cursor-pointer';
+          stepZaloBtn.textContent = 'Kiểm Tra / Quét Lại';
+        } else {
+          stepCardZalo.className = 'p-4 rounded-2xl border transition bg-red-500/5 border-red-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3';
+          stepZaloBadge.className = 'text-[10px] px-2 py-0.5 rounded-full font-bold bg-red-500/20 text-red-300 border border-red-500/30 animate-pulse';
+          stepZaloBadge.textContent = '⚠️ CHƯA ĐĂNG NHẬP';
+          stepZaloBtn.className = 'w-full sm:w-auto px-4 py-2 rounded-xl text-xs font-bold bg-cyan-600 hover:bg-cyan-500 text-white transition shadow-md shadow-cyan-600/20 cursor-pointer';
+          stepZaloBtn.textContent = '📱 Quét QR Zalo Ngay';
+        }
+      }
+
+      // Step 3: Google AGY
+      const stepGoogleBadge = document.getElementById('stepGoogleBadge');
+      const stepGoogleBtn = document.getElementById('stepGoogleActionBtn');
+      const stepCardGoogle = document.getElementById('stepCardGoogle');
+      const googleEmail = currentData?.google?.email ? currentData.google.email : 'Google Account';
+      if (stepGoogleBadge && stepGoogleBtn && stepCardGoogle) {
+        if (isGoogleDone) {
+          stepCardGoogle.className = 'p-4 rounded-2xl border transition bg-emerald-500/5 border-emerald-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3';
+          stepGoogleBadge.className = 'text-[10px] px-2 py-0.5 rounded-full font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 truncate max-w-[200px]';
+          stepGoogleBadge.textContent = `✓ ĐÃ XÁC THỰC (${googleEmail})`;
+          stepGoogleBtn.className = 'w-full sm:w-auto px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 transition cursor-pointer';
+          stepGoogleBtn.textContent = 'Đổi Tài Khoản';
+        } else {
+          stepCardGoogle.className = 'p-4 rounded-2xl border transition bg-red-500/5 border-red-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3';
+          stepGoogleBadge.className = 'text-[10px] px-2 py-0.5 rounded-full font-bold bg-red-500/20 text-red-300 border border-red-500/30 animate-pulse';
+          stepGoogleBadge.textContent = '⚠️ CHƯA ĐĂNG NHẬP';
+          stepGoogleBtn.className = 'w-full sm:w-auto px-4 py-2 rounded-xl text-xs font-bold bg-cyan-600 hover:bg-cyan-500 text-white transition shadow-md shadow-cyan-600/20 cursor-pointer';
+          stepGoogleBtn.textContent = '🔐 Đăng Nhập Google Ngay';
+        }
+      }
+    }
 
     function showToast(msg, isError = false) {
       const toast = document.getElementById('toast');
@@ -888,6 +1308,7 @@
         const res = await fetch('/api/status');
         if (!res.ok) return;
         const data = await res.json();
+        lastStatusData = data;
 
         // Bot Active / Paused state
         isBotPaused = Boolean(data.bot_paused);
@@ -1103,6 +1524,85 @@
         // Render Quota stats
         if (data.quota_stats) {
           renderQuotaStats(data.quota_stats);
+        }
+
+        // Quản lý trạng thái Onboarding & Cảnh báo thiết lập từng bước cho người mới
+        const isPinDone = Boolean(hasSystemPin);
+        const isZaloDone = Boolean(data.zalo && data.zalo.logged_in);
+        const isGoogleDone = Boolean(data.google && data.google.authenticated);
+        const completedSetupSteps = (isPinDone ? 1 : 0) + (isZaloDone ? 1 : 0) + (isGoogleDone ? 1 : 0);
+
+        const headerOnboardingBtn = document.getElementById('headerOnboardingBtn');
+        const headerOnboardingText = document.getElementById('headerOnboardingText');
+        if (headerOnboardingBtn) {
+          headerOnboardingBtn.classList.remove('hidden');
+          if (completedSetupSteps === 3) {
+            headerOnboardingBtn.className = 'px-3 py-1.5 rounded-full text-xs font-bold transition flex items-center space-x-1.5 shadow-sm border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 cursor-pointer';
+            if (headerOnboardingText) headerOnboardingText.textContent = 'Đã Thiết Lập (3/3)';
+          } else {
+            headerOnboardingBtn.className = 'px-3 py-1.5 rounded-full text-xs font-bold transition flex items-center space-x-1.5 shadow-sm border border-amber-500/40 bg-amber-500/15 text-amber-300 hover:bg-amber-500/25 cursor-pointer animate-pulse';
+            if (headerOnboardingText) headerOnboardingText.textContent = `Thiết Lập (${completedSetupSteps}/3)`;
+          }
+        }
+
+        const onboardingAlertBanner = document.getElementById('onboardingAlertBanner');
+        const onboardingProgressBadge = document.getElementById('onboardingProgressBadge');
+        const onboardingMissingSummary = document.getElementById('onboardingMissingSummary');
+        if (onboardingAlertBanner) {
+          if (completedSetupSteps === 3) {
+            onboardingAlertBanner.classList.add('hidden');
+          } else {
+            onboardingAlertBanner.classList.remove('hidden');
+            if (onboardingProgressBadge) {
+              onboardingProgressBadge.textContent = `Hoàn thành ${completedSetupSteps}/3 bước`;
+            }
+            if (onboardingMissingSummary) {
+              const missingList = [];
+              if (!isPinDone) missingList.push('Mã PIN bảo mật');
+              if (!isZaloDone) missingList.push('Quét QR Zalo');
+              if (!isGoogleDone) missingList.push('Đăng nhập Core Agent Google AGY');
+              onboardingMissingSummary.innerHTML = `Hệ thống còn thiếu: <strong class="text-amber-300 font-bold">${missingList.join(' • ')}</strong>. Bé Heo chưa thể hoạt động trọn vẹn nếu thiếu bất kỳ mục nào!`;
+            }
+          }
+        }
+
+        // Tự động bật popup thiết lập từng bước cho người mới nếu chưa hoàn tất và chưa bị tắt trong session
+        if (hasAcceptedDisclaimer && completedSetupSteps < 3 && !onboardingModalShown && !sessionStorage.getItem('onboarding_dismissed')) {
+          onboardingModalShown = true;
+          openOnboardingModal();
+        }
+
+        // Đồng bộ dữ liệu hiển thị trên modal Onboarding nếu đang mở
+        renderOnboardingModalState(isPinDone, isZaloDone, isGoogleDone, completedSetupSteps, data);
+
+        // Giám sát Quota Core Agent & Tự động bật Popup cảnh báo khi hết Quota
+        const isFallbackNow = Boolean(data.is_fallback);
+        let anyModelExhausted = false;
+        if (data.quota_stats) {
+          anyModelExhausted = Object.values(data.quota_stats).some(m => m.status === 'exhausted' || m.status === 'rate_limited');
+        }
+        const isQuotaExhausted = isFallbackNow || anyModelExhausted;
+
+        quotaRemainingSeconds = Number(data.cooldown_remaining_seconds) || 0;
+        updateQuotaCooldownDisplay();
+
+        const quotaAlertBanner = document.getElementById('quotaAlertBanner');
+        const headerQuotaAlertBtn = document.getElementById('headerQuotaAlertBtn');
+
+        if (isQuotaExhausted) {
+          if (quotaAlertBanner) quotaAlertBanner.classList.remove('hidden');
+          if (headerQuotaAlertBtn) headerQuotaAlertBtn.classList.remove('hidden');
+
+          // Nếu mới phát hiện hết quota và chưa bị đóng trong lần này -> Bật ngay popup cảnh báo!
+          if (!lastKnownQuotaExhausted && !quotaModalDismissedThisIncident) {
+            openQuotaExhaustedModal();
+          }
+          lastKnownQuotaExhausted = true;
+        } else {
+          if (quotaAlertBanner) quotaAlertBanner.classList.add('hidden');
+          if (headerQuotaAlertBtn) headerQuotaAlertBtn.classList.add('hidden');
+          lastKnownQuotaExhausted = false;
+          quotaModalDismissedThisIncident = false;
         }
 
       } catch (err) {
