@@ -25,10 +25,24 @@ restore_cursor() {
 }
 trap 'restore_cursor' EXIT INT TERM
 
-# Vẽ thanh tiến độ % dạng thanh ngang [██████░░░░]
+# Tự động phát hiện độ rộng cột terminal an toàn, chống tràn dòng
+get_term_cols() {
+    local c=""
+    if [ -t 1 ]; then
+        c=$(stty size 2>/dev/null | awk '{print $2}')
+        [ -z "$c" ] && c=$(tput cols 2>/dev/null || true)
+    fi
+    [ -z "$c" ] && c="${COLUMNS:-80}"
+    if ! [[ "$c" =~ ^[0-9]+$ ]] || [ "$c" -le 0 ]; then
+        c=80
+    fi
+    echo "$c"
+}
+
+# Vẽ thanh tiến độ % dạng thanh ngang gọn gàng [██████░░░░] (12 ký tự)
 render_progress_bar() {
     local pct=$1
-    local width=16
+    local width=12
     local filled=$((pct * width / 100))
     local empty=$((width - filled))
     local bar=""
@@ -42,7 +56,7 @@ get_step_hint() {
     local recent_lines
     recent_lines=$(tail -n 6 "$INSTALL_LOG" 2>/dev/null || true)
     if echo "$recent_lines" | grep -qi "exporting\|naming to\|writing image"; then
-        echo "Hoàn tất đóng gói image..."
+        echo "Đóng gói image..."
     elif echo "$recent_lines" | grep -qi "pip\|installing collected packages\|wheel\|whl"; then
         echo "Cài thư viện Python AI..."
     elif echo "$recent_lines" | grep -qi "npm install\|npm ERR\|node_modules"; then
@@ -50,19 +64,19 @@ get_step_hint() {
     elif echo "$recent_lines" | grep -qi "COPY"; then
         echo "Sao chép mã nguồn..."
     elif echo "$recent_lines" | grep -qi "apt-get\|unpacking\|setting up\|deb\|dpkg"; then
-        echo "Cài gói hệ thống & codec..."
+        echo "Cài gói hệ thống..."
     elif echo "$recent_lines" | grep -qi "curl\|downloading\|fetching"; then
-        echo "Tải dữ liệu từ mạng..."
+        echo "Tải dữ liệu..."
     elif echo "$recent_lines" | grep -qi "git clone\|cloning"; then
         echo "Tải mã nguồn GitHub..."
     elif echo "$recent_lines" | grep -qi "tar -xzf\|extracting"; then
-        echo "Giải nén Core Agent AGY..."
+        echo "Giải nén Core Agent..."
     else
         echo "Đang xử lý tác vụ nền..."
     fi
 }
 
-# Thực thi một tác vụ trong nền với Spinner xoay động và thanh tiến độ % trên 1 DÒNG DUY NHẤT
+# Thực thi một tác vụ trong nền với Spinner xoay động và thanh tiến độ % trên DUY NHẤT 1 DÒNG
 run_step_with_progress() {
     local step_idx="$1"
     local step_title="$2"
@@ -120,24 +134,27 @@ run_step_with_progress() {
 
         if [ "$is_tty" -eq 1 ]; then
             local cols
-            cols=$(tput cols 2>/dev/null || echo 80)
-            [ -z "$cols" ] && cols=80
-            [ "$cols" -lt 60 ] && cols=60
+            cols=$(get_term_cols)
 
             local title_padded="$step_title"
             while [ "${#title_padded}" -lt 18 ]; do title_padded="${title_padded} "; done
             title_padded="${title_padded:0:18}"
 
-            local base_len=58
-            local max_hint=$((cols - base_len - 5))
+            # Độ dài dòng cơ bản = 52 cột (vừa vặn trên mọi kích thước terminal, kể cả màn hình nhỏ)
+            local base_len=52
             local hint_str=""
-            if [ "$max_hint" -ge 12 ]; then
-                local hint
-                hint=$(get_step_hint)
-                hint_str=" \033[2m↳ ${hint:0:$max_hint}\033[0m"
+            # Chỉ hiển thị gợi ý nếu màn hình rộng >= 80 cột để tuyệt đối không bị nhảy dòng
+            if [ "$cols" -ge 80 ]; then
+                local max_hint=$((cols - base_len - 8))
+                if [ "$max_hint" -ge 10 ]; then
+                    local hint
+                    hint=$(get_step_hint)
+                    hint_str=" \033[2m↳ ${hint:0:$max_hint}\033[0m"
+                fi
             fi
 
-            printf "\r\033[K${CYAN}%s${NC} ${DIM}[%d/%d]${NC} ${BOLD}%s${NC} [${GREEN}%s${NC}] ${BOLD}%3d%%${NC} ${DIM}(%s)${NC}%b" \
+            # Dùng \r\033[2K để xóa trọn vẹn dòng cũ và ghi đè trên đúng 1 dòng duy nhất
+            printf "\r\033[2K${CYAN}%s${NC} ${DIM}[%d/%d]${NC} ${BOLD}%s${NC} [${GREEN}%s${NC}] ${BOLD}%3d%%${NC} ${DIM}(%s)${NC}%b" \
                 "$spin" "$step_idx" "$total_steps" "$title_padded" "$bar" "$current_pct" "$time_str" "$hint_str"
         fi
 
@@ -159,7 +176,7 @@ run_step_with_progress() {
     if [ "$exit_code" -eq 0 ]; then
         if [ "$step_idx" -eq "$total_steps" ]; then
             if [ "$is_tty" -eq 1 ]; then
-                printf "\r\033[K${GREEN}✔ ${BOLD}[%d/%d] Hoàn tất cài đặt   ${NC} [${GREEN}%s${NC}] ${BOLD}%3d%%${NC} ${DIM}(%s)${NC} ${BOLD}${GREEN}Thành công!${NC}\n" \
+                printf "\r\033[2K${GREEN}✔ ${BOLD}[%d/%d] Hoàn tất cài đặt   ${NC} [${GREEN}%s${NC}] ${BOLD}%3d%%${NC} ${DIM}(%s)${NC} ${BOLD}${GREEN}Thành công!${NC}\n" \
                     "$step_idx" "$total_steps" "$bar_done" "$end_pct" "$time_str"
                 printf "\033[?25h" # Hiện lại con trỏ terminal
             else
@@ -170,7 +187,7 @@ run_step_with_progress() {
                 local title_padded="$step_title"
                 while [ "${#title_padded}" -lt 18 ]; do title_padded="${title_padded} "; done
                 title_padded="${title_padded:0:18}"
-                printf "\r\033[K${GREEN}✔${NC} ${DIM}[%d/%d]${NC} ${BOLD}%s${NC} [${GREEN}%s${NC}] ${BOLD}%3d%%${NC} ${DIM}(%s)${NC}" \
+                printf "\r\033[2K${GREEN}✔${NC} ${DIM}[%d/%d]${NC} ${BOLD}%s${NC} [${GREEN}%s${NC}] ${BOLD}%3d%%${NC} ${DIM}(%s)${NC}" \
                     "$step_idx" "$total_steps" "$title_padded" "$bar_done" "$end_pct" "$time_str"
             else
                 echo "✔ [${step_idx}/${total_steps}] ${step_title} (${end_pct}%) - Xong"
