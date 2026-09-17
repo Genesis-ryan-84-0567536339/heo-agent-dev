@@ -1667,6 +1667,7 @@ class RequestHandler(BaseHTTPRequestHandler):
 
             resp = {
                 "ok": True,
+                "version": "v2.1",
                 "primary_model": PRIMARY_MODEL,
                 "fallback_model": FALLBACK_MODEL,
                 "active_model": state.get("active_model", PRIMARY_MODEL),
