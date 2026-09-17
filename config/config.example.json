@@ -7,5 +7,6 @@
   "bridge_port": 5051,
   "engine_port": 5066,
   "pin_hash": "",
-  "auto_claim_boss": true
+  "auto_claim_boss": true,
+  "disclaimer_accepted": false
 }

@@ -602,9 +602,60 @@
     </div>
   </div>
 
+  <!-- Modal Tuyên Bố Miễn Trừ Trách Nhiệm (Disclaimer Modal) -->
+  <div id="disclaimerModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 hidden">
+    <div class="bg-dark-900 border border-slate-700 rounded-3xl max-w-2xl w-full p-6 space-y-4 shadow-2xl relative max-h-[92vh] flex flex-col">
+      <button id="disclaimerCloseBtn" type="button" onclick="closeDisclaimerModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white text-xl hidden cursor-pointer">&times;</button>
+      
+      <div class="text-center space-y-1 shrink-0 pb-2 border-b border-slate-800">
+        <div class="w-11 h-11 rounded-2xl bg-amber-500/15 text-amber-400 flex items-center justify-center text-xl mx-auto mb-1">
+          ⚖️
+        </div>
+        <h3 class="font-bold text-white text-base md:text-lg">Tuyên Bố Miễn Trừ Trách Nhiệm & Điều Khoản Sử Dụng</h3>
+        <p class="text-xs text-slate-400">
+          Tác giả: <strong class="text-white">Ryan</strong> • <a href="mailto:genesis.corp.os@gmail.com" class="text-cyan-400 hover:underline">genesis.corp.os@gmail.com</a> • <a href="tel:+84909198823" class="text-cyan-400 hover:underline">(+84)090.919.8823</a>
+        </p>
+      </div>
+
+      <!-- Nội dung văn bản cuộn -->
+      <div id="disclaimerContentBox" class="flex-1 overflow-y-auto pr-2 space-y-3 text-xs text-slate-300 leading-relaxed font-sans bg-dark-950/60 p-4 rounded-2xl border border-slate-800/80">
+        <div class="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 font-medium">
+          ⚠️ <strong>LƯU Ý BẮT BUỘC:</strong> Phần mềm Zalo-AGY Copilot (Bé Heo) được phát triển phục vụ mục đích nghiên cứu, học tập và trải nghiệm công nghệ AI cá nhân. Vui lòng đọc kỹ và xác nhận chấp thuận tuyên bố miễn trừ mọi trách nhiệm dưới đây từ tác giả Ryan trước khi bắt đầu sử dụng.
+        </div>
+        <div id="disclaimerTextBody" class="space-y-2">
+          Đang nạp văn bản điều khoản chính thức...
+        </div>
+      </div>
+
+      <!-- Khu vực xác nhận hành động -->
+      <div id="disclaimerActionArea" class="shrink-0 pt-2 space-y-3">
+        <div id="disclaimerMandatoryNotice" class="space-y-2.5">
+          <label class="flex items-start space-x-2.5 cursor-pointer select-none text-xs text-slate-300 p-2.5 rounded-xl bg-dark-850 border border-slate-800 hover:border-slate-700 transition">
+            <input type="checkbox" id="chkAcceptDisclaimer" onchange="toggleAcceptDisclaimerBtn()" class="mt-0.5 rounded border-slate-700 text-amber-500 focus:ring-amber-400 cursor-pointer">
+            <span>Tôi xác nhận đã đọc kỹ, hiểu rõ và <strong>chấp thuận vô điều kiện</strong> toàn bộ Điều khoản sử dụng & Tuyên bố miễn trừ mọi trách nhiệm pháp lý, dân sự và tài chính từ tác giả Ryan khi sử dụng phần mềm này.</span>
+          </label>
+          <button type="button" id="btnAcceptDisclaimer" onclick="submitAcceptDisclaimer()" disabled class="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-40 disabled:cursor-not-allowed text-dark-950 font-bold text-xs md:text-sm shadow-lg shadow-amber-500/20 transition flex items-center justify-center space-x-2 cursor-pointer">
+            <span>✅</span>
+            <span id="btnAcceptDisclaimerText">Chấp Thuận & Bắt Đầu Sử Dụng</span>
+          </button>
+        </div>
+
+        <div id="disclaimerViewOnlyNotice" class="hidden flex items-center justify-between pt-1">
+          <div class="text-xs text-emerald-400 flex items-center space-x-1.5 font-medium">
+            <span>✓</span>
+            <span id="disclaimerAcceptedAtLabel">Hệ thống đã ghi nhận chấp thuận điều khoản từ người dùng.</span>
+          </div>
+          <button type="button" onclick="closeDisclaimerModal()" class="py-2 px-5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold transition cursor-pointer">
+            Đóng Hộp Thoại
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Footer -->
-  <footer class="border-t border-slate-850 bg-dark-900 py-5 text-center text-xs text-slate-400 space-y-1.5">
-    <div class="flex items-center justify-center space-x-2 flex-wrap text-slate-400">
+  <footer class="border-t border-slate-850 bg-dark-900 py-4 text-center text-xs text-slate-400">
+    <div class="flex items-center justify-center space-x-2 flex-wrap text-slate-400 px-4">
       <span class="font-medium text-slate-300">Heo Console (HCS)</span>
       <span>•</span>
       <span>Tác giả: <strong class="text-white font-semibold">Ryan</strong></span>
@@ -618,9 +669,11 @@
         <span>📞</span>
         <span>(+84)090.919.8823</span>
       </a>
-    </div>
-    <div class="text-[11px] text-slate-500">
-      Genesis • Executive AI Assistant Suite • <a href="https://github.com/Genesis-ryan-84-0567536339/zalo-agy" target="_blank" class="text-slate-400 hover:text-cyan-400 underline transition">GitHub Repository</a>
+      <span>•</span>
+      <button type="button" onclick="openDisclaimerModal(false)" class="text-amber-400 hover:text-amber-300 hover:underline inline-flex items-center space-x-1 cursor-pointer font-medium">
+        <span>⚖️</span>
+        <span>Tuyên bố miễn trừ trách nhiệm</span>
+      </button>
     </div>
   </footer>
 
@@ -633,6 +686,9 @@
     let hasSystemBoss = false;
     let pendingPinAction = null;
     let lastPinStatusRendered = null;
+    let hasAcceptedDisclaimer = false;
+    let disclaimerModalShown = false;
+    let cachedDisclaimerContent = '';
 
     function showToast(msg, isError = false) {
       const toast = document.getElementById('toast');
@@ -943,10 +999,17 @@
           fallbackBadge.textContent = 'Primary';
         }
 
-        // Update Boss & PIN Info
+        // Update Boss & PIN & Disclaimer Info
         if (data.config) {
           hasSystemPin = Boolean(data.config.has_pin);
           hasSystemBoss = Boolean(data.config.has_boss);
+          hasAcceptedDisclaimer = Boolean(data.config.disclaimer_accepted);
+
+          // Khởi động lần đầu: yêu cầu đọc và chấp thuận điều khoản miễn trừ trách nhiệm
+          if (!hasAcceptedDisclaimer && !disclaimerModalShown) {
+            disclaimerModalShown = true;
+            openDisclaimerModal(true);
+          }
 
           // 1. Cập nhật nút và banner PIN
           const pinBtnText = document.getElementById('managePinBtnText');
@@ -1751,6 +1814,116 @@
         cachedLogs = await res.json();
         renderLogs();
       } catch (e) {}
+    }
+
+    // -------------------------------------------------------------
+    // ĐIỀU KHOẢN SỬ DỤNG & TUYÊN BỐ MIỄN TRỪ TRÁCH NHIỆM (DISCLAIMER)
+    // -------------------------------------------------------------
+    function toggleAcceptDisclaimerBtn() {
+      const chk = document.getElementById('chkAcceptDisclaimer');
+      const btn = document.getElementById('btnAcceptDisclaimer');
+      if (btn && chk) {
+        btn.disabled = !chk.checked;
+      }
+    }
+
+    async function loadDisclaimerContent() {
+      if (cachedDisclaimerContent) return cachedDisclaimerContent;
+      try {
+        const res = await fetch('/api/disclaimer');
+        const data = await res.json();
+        if (data.ok && data.content) {
+          cachedDisclaimerContent = data.content;
+          if (data.accepted && data.accepted_at) {
+            try {
+              const dt = new Date(data.accepted_at).toLocaleString('vi-VN');
+              const lbl = document.getElementById('disclaimerAcceptedAtLabel');
+              if (lbl) lbl.textContent = `Đã chấp thuận điều khoản vào: ${dt}`;
+            } catch (e) {}
+          }
+          return data.content;
+        }
+      } catch (e) {}
+      return '';
+    }
+
+    function renderMarkdownBasic(md) {
+      if (!md) return '';
+      return md
+        .replace(/^### (.*$)/gim, '<h4 class="font-bold text-white text-sm mt-3 mb-1">$1</h4>')
+        .replace(/^## (.*$)/gim, '<h3 class="font-bold text-amber-400 text-base mt-4 mb-2 pb-1 border-b border-slate-800">$1</h3>')
+        .replace(/^# (.*$)/gim, '<h2 class="font-bold text-cyan-400 text-lg mt-2 mb-2">$1</h2>')
+        .replace(/\*\*(.*?)\*\*/g, '<strong class="text-white font-semibold">$1</strong>')
+        .replace(/\*(.*?)\*/g, '<em class="text-slate-300">$1</em>')
+        .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank" class="text-cyan-400 hover:underline font-medium">$1</a>')
+        .replace(/^\s*-\s+(.*$)/gim, '<li class="ml-4 list-disc text-slate-300">$1</li>')
+        .replace(/\n\n/g, '<div class="h-2"></div>')
+        .replace(/\n/g, '<br>');
+    }
+
+    async function openDisclaimerModal(isMandatory = false) {
+      const modal = document.getElementById('disclaimerModal');
+      const closeBtn = document.getElementById('disclaimerCloseBtn');
+      const mandatoryNotice = document.getElementById('disclaimerMandatoryNotice');
+      const viewOnlyNotice = document.getElementById('disclaimerViewOnlyNotice');
+      const textBody = document.getElementById('disclaimerTextBody');
+      const chk = document.getElementById('chkAcceptDisclaimer');
+
+      if (chk) chk.checked = false;
+      toggleAcceptDisclaimerBtn();
+
+      if (isMandatory || !hasAcceptedDisclaimer) {
+        if (closeBtn) closeBtn.classList.add('hidden');
+        if (mandatoryNotice) mandatoryNotice.classList.remove('hidden');
+        if (viewOnlyNotice) viewOnlyNotice.classList.add('hidden');
+      } else {
+        if (closeBtn) closeBtn.classList.remove('hidden');
+        if (mandatoryNotice) mandatoryNotice.classList.add('hidden');
+        if (viewOnlyNotice) viewOnlyNotice.classList.remove('hidden');
+      }
+
+      modal.classList.remove('hidden');
+
+      const rawMd = await loadDisclaimerContent();
+      if (rawMd && textBody) {
+        textBody.innerHTML = renderMarkdownBasic(rawMd);
+      }
+    }
+
+    function closeDisclaimerModal() {
+      if (!hasAcceptedDisclaimer) {
+        return; // Bắt buộc phải chấp thuận ở lần đầu tiên
+      }
+      document.getElementById('disclaimerModal').classList.add('hidden');
+    }
+
+    async function submitAcceptDisclaimer() {
+      const btn = document.getElementById('btnAcceptDisclaimer');
+      const btnText = document.getElementById('btnAcceptDisclaimerText');
+      if (btn) btn.disabled = true;
+      if (btnText) btnText.textContent = 'Đang ghi nhận chấp thuận...';
+
+      try {
+        const res = await fetch('/api/accept_disclaimer', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        const data = await res.json();
+        if (data.ok) {
+          hasAcceptedDisclaimer = true;
+          document.getElementById('disclaimerModal').classList.add('hidden');
+          showToast('🎉 Đã chấp thuận Điều khoản & Tuyên bố miễn trừ trách nhiệm thành công!');
+          refreshData();
+        } else {
+          showToast(data.error || 'Lỗi ghi nhận chấp thuận', true);
+          if (btn) btn.disabled = false;
+          if (btnText) btnText.textContent = 'Chấp Thuận & Bắt Đầu Sử Dụng';
+        }
+      } catch (e) {
+        showToast('Lỗi kết nối máy chủ', true);
+        if (btn) btn.disabled = false;
+        if (btnText) btnText.textContent = 'Chấp Thuận & Bắt Đầu Sử Dụng';
+      }
     }
 
     // Check URL query parameters for auth redirect

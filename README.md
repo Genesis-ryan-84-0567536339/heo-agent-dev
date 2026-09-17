@@ -238,7 +238,22 @@ zalo-agy/
 
 ---
 
+## ⚖️ Tuyên Bố Miễn Trừ Trách Nhiệm (Disclaimer of Liability)
+
+> [!IMPORTANT]
+> **THÔNG TIN TÁC GIẢ & TUYÊN BỐ MIỄN TRỪ TRÁCH NHIỆM:**  
+> Phần mềm này được phát triển độc lập bởi tác giả **Ryan** ([genesis.corp.os@gmail.com](mailto:genesis.corp.os@gmail.com) • [(+84)090.919.8823](tel:+84909198823)) cho mục đích nghiên cứu, học tập và trải nghiệm công nghệ AI mã nguồn mở.
+> 
+> * **Cung cấp nguyên trạng ("AS IS")**: Tác giả **Ryan hoàn toàn không chịu bất kỳ trách nhiệm pháp lý, trách nhiệm dân sự hay tài chính nào** đối với bất kỳ rủi ro, thiệt hại hoặc tổn thất nào phát sinh từ việc cài đặt, vận hành hoặc sử dụng phần mềm này (bao gồm các vấn đề liên quan đến tài khoản Zalo, tài khoản Google, dữ liệu cá nhân hoặc nội dung do AI tạo ra).
+> * **Trách nhiệm của người dùng**: Người dùng tự chịu trách nhiệm 100% trong việc tuân thủ pháp luật và Điều khoản dịch vụ của bên thứ ba (Google ToS, Zalo ToS).
+> 
+> 👉 Xem toàn văn chi tiết tại tài liệu chính thức: **[`DISCLAIMER.md`](DISCLAIMER.md)** (có sẵn trong mã nguồn tải về và trên giao diện Heo Console). Khi khởi động lần đầu, người dùng bắt buộc phải đọc và bấm chấp thuận điều khoản thì mới có thể bắt đầu sử dụng.
+
+---
+
 ## 📜 Giấy Phép & Bản Quyền
 
-Phát triển bởi **Genesis** — Phục vụ cộng đồng tự động hóa điều hành và ứng dụng AI thực chiến.
+Tác giả sáng lập & phát triển: **Ryan** — `genesis.corp.os@gmail.com` • `(+84)090.919.8823`.  
+Dự án: **Genesis** — Phục vụ cộng đồng tự động hóa điều hành và ứng dụng AI thực chiến.  
 Giấy phép: MIT License.
+

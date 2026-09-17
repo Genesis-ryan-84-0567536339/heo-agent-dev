@@ -1687,11 +1687,39 @@ class RequestHandler(BaseHTTPRequestHandler):
                     "boss_uid": cfg.get("boss_uid", BOSS_UID),
                     "bot_name": cfg.get("bot_name", BOT_NAME),
                     "has_pin": has_security_pin(),
-                    "has_boss": bool(cfg.get("boss_uid", BOSS_UID))
+                    "has_boss": bool(cfg.get("boss_uid", BOSS_UID)),
+                    "disclaimer_accepted": bool(cfg.get("disclaimer_accepted", False)),
+                    "disclaimer_accepted_at": cfg.get("disclaimer_accepted_at", "")
                 },
                 "supported_models": SUPPORTED_MODELS
             }
             self._send_json(resp, 200)
+        elif path_clean == "/api/disclaimer":
+            cfg = load_app_config()
+            paths_to_check = [
+                os.path.join(BASE_DIR, "DISCLAIMER.md"),
+                os.path.join(Path(__file__).parent, "DISCLAIMER.md"),
+                os.path.join(Path(__file__).parent.parent, "DISCLAIMER.md")
+            ]
+            content = ""
+            for p in paths_to_check:
+                if os.path.exists(p):
+                    try:
+                        with open(p, "r", encoding="utf-8") as f:
+                            content = f.read()
+                            if content:
+                                break
+                    except Exception:
+                        pass
+            self._send_json({
+                "ok": True,
+                "content": content,
+                "accepted": bool(cfg.get("disclaimer_accepted", False)),
+                "accepted_at": cfg.get("disclaimer_accepted_at", ""),
+                "author": "Ryan",
+                "email": "genesis.corp.os@gmail.com",
+                "phone": "(+84)090.919.8823"
+            }, 200)
         elif path_clean == "/api/pin_status":
             cfg = load_app_config()
             self._send_json({
@@ -1699,7 +1727,8 @@ class RequestHandler(BaseHTTPRequestHandler):
                 "has_pin": has_security_pin(),
                 "has_boss": bool(cfg.get("boss_uid", BOSS_UID)),
                 "boss_uid": cfg.get("boss_uid", BOSS_UID),
-                "boss_name": cfg.get("boss_name", BOSS_NAME)
+                "boss_name": cfg.get("boss_name", BOSS_NAME),
+                "disclaimer_accepted": bool(cfg.get("disclaimer_accepted", False))
             }, 200)
         elif path_clean == "/api/oauth_login_url":
             import urllib.parse
@@ -2007,6 +2036,17 @@ class RequestHandler(BaseHTTPRequestHandler):
                 
                 log_event(f"🔓 [Admin Pairing] Đã hủy ghép nối Chủ nhân (UID cũ: {old_boss}). Hệ thống đang chờ ghép nối lại qua Zalo.")
                 self._send_json({"ok": True, "message": "Đã hủy ghép nối Chủ nhân thành công! Người nhắn tin đầu tiên có kết bạn với Bé Heo và gửi đúng mã PIN sẽ được pair làm Owner mới."}, 200)
+            except Exception as e:
+                self._send_json({"ok": False, "error": str(e)}, 500)
+        elif path_clean == "/api/accept_disclaimer":
+            try:
+                cfg = load_app_config()
+                cfg["disclaimer_accepted"] = True
+                cfg["disclaimer_accepted_at"] = datetime.datetime.now().isoformat()
+                with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+                    json.dump(cfg, f, ensure_ascii=False, indent=2)
+                log_event("⚖️ [Disclaimer] Người dùng đã đọc và chấp thuận Điều khoản & Tuyên bố miễn trừ trách nhiệm từ tác giả Ryan.")
+                self._send_json({"ok": True, "message": "Đã chấp thuận Điều khoản & Tuyên bố miễn trừ trách nhiệm thành công!"}, 200)
             except Exception as e:
                 self._send_json({"ok": False, "error": str(e)}, 500)
         elif path_clean == "/api/config":
