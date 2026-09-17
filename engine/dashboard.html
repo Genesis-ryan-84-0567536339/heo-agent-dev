@@ -542,6 +542,35 @@
             </div>
             <input type="text" id="cfgBossUid" class="w-full px-3 py-2 rounded-xl bg-dark-850 border border-slate-800 text-sm text-cyan-400 font-mono focus:outline-none focus:border-cyan-500" placeholder="Chưa ghép nối - Chờ xác thực PIN trên Zalo">
           </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-400 mb-1">
+              <span>🎭 Thái Độ & Phong Cách Giao Tiếp (Persona):</span>
+            </label>
+            <select id="cfgBotPersona" onchange="toggleCustomPersonaInput()" class="w-full px-3 py-2 rounded-xl bg-dark-850 border border-slate-800 text-sm text-white focus:outline-none focus:border-cyan-500">
+              <option value="default">🌟 Mặc định (Duyên dáng, hỗ trợ nhiệt tình, tôn kính Sếp)</option>
+              <option value="serious">🎯 Nghiêm túc (Chuẩn mực, điềm đạm, kỷ luật cao, không cợt nhả)</option>
+              <option value="sweet">🍯 Dẻo miệng (Ngọt ngào, nịnh Sếp, mật ngọt rót tai)</option>
+              <option value="professional">💼 Chuyên nghiệp (Cố vấn cao cấp, chuẩn Executive BLUF)</option>
+              <option value="grumpy">💢 Cọc cằn (Tsundere gắt gỏng, nhưng làm việc siêu chuẩn)</option>
+              <option value="troll">🤪 Hài nhảm & Chọc ngoáy (Cà khịa duyên, tếu táo, meme)</option>
+              <option value="custom">✏️ Tùy chỉnh (Tự mô tả phong cách riêng của Sếp)</option>
+            </select>
+          </div>
+
+          <div id="customPersonaContainer" class="hidden">
+            <label class="block text-xs font-semibold text-amber-400 mb-1">Mô tả phong cách tùy chỉnh:</label>
+            <textarea id="cfgBotCustomPersona" rows="3" class="w-full px-3 py-2 rounded-xl bg-dark-850 border border-amber-500/30 text-xs text-slate-200 focus:outline-none focus:border-amber-400" placeholder="Ví dụ: Giọng điệu như một quản gia quý tộc Anh Quốc, luôn dùng kính ngữ, lịch lãm, tinh tế và trung thành tuyệt đối..."></textarea>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-400 mb-1">
+              <span>ℹ️ Giới Thiệu & Vai Trò Khi Vào Nhóm Ngoài (About Bot):</span>
+            </label>
+            <textarea id="cfgBotAbout" rows="3" class="w-full px-3 py-2 rounded-xl bg-dark-850 border border-slate-800 text-xs text-slate-300 focus:outline-none focus:border-cyan-500" placeholder="Mô tả danh tính và vai trò của trợ lý khi được add vào các nhóm ngoài..."></textarea>
+            <p class="text-[11px] text-slate-500 mt-1">Bot sẽ dùng thông tin này để tự nhận thức vai trò và giới thiệu bản thân khi có người trong nhóm ngoài hỏi 'Bạn là ai?'.</p>
+          </div>
+
           <button type="submit" class="w-full py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-sm font-semibold transition shadow-lg shadow-cyan-600/20">
             💾 Lưu Thiết Lập
           </button>
@@ -549,7 +578,7 @@
       </div>
 
       <!-- Live Logs Console -->
-      <div class="lg:col-span-2 p-6 rounded-2xl bg-dark-900 border border-slate-800 shadow-md flex flex-col h-[480px]">
+      <div class="lg:col-span-2 p-6 rounded-2xl bg-dark-900 border border-slate-800 shadow-md flex flex-col min-h-[580px] h-full">
         <div class="flex items-center justify-between border-b border-slate-800 pb-3 mb-3">
           <div class="flex items-center space-x-3">
             <h3 class="font-bold text-white text-base flex items-center space-x-2">
@@ -2003,6 +2032,16 @@
             document.getElementById('cfgCallerName').value = data.config.boss_caller_name || 'Sếp';
             document.getElementById('cfgBossName').value = data.config.boss_name || 'Sếp';
             document.getElementById('cfgBossUid').value = data.config.boss_uid || '';
+            if (document.getElementById('cfgBotAbout')) {
+              document.getElementById('cfgBotAbout').value = data.config.bot_about || '';
+            }
+            if (document.getElementById('cfgBotPersona')) {
+              document.getElementById('cfgBotPersona').value = data.config.bot_persona || 'default';
+              toggleCustomPersonaInput();
+            }
+            if (document.getElementById('cfgBotCustomPersona')) {
+              document.getElementById('cfgBotCustomPersona').value = data.config.bot_custom_persona || '';
+            }
           }
         }
 
@@ -2327,13 +2366,28 @@
       });
     }
 
+    function toggleCustomPersonaInput() {
+      const sel = document.getElementById('cfgBotPersona');
+      const container = document.getElementById('customPersonaContainer');
+      if (sel && container) {
+        if (sel.value === 'custom') {
+          container.classList.remove('hidden');
+        } else {
+          container.classList.add('hidden');
+        }
+      }
+    }
+
     async function saveConfig(e) {
       e.preventDefault();
       const payload = {
         bot_name: document.getElementById('cfgBotName').value.trim(),
         boss_caller_name: document.getElementById('cfgCallerName').value.trim(),
         boss_name: document.getElementById('cfgBossName').value.trim(),
-        boss_uid: document.getElementById('cfgBossUid').value.trim()
+        boss_uid: document.getElementById('cfgBossUid').value.trim(),
+        bot_about: document.getElementById('cfgBotAbout') ? document.getElementById('cfgBotAbout').value.trim() : '',
+        bot_persona: document.getElementById('cfgBotPersona') ? document.getElementById('cfgBotPersona').value : 'default',
+        bot_custom_persona: document.getElementById('cfgBotCustomPersona') ? document.getElementById('cfgBotCustomPersona').value.trim() : ''
       };
 
       requirePin('Lưu cấu hình hệ thống & Boss UID', async (pin) => {
@@ -2345,7 +2399,7 @@
           });
           const data = await res.json();
           if (data.ok) {
-            showToast('Đã lưu cấu hình thành công!');
+            showToast('Đã lưu cấu hình danh xưng & phong cách thành công!');
             refreshData();
           } else {
             showToast(data.error || 'Lỗi lưu cấu hình', true);

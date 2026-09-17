@@ -74,6 +74,8 @@ Khi chat 1-1 với Bé Heo, Sếp có thể sử dụng các lệnh tắt hoặc
 | `/effort low` | Chỉnh mức suy luận nhanh, phản hồi ngắn gọn tức thì |
 | `/effort medium` | Chỉnh mức suy luận tiêu chuẩn cân bằng |
 | `/effort high` | Chỉnh mức suy luận đào sâu logic, đối chiếu đa chiều |
+| `/style` *(hoặc `/phongcach`)* | Xem danh sách 7 phong cách và chuyển đổi thái độ của Heo |
+| `/style <tên_phong_cách>` | Đổi ngay phong cách: `macdinh`, `nghiemtuc`, `deomieng`, `chuyennghiep`, `coccan`, `troll`, `tuychinh` |
 | `[Gửi file ghi âm giọng nói]` | Heo tự động dịch ra chữ và **hỏi lại xác nhận** trước khi làm việc |
 | *"Heo hát một bài về..."* | Sáng tác bài hát có vần điệu, beat Ukulele/Acoustic gửi file `.mp3` |
 | *"Heo vẽ ảnh..."* | Tạo ảnh nghệ thuật AI gửi trực tiếp vào khung chat Zalo |

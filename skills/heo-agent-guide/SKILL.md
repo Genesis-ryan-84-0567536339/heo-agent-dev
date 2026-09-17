@@ -47,7 +47,8 @@ Kích hoạt kỹ năng này ngay khi người dùng hoặc Sếp có các câu 
   - `/model sonnet`: Đổi sang Claude Sonnet 4.6.
   - `/model opus`: Đổi sang Claude Opus 4.6.
   - `/effort low` / `/effort medium` / `/effort high`: Chỉnh mức suy luận.
-  - *(Hỗ trợ câu tự nhiên: "Heo đổi sang model pro", "đổi suy luận cao"...).*
+  - `/style` (hoặc `/phongcach`): Xem danh sách 7 phong cách và chuyển đổi nhanh thái độ của trợ lý (`/style macdinh`, `/style nghiemtuc`, `/style deomieng`, `/style chuyennghiep`, `/style coccan`, `/style troll`, `/style tuychinh`).
+  - *(Hỗ trợ câu tự nhiên: "Heo đổi sang model pro", "đổi suy luận cao", "Heo đổi phong cách dẻo miệng"...).*
 - **Quy trình Xác nhận Voice Note 2 bước nghiêm ngặt:**
   - Nhận tin nhắn thoại $\rightarrow$ STT chuyển thành văn bản $\rightarrow$ **Bắt buộc hỏi lại xác nhận nội dung & ngôn ngữ** trước khi thực hiện để triệt tiêu rủi ro nghe nhầm ý.
 - **Phòng thu Ca khúc AI (`create_song.py`):**

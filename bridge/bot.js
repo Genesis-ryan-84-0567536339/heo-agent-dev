@@ -869,6 +869,7 @@ async function startBridge() {
   // Lắng nghe tin nhắn
   api.listener.on("message", async (msg) => {
     try {
+      loadConfig();
       const threadId = msg.threadId;
       const msgType = msg.type;
       const senderUid = msg.data?.uidFrom;
@@ -1129,6 +1130,61 @@ async function startBridge() {
           } catch (e) {}
         }
 
+        // 3.1. Lệnh xem hoặc chuyển đổi phong cách / thái độ giao tiếp (Persona)
+        const styleListMatch = /^\/(?:style|phongcach|phong_cach|persona)\s*$/i.test(userPrompt.trim());
+        const styleSetMatch = userPrompt.trim().match(/^\/(?:style|phongcach|phong_cach|persona)\s+(.+)$/i) ||
+                              userPrompt.trim().match(/^(?:đổi|chuyển)\s+(?:sang\s+)?(?:phong\s+cách|thái\s+độ|persona)\s+(.+)$/i);
+
+        if (styleListMatch) {
+          try {
+            const stResp = await axios.get(`${AGY_ENGINE_URL}/api/status`, { timeout: 5000 });
+            const st = stResp.data;
+            const currentPersona = st.config?.bot_persona || "default";
+            const styles = st.persona_styles || [];
+            let styleListText = styles.map((s, idx) => {
+              const isCur = s.id === currentPersona ? "👉 [HIỆN TẠI] " : `   ${idx + 1}. `;
+              return `${isCur}/style ${s.id}\n      ↳ ${s.name}: ${s.desc}`;
+            }).join("\n");
+
+            const styleMsg = (
+              `🎭 [BẢNG PHONG CÁCH & THÁI ĐỘ CỦA TRỢ LÝ]\n\n` +
+              `Tên trợ lý: ${st.config?.bot_name || BOT_NAME}\n` +
+              `Phong cách hiện tại: ${styles.find(s => s.id === currentPersona)?.name || currentPersona}\n\n` +
+              `${styleListText}\n\n` +
+              `💡 Sếp chỉ cần nhắn: /style <mã_phong_cách> (ví dụ: /style deomieng, /style nghiemtuc, /style troll, /style coccan, /style macdinh) là em đổi ngay lập tức ạ!`
+            );
+            await sendSafeMessage(api, { msg: styleMsg, quote: msg.data }, threadId, ThreadType.User);
+            return;
+          } catch (e) {}
+        }
+
+        if (styleSetMatch) {
+          const targetStyle = styleSetMatch[1].trim();
+          try {
+            const swResp = await axios.post(`${AGY_ENGINE_URL}/api/set_style`, { style: targetStyle }, { timeout: 5000 });
+            const sw = swResp.data;
+            if (sw.ok) {
+              await sendSafeMessage(api, {
+                msg: `✅ Dạ Sếp, em đã lập tức kích hoạt phong cách: ${sw.style_name}!\n↳ Đặc trưng: ${sw.style_desc}\nTừ giờ em sẽ giao tiếp đúng chuẩn thái độ này theo ý Sếp ạ! 🥰👌`,
+                quote: msg.data
+              }, threadId, ThreadType.User);
+              return;
+            } else {
+              await sendSafeMessage(api, {
+                msg: `⚠️ Dạ Sếp, phong cách '${targetStyle}' chưa đúng mã. Sếp gõ /style để xem danh sách 7 phong cách có sẵn nha!`,
+                quote: msg.data
+              }, threadId, ThreadType.User);
+              return;
+            }
+          } catch (e) {
+            await sendSafeMessage(api, {
+              msg: `⚠️ Lỗi chuyển đổi phong cách: ${e.response?.data?.error || e.message}`,
+              quote: msg.data
+            }, threadId, ThreadType.User);
+            return;
+          }
+        }
+
         // 4. Lệnh tạm dừng phản hồi (Tắt Bé Heo)
         if (/^\/(pause|stop|tat|nghi)\s*$/i.test(userPrompt.trim()) || /^(?:heo\s+)?(?:tạm\s+)?(?:nghỉ|dừng|tắt)\s*(?:đi|nhé|nha)?$/i.test(userPrompt.trim())) {
           try {
@@ -1242,7 +1298,11 @@ async function startBridge() {
         const isOfficialMention = Boolean(ownId && mentions.some(m => String(m.uid) === String(ownId)));
 
         // 2. Thu thập danh sách tên & nick Zalo của Bot để nhận diện tag văn bản @tên_nó
+        const currentCfg = loadConfig();
         const botNames = new Set(["heo", "bé heo", "be heo", "hêu", "bé hêu", "be hêu", "bot"]);
+        if (currentCfg.bot_name && currentCfg.bot_name.trim()) {
+          botNames.add(currentCfg.bot_name.trim().toLowerCase());
+        }
         if (BOT_NAME && BOT_NAME.trim()) {
           botNames.add(BOT_NAME.trim().toLowerCase());
         }
@@ -1299,6 +1359,44 @@ async function startBridge() {
         }
 
         const isBoss = Boolean(senderUid && String(senderUid) === BOSS_UID);
+
+        // Xử lý lệnh /style chuyển đổi phong cách trực tiếp từ nhóm
+        if (/^\/(?:style|phongcach|phong_cach|persona)\b/i.test(cleanPrompt)) {
+          if (!isBoss) {
+            await sendSafeMessage(api, {
+              msg: `Dạ phong cách của em do Sếp quản lý, em chỉ nhận lệnh đổi phong cách từ Sếp thôi nhé ạ! 🥰`,
+              quote: msg.data
+            }, threadId, ThreadType.Group);
+            return;
+          }
+          const groupStyleMatch = cleanPrompt.match(/^\/(?:style|phongcach|phong_cach|persona)\s*(.*)$/i);
+          const targetStyle = (groupStyleMatch ? groupStyleMatch[1] : "").trim();
+          if (!targetStyle) {
+            try {
+              const stResp = await axios.get(`${AGY_ENGINE_URL}/api/status`, { timeout: 5000 });
+              const st = stResp.data;
+              const curStyle = st.config?.bot_persona || "default";
+              const curName = st.persona_styles?.find(s => s.id === curStyle)?.name || curStyle;
+              await sendSafeMessage(api, {
+                msg: `🎭 Dạ Sếp, phong cách hiện tại của em là: ${curName}.\nSếp có thể đổi bằng: @${BOT_NAME} /style <macdinh|nghiemtuc|deomieng|chuyennghiep|coccan|troll|tuychinh> nha Sếp!`,
+                quote: msg.data
+              }, threadId, ThreadType.Group);
+              return;
+            } catch (e) {}
+          } else {
+            try {
+              const swResp = await axios.post(`${AGY_ENGINE_URL}/api/set_style`, { style: targetStyle }, { timeout: 5000 });
+              const sw = swResp.data;
+              if (sw.ok) {
+                await sendSafeMessage(api, {
+                  msg: `✅ Dạ Sếp, em đã lập tức đổi phong cách sang: ${sw.style_name}!\nTừ giờ trong nhóm em sẽ giao tiếp đúng chuẩn thái độ này theo lệnh Sếp ạ! 👌`,
+                  quote: msg.data
+                }, threadId, ThreadType.Group);
+                return;
+              }
+            } catch (e) {}
+          }
+        }
         await api.sendTypingEvent(threadId, ThreadType.Group).catch(() => {});
         const typingInterval = setInterval(() => {
           api.sendTypingEvent(threadId, ThreadType.Group).catch(() => {});
