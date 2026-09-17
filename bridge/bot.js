@@ -852,7 +852,7 @@ async function startBridge() {
       if (rawContent.includes("voice-aac-dl.zdn.vn") || rawContent.match(/^https?:\/\/.*\.aac(\?.*)?$/i)) {
         try {
           const { execSync } = require("child_process");
-          const transcribed = execSync(`python3 ${path.join(SCRIPTS_DIR, transcribe_voice.py)} "${rawContent}"`, { timeout: 25000, encoding: "utf-8" }).trim();
+          const transcribed = execSync(`python3 "${path.join(SCRIPTS_DIR, "transcribe_voice.py")}" "${rawContent}"`, { timeout: 25000, encoding: "utf-8" }).trim();
           if (transcribed) {
             log(`🎙️ [Voice Transcribe] -> ${transcribed.replace(/\n/g, " ")}`);
             if (transcribed.startsWith("[")) {

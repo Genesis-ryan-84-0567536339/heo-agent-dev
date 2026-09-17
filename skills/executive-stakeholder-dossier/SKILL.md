@@ -50,15 +50,12 @@ Mọi file hồ sơ quản trị nhân vật đều phải thiết kế thành m
 
 ---
 
-## 3. Tiêu Chuẩn Lưu Trữ & Đồng Bộ Trên Fedora Linux
+## 3. Tiêu Chuẩn Lưu Trữ & Tự Động Gửi Đính Kèm
 
-1. **Lưu trữ gốc trên Ổ A (Fedora LinuxDataA):**
-   - Đường dẫn chuẩn: `/app/workspace/Ho_So_Nhan_Vat_Chien_Luoc.xlsx`
-   - File liên kết nhanh: `/app/workspace/Ho_So_Nhan_Vat_Chien_Luoc.xlsx`
-2. **Đồng bộ tự động sang Workspace (Dual Delivery):**
-   - Đường dẫn: `/app/workspace/Ho_So_Nhan_Vat_Chien_Luoc.xlsx`
-   - Mục đích: Hệ thống tự động phát hiện và gửi đính kèm qua Zalo cho Sếp ngay khi có cập nhật.
-3. **Tiêu chuẩn thiết kế bảng tính:**
+1. **Lưu trữ hồ sơ chuẩn:**
+   - Đường dẫn chuẩn: `workspace/Ho_So_Nhan_Vat_Chien_Luoc.xlsx` (hoặc `/app/workspace/Ho_So_Nhan_Vat_Chien_Luoc.xlsx` trong container).
+   - Mục đích: Hệ thống tự động phát hiện và gửi đính kèm file Excel qua Zalo cho Sếp ngay khi có cập nhật mới.
+2. **Tiêu chuẩn thiết kế bảng tính:**
    - 100% tuân thủ bộ quy tắc `corporate-navy-sheets`: Nền `#1B365D`, zebra striping `#F0F4F8`, công thức Excel động, auto-fit cột, cố định dòng tiêu đề (Freeze Panes).
 
 ---
