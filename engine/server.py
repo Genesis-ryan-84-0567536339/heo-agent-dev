@@ -386,6 +386,7 @@ def _get_oauth_creds():
 
 GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET = _get_oauth_creds()
 GOOGLE_OAUTH_SCOPES = "openid https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/cloud-platform https://www.googleapis.com/auth/cclog"
+_oauth_pending_sessions = {}
 
 
 def _refresh_oauth_token(refresh_token, token_file, existing_data):
@@ -1765,6 +1766,12 @@ class RequestHandler(BaseHTTPRequestHandler):
             }, 200)
         elif path_clean == "/api/oauth_login_url":
             import urllib.parse
+            import uuid
+            session_id = uuid.uuid4().hex
+            _oauth_pending_sessions[session_id] = {
+                "status": "pending",
+                "created_at": time.time()
+            }
             redirect_uri = f"http://localhost:{PORT}/api/oauth_callback"
             params = {
                 "client_id": GOOGLE_OAUTH_CLIENT_ID,
@@ -1773,15 +1780,32 @@ class RequestHandler(BaseHTTPRequestHandler):
                 "scope": GOOGLE_OAUTH_SCOPES,
                 "access_type": "offline",
                 "prompt": "consent select_account",
+                "state": session_id,
             }
             auth_url = "https://accounts.google.com/o/oauth2/v2/auth?" + urllib.parse.urlencode(params)
-            self._send_json({"ok": True, "auth_url": auth_url, "redirect_uri": redirect_uri}, 200)
+            self._send_json({
+                "ok": True,
+                "auth_url": auth_url,
+                "redirect_uri": redirect_uri,
+                "session_id": session_id
+            }, 200)
+        elif path_clean == "/api/oauth_session_status":
+            import urllib.parse
+            parsed = urllib.parse.urlparse(self.path)
+            qs = urllib.parse.parse_qs(parsed.query)
+            session_id = qs.get("session_id", [""])[0]
+            sess = _oauth_pending_sessions.get(session_id)
+            if sess and sess.get("status") == "done":
+                self._send_json({"done": True, "google": sess.get("google", {})}, 200)
+            else:
+                self._send_json({"done": False}, 200)
         elif path_clean == "/api/oauth_callback":
             # Google OAuth redirect callback
             import urllib.parse
             parsed = urllib.parse.urlparse(self.path)
             qs = urllib.parse.parse_qs(parsed.query)
             code = qs.get("code", [""])[0]
+            state = qs.get("state", [""])[0]
             error = qs.get("error", [""])[0]
             if error:
                 html = f"""<!DOCTYPE html><html><head><meta charset="utf-8"><title>Lỗi xác thực</title>
@@ -1798,13 +1822,32 @@ class RequestHandler(BaseHTTPRequestHandler):
             try:
                 redirect_uri = f"http://localhost:{PORT}/api/oauth_callback"
                 exchange_oauth_code_and_save(code, redirect_uri)
-                html = """<!DOCTYPE html><html><head><meta charset="utf-8"><title>Đăng nhập Google thành công</title>
-                <script>setTimeout(function(){ window.location.href = '/dashboard?login_success=google'; }, 1000);</script>
-                <style>body{background:#0a0f1d;color:#fff;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;}
-                .box{text-align:center;background:#131d31;padding:30px;border-radius:16px;border:1px solid #10b981;box-shadow:0 10px 25px rgba(0,0,0,0.5);}
-                a{color:#38bdf8;text-decoration:none;font-weight:bold;}</style></head><body>
+                info = get_google_auth_info()
+                email = info.get("email", "")
+                tier = info.get("tier_name", "Google AI")
+                if state and state in _oauth_pending_sessions:
+                    _oauth_pending_sessions[state] = {
+                        "status": "done",
+                        "google": info
+                    }
+                html = f"""<!DOCTYPE html><html><head><meta charset="utf-8"><title>Đăng nhập Google thành công</title>
+                <script>
+                setTimeout(function(){{
+                    if (window.opener) {{
+                        try {{ window.opener.postMessage({{ type: 'GOOGLE_AUTH_SUCCESS', email: '{email}' }}, '*'); }} catch(e){{}}
+                        window.close();
+                    }} else {{
+                        window.location.href = '/dashboard?login_success=google';
+                    }}
+                }}, 1500);
+                </script>
+                <style>body{{background:#0a0f1d;color:#fff;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;}}
+                .box{{text-align:center;background:#131d31;padding:32px;border-radius:18px;border:1px solid #10b981;box-shadow:0 12px 30px rgba(0,0,0,0.6);max-width:460px;width:90%;}}
+                a{{color:#38bdf8;text-decoration:none;font-weight:bold;}}</style></head><body>
                 <div class="box"><h2 style="color:#10b981;margin-top:0;">🎉 Đăng nhập Google thành công!</h2>
-                <p style="color:#cbd5e1;">Đang cập nhật phiên làm việc và chuyển về Dashboard...</p>
+                <p style="color:#38bdf8;font-weight:bold;font-size:16px;">{email}</p>
+                <p style="color:#94a3b8;font-size:13px;">Gói cước nhận diện: <span style="color:#a855f7;font-weight:bold;">{tier}</span></p>
+                <p style="color:#cbd5e1;font-size:13px;margin-top:16px;">Đang cập nhật phiên làm việc Heo-Agent và quay về Dashboard...</p>
                 <p><a href="/dashboard?login_success=google">Bấm vào đây nếu trình duyệt không tự chuyển</a></p></div></body></html>"""
                 self._send_html(html, 200)
             except Exception as e:
@@ -2243,6 +2286,9 @@ class RequestHandler(BaseHTTPRequestHandler):
                 redirect_uri = f"http://localhost:{PORT}/api/oauth_callback"
                 exchange_oauth_code_and_save(code, redirect_uri)
                 info = get_google_auth_info()
+                session_id = data.get("session_id", "").strip()
+                if session_id and session_id in _oauth_pending_sessions:
+                    _oauth_pending_sessions[session_id] = {"status": "done", "google": info}
                 self._send_json({"ok": True, "message": "Đăng nhập Google thành công!", "google": info}, 200)
             except Exception as e:
                 self._send_json({"ok": False, "error": f"Lỗi xác thực code: {e}"}, 500)

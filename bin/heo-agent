@@ -228,45 +228,77 @@ except Exception as e:
     login-google)
         echo "⚡ ĐĂNG NHẬP TÀI KHOẢN GOOGLE MỚI CHO AGY CORE AGENT..."
         echo ""
-        echo "📌 Bước này sẽ mở trình duyệt để bạn chọn tài khoản Google muốn dùng."
-        echo "   Bất kỳ tài khoản nào bạn chọn sẽ được dùng cho AI của Heo-Agent."
+        echo "📌 Trình duyệt sẽ mở trang đăng nhập Google để bạn TỰ CHỌN tài khoản muốn dùng."
+        echo "   Bất kỳ tài khoản nào bạn chọn sẽ được lưu riêng cho Heo-Agent."
         echo ""
 
-        HOST_AGY="$(which agy 2>/dev/null || echo "$HOME/.local/bin/agy")"
+        # Kiểm tra xem web server 5066 có đang chạy không, nếu chưa thì khởi động daemon
+        if ! curl -s -m 1 http://127.0.0.1:5066/api/status >/dev/null 2>&1; then
+            echo "🚀 Đang khởi chạy dịch vụ nền Heo-Agent..."
+            "$PROJECT_DIR/start.sh" daemon >/dev/null 2>&1 || true
+            for _i in {1..10}; do
+                if curl -s -m 1 http://127.0.0.1:5066/api/status >/dev/null 2>&1; then
+                    break
+                fi
+                sleep 0.5
+            done
+        fi
 
-        if [ -x "$HOST_AGY" ]; then
-            # Xóa token cũ để buộc OAuth chạy lại từ đầu
-            rm -f "$HOME/.gemini/antigravity-cli/antigravity-oauth-token" 2>/dev/null || true
+        OAUTH_RESP=$(curl -s http://127.0.0.1:5066/api/oauth_login_url 2>/dev/null || echo "")
+        AUTH_URL=$(echo "$OAUTH_RESP" | python3 -c "import sys, json; print(json.load(sys.stdin).get('auth_url', ''))" 2>/dev/null || true)
+        SESS_ID=$(echo "$OAUTH_RESP" | python3 -c "import sys, json; print(json.load(sys.stdin).get('session_id', ''))" 2>/dev/null || true)
 
-            echo "🌐 Đang mở trình duyệt để đăng nhập Google..."
-            "$HOST_AGY" --dangerously-skip-permissions -p "ping"
+        if [ -n "$AUTH_URL" ]; then
+            echo "🌐 Đang mở trang đăng nhập Google trên trình duyệt..."
+            if [ -n "${DISPLAY:-}" ] || [ -n "${WAYLAND_DISPLAY:-}" ]; then
+                xdg-open "$AUTH_URL" >/dev/null 2>&1 || true
+            fi
 
-            # Đọc token mới sau khi OAuth xong
-            NEW_TOKEN=""
-            if command -v secret-tool >/dev/null 2>&1; then
-                NEW_TOKEN=$(secret-tool lookup service gemini username antigravity 2>/dev/null || true)
+            echo ""
+            echo "🔗 Nếu trình duyệt không tự mở, hãy copy đường link sau vào trình duyệt:"
+            echo -e "\033[36m$AUTH_URL\033[0m"
+            echo ""
+            echo "👉 Sau khi chọn tài khoản và Cho phép (Allow):"
+            echo "   • Trình duyệt sẽ tự động kích hoạt phiên làm việc mới."
+            echo "   • Hoặc bạn có thể dán mã Authorization Code / URL chuyển hướng bên dưới:"
+            echo ""
+            read -t 60 -p "👉 Dán Code/URL (hoặc nhấn Enter để đợi tự động hoàn tất trên trình duyệt): " MANUAL_CODE || true
+            echo ""
+
+            if [ -n "$MANUAL_CODE" ]; then
+                SUBMIT_RES=$(curl -s -X POST http://127.0.0.1:5066/api/submit_oauth_code \
+                    -H "Content-Type: application/json" \
+                    -d "{\"code\": \"$MANUAL_CODE\", \"session_id\": \"$SESS_ID\"}" 2>/dev/null || echo "")
+                SUCCESS=$(echo "$SUBMIT_RES" | python3 -c "import sys, json; print(json.load(sys.stdin).get('ok', False))" 2>/dev/null || echo "False")
+                if [ "$SUCCESS" = "True" ]; then
+                    EMAIL=$(echo "$SUBMIT_RES" | python3 -c "import sys, json; print(json.load(sys.stdin).get('google', {}).get('email', ''))" 2>/dev/null || echo "")
+                    echo "✔ Đăng nhập Google thành công: $EMAIL!"
+                    echo "💡 Chạy '$CMD_NAME status' để xem tài khoản đang dùng."
+                    exit 0
+                fi
             fi
-            if [ -z "$NEW_TOKEN" ] && [ -f "$HOME/.gemini/antigravity-cli/antigravity-oauth-token" ]; then
-                NEW_TOKEN=$(cat "$HOME/.gemini/antigravity-cli/antigravity-oauth-token" 2>/dev/null || true)
-            fi
-            if [ -n "$NEW_TOKEN" ]; then
-                mkdir -p "$PROJECT_DIR/auth/home/.gemini/antigravity-cli"
-                echo "$NEW_TOKEN" > "$PROJECT_DIR/auth/home/.gemini/antigravity-cli/antigravity-oauth-token"
-                echo ""
-                echo "✔ Đăng nhập Google thành công và đã đồng bộ vào Heo-Agent!"
-                curl -s -X POST http://127.0.0.1:5066/api/check_quota >/dev/null 2>&1 || true
-                echo "💡 Chạy 'heo-agent status' để xem tài khoản đang dùng."
-            else
-                echo "❌ Chưa nhận được token Google. Vui lòng thử lại."
-            fi
+
+            echo "⏳ Đang kiểm tra xác thực Google (tối đa 60s)..."
+            for _i in {1..30}; do
+                STATUS_RES=$(curl -s "http://127.0.0.1:5066/api/oauth_session_status?session_id=$SESS_ID" 2>/dev/null || echo "")
+                DONE=$(echo "$STATUS_RES" | python3 -c "import sys, json; print(json.load(sys.stdin).get('done', False))" 2>/dev/null || echo "False")
+                if [ "$DONE" = "True" ]; then
+                    EMAIL=$(echo "$STATUS_RES" | python3 -c "import sys, json; print(json.load(sys.stdin).get('google', {}).get('email', ''))" 2>/dev/null || echo "")
+                    echo ""
+                    echo "✔ Đăng nhập Google thành công với tài khoản: $EMAIL!"
+                    echo "💡 Chạy '$CMD_NAME status' để xem tài khoản đang dùng."
+                    exit 0
+                fi
+                sleep 2
+            done
+            echo "⚠️  Hết thời gian chờ. Bạn có thể mở Web Console để đăng nhập trực quan: http://localhost:5066"
         else
-            echo "⚠️  Không tìm thấy lệnh 'agy' trên máy chủ."
-            echo "   Vui lòng đảm bảo AGY CLI đã được cài đặt, sau đó thử lại."
-            echo "   Hoặc mở Web Console: http://localhost:5066"
+            echo "⚠️  Không thể khởi tạo liên kết Google OAuth qua Web Console."
+            echo "   Vui lòng mở Web Console: http://localhost:5066 để đăng nhập."
         fi
         ;;
     sync-google)
-        # Lệnh ẩn: chỉ đồng bộ token hiện có (không chạy OAuth mới)
+        echo "⚡ ĐỒNG BỘ PHIÊN GOOGLE CÓ SẴN TỪ MÁY CHỦ..."
         HOST_TOKEN=""
         if command -v secret-tool >/dev/null 2>&1; then
             HOST_TOKEN=$(secret-tool lookup service gemini username antigravity 2>/dev/null || true)
@@ -277,10 +309,11 @@ except Exception as e:
         if [ -n "$HOST_TOKEN" ]; then
             mkdir -p "$PROJECT_DIR/auth/home/.gemini/antigravity-cli"
             echo "$HOST_TOKEN" > "$PROJECT_DIR/auth/home/.gemini/antigravity-cli/antigravity-oauth-token"
-            echo "✔ Đã đồng bộ phiên đăng nhập Google hiện tại vào Heo-Agent."
+            echo "✔ Đã đồng bộ phiên đăng nhập Google hiện tại từ máy chủ vào Heo-Agent."
             curl -s -X POST http://127.0.0.1:5066/api/check_quota >/dev/null 2>&1 || true
+            echo "💡 Chạy '$CMD_NAME status' để kiểm tra tài khoản."
         else
-            echo "❌ Không có token Google nào để đồng bộ. Dùng: $CMD_NAME login-google"
+            echo "❌ Không có token Google nào trên máy chủ để đồng bộ. Dùng: $CMD_NAME login-google để đăng nhập."
         fi
         ;;
     logout-google)
@@ -342,7 +375,8 @@ except Exception as e:
         echo "   👉 $CMD_NAME effort        : Điều chỉnh mức suy luận logic (low, medium, high)"
         echo "   👉 $CMD_NAME login-zalo    : Quét mã QR đăng nhập tài khoản Zalo mới"
         echo "   👉 $CMD_NAME logout-zalo   : Đăng xuất tài khoản Zalo hiện tại"
-        echo "   👉 $CMD_NAME login-google  : Đăng nhập tài khoản Google khác cho Core Agent AGY"
+        echo "   👉 $CMD_NAME login-google  : Đăng nhập Google OAuth (mở trang tự chọn tài khoản)"
+        echo "   👉 $CMD_NAME sync-google   : Đồng bộ nhanh tài khoản Google có sẵn từ máy chủ"
         echo "   👉 $CMD_NAME logout-google : Đăng xuất tài khoản Google của AGY CLI"
         echo "   👉 $CMD_NAME update        : Cập nhật Heo-Agent lên phiên bản mới nhất ngay lập tức"
         echo "   👉 $CMD_NAME restart       : Khởi động lại toàn bộ dịch vụ Heo-Agent"

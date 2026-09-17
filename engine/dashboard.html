@@ -235,37 +235,66 @@
 
           <!-- Tabs -->
           <div class="flex space-x-1 bg-dark-850 p-1 rounded-xl border border-slate-800 text-xs">
-            <button id="tabBtnHost" onclick="switchGoogleTab('host')" class="flex-1 py-1.5 rounded-lg font-medium transition bg-cyan-600 text-white">⚡ Đồng bộ Máy chủ</button>
-            <button id="tabBtnOauth" onclick="switchGoogleTab('oauth')" class="flex-1 py-1.5 rounded-lg font-medium transition text-slate-400 hover:text-white">Lệnh heo-agent</button>
-            <button id="tabBtnJson" onclick="switchGoogleTab('json')" class="flex-1 py-1.5 rounded-lg font-medium transition text-slate-400 hover:text-white">Dán Token JSON</button>
+            <button id="tabBtnOauth" onclick="switchGoogleTab('oauth')" class="flex-1 py-1.5 rounded-lg font-medium transition bg-cyan-600 text-white">🌐 Đăng Nhập Google (Chọn Tài Khoản)</button>
+            <button id="tabBtnHost" onclick="switchGoogleTab('host')" class="flex-1 py-1.5 rounded-lg font-medium transition text-slate-400 hover:text-white">⚡ Đồng bộ Máy chủ</button>
+            <button id="tabBtnJson" onclick="switchGoogleTab('json')" class="flex-1 py-1.5 rounded-lg font-medium transition text-slate-400 hover:text-white">📋 Dán JSON</button>
           </div>
 
-          <!-- Tab Content 1: Host Keyring Sync (Mặc định) -->
-          <div id="tabContentHost" class="space-y-3">
+          <!-- Tab Content 1: Direct Google Login with Account Chooser (Mặc định) -->
+          <div id="tabContentOauth" class="space-y-4">
+            <div class="p-3 rounded-xl bg-gradient-to-r from-blue-950/40 to-cyan-950/40 border border-cyan-500/20 text-xs text-slate-300 leading-relaxed">
+              <div class="font-bold text-cyan-300 mb-1 flex items-center space-x-1.5">
+                <span>✨</span>
+                <span>Tự do chọn tài khoản Google của bạn</span>
+              </div>
+              Bấm nút bên dưới để mở trang đăng nhập Google chính thức. Bạn có thể tự do chọn bất kỳ tài khoản Google nào (kể cả tài khoản cá nhân, Google AI Pro/Ultra, hoặc tài khoản khác với máy chủ) để cấp quyền cho Heo-Agent.
+            </div>
+
+            <button type="button" onclick="startGoogleOAuthFlow()" class="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-blue-600 via-cyan-600 to-teal-500 hover:from-blue-500 hover:to-teal-400 text-white font-bold text-xs sm:text-sm shadow-xl flex items-center justify-center space-x-2 transition cursor-pointer">
+              <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24">
+                <path fill="#EA4335" d="M12 5c1.6 0 3 .6 4.1 1.6l3.1-3.1C17.3 1.7 14.8 1 12 1 7.7 1 4 3.5 2.2 7.1l3.7 2.8C6.8 7.3 9.2 5 12 5z"/>
+                <path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5c-.3 1.5-1.1 2.8-2.4 3.7l3.7 2.9c2.2-2 3.7-5 3.7-8.8z"/>
+                <path fill="#FBBC05" d="M5.9 14.1c-.2-.7-.4-1.4-.4-2.1s.1-1.4.4-2.1L2.2 7.1C1.4 8.6 1 10.2 1 12s.4 3.4 1.2 4.9l3.7-2.8z"/>
+                <path fill="#34A853" d="M12 23c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-2.8 0-5.2-1.9-6.1-4.5L2.2 16.6C4 20.2 7.7 23 12 23z"/>
+              </svg>
+              <span>Mở Trang Đăng Nhập Google (Tự Chọn Tài Khoản)</span>
+            </button>
+
+            <!-- Khung link trực tiếp nếu trình duyệt chặn popup -->
+            <div id="oauthDirectLinkBox" class="hidden p-3 rounded-xl bg-dark-850 border border-slate-800 text-[11px] text-slate-300 space-y-1">
+              <div class="text-amber-400 font-semibold flex items-center space-x-1">
+                <span>⚠️</span>
+                <span>Nếu trình duyệt chặn cửa sổ popup tự mở:</span>
+              </div>
+              <div class="break-all">
+                👉 <a id="oauthDirectLink" href="#" target="_blank" class="text-cyan-400 underline font-semibold hover:text-cyan-300">Bấm vào đây để mở trang đăng nhập Google trong tab mới</a>
+              </div>
+            </div>
+
+            <!-- Phương án dự phòng: Dán Authorization Code hoặc URL chuyển hướng -->
+            <div class="pt-3 border-t border-slate-800 space-y-2">
+              <div class="text-[11px] text-slate-400 font-medium">
+                💡 <strong>Dự phòng:</strong> Nếu duyệt web từ máy khác hoặc trình duyệt không tự chuyển về sau khi cho phép:
+              </div>
+              <div class="flex space-x-2">
+                <input type="text" id="oauthCodeInput" placeholder="Dán mã Authorization Code (4/0A...) hoặc toàn bộ URL chuyển hướng" class="flex-1 px-3 py-2 text-xs bg-dark-850 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 font-mono">
+                <button type="button" onclick="submitOAuthCode()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-cyan-400 font-semibold text-xs rounded-xl border border-slate-700 transition cursor-pointer shrink-0">Xác nhận</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tab Content 2: Host Keyring Sync (Tùy chọn phụ) -->
+          <div id="tabContentHost" class="space-y-3 hidden">
             <p class="text-xs text-slate-300 leading-relaxed">
-              Nếu máy chủ đã đăng nhập tài khoản Google từ trước, bấm nút dưới đây để hệ thống tự động nhận diện và kích hoạt ngay:
+              Tùy chọn này sẽ lấy phiên đăng nhập Google đang có sẵn trên hệ điều hành máy chủ và đồng bộ sang Heo-Agent mà không cần đăng nhập lại:
             </p>
-            <button onclick="syncHostGoogleAuth()" class="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-semibold text-xs shadow-lg flex items-center justify-center space-x-2 transition cursor-pointer">
-              <span>⚡ Đồng bộ ngay từ Máy chủ (1-Click)</span>
+            <button onclick="syncHostGoogleAuth()" class="w-full py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold text-xs shadow flex items-center justify-center space-x-2 transition cursor-pointer">
+              <span>⚡ Đồng bộ phiên có sẵn từ Máy chủ</span>
             </button>
             <div class="p-3 rounded-xl bg-dark-850 border border-slate-800 text-[11px] text-slate-400 space-y-1">
-              <div class="font-bold text-slate-300">💡 Hoặc xác thực trên Terminal máy chủ:</div>
-              <div>Gõ lệnh: <code class="text-cyan-400 font-mono bg-dark-950 px-1.5 py-0.5 rounded border border-slate-800">heo-agent login-google</code> để tự động mở trình duyệt và đồng bộ.</div>
+              <div class="font-bold text-slate-300">💡 Hoặc chạy lệnh trên Terminal máy chủ:</div>
+              <div>Gõ lệnh: <code class="text-cyan-400 font-mono bg-dark-950 px-1.5 py-0.5 rounded border border-slate-800">heo-agent sync-google</code></div>
             </div>
-          </div>
-
-          <!-- Tab Content 2: Command Guide -->
-          <div id="tabContentOauth" class="space-y-3 hidden">
-            <p class="text-xs text-slate-300 leading-relaxed">
-              Chạy lệnh sau trên terminal máy chủ để mở trang đăng nhập Google chính thức và đồng bộ token:
-            </p>
-            <div class="p-3 rounded-xl bg-dark-950 border border-slate-800 font-mono text-xs text-cyan-400 flex items-center justify-between">
-              <span>heo-agent login-google</span>
-              <button onclick="navigator.clipboard.writeText('heo-agent login-google'); showToast('Đã sao chép lệnh!');" class="text-xs text-slate-400 hover:text-white px-2 py-1 bg-slate-800 rounded cursor-pointer">Copy</button>
-            </div>
-            <p class="text-[11px] text-slate-400">
-              Trình duyệt máy chủ sẽ tự động mở trang đăng nhập Google. Sau khi xác nhận, token được đồng bộ vào Heo-Agent và tự động làm mới mỗi 45 phút.
-            </p>
           </div>
 
           <!-- Tab Content 3: Manual JSON -->
@@ -2078,14 +2107,41 @@
       });
     }
 
+    let currentOAuthSessionId = '';
+    let oauthPollTimer = null;
+
+    window.addEventListener('message', (event) => {
+      if (event.data && event.data.type === 'GOOGLE_AUTH_SUCCESS') {
+        if (oauthPollTimer) {
+          clearInterval(oauthPollTimer);
+          oauthPollTimer = null;
+        }
+        const email = event.data.email || '';
+        setGoogleModalFeedback('🎉 Đăng nhập Google thành công!' + (email ? ' (' + email + ')' : ''));
+        showToast('Đăng nhập Google thành công: ' + email);
+        setTimeout(() => {
+          closeGoogleLoginModal();
+          refreshData();
+        }, 1200);
+      }
+    });
+
     function openGoogleLoginModal() {
       document.getElementById('googleLoginModal').classList.remove('hidden');
-      switchGoogleTab('host');
+      switchGoogleTab('oauth');
       setGoogleModalFeedback('');
+      const linkBox = document.getElementById('oauthDirectLinkBox');
+      if (linkBox) linkBox.classList.add('hidden');
+      const input = document.getElementById('oauthCodeInput');
+      if (input) input.value = '';
     }
 
     function closeGoogleLoginModal() {
       document.getElementById('googleLoginModal').classList.add('hidden');
+      if (oauthPollTimer) {
+        clearInterval(oauthPollTimer);
+        oauthPollTimer = null;
+      }
       setGoogleModalFeedback('');
     }
 
@@ -2120,37 +2176,54 @@
 
     async function startGoogleOAuthFlow() {
       try {
-        setGoogleModalFeedback('Đang lấy liên kết đăng nhập Google OAuth...');
+        setGoogleModalFeedback('⏳ Đang tạo phiên đăng nhập Google...');
         const res = await fetch('/api/oauth_login_url');
         const data = await res.json();
         if (data.ok && data.auth_url) {
+          currentOAuthSessionId = data.session_id || '';
           window.open(data.auth_url, '_blank');
-          setGoogleModalFeedback('Đã mở trang đăng nhập Google trong tab mới! Hãy chọn tài khoản và cấp quyền, hệ thống sẽ tự động cập nhật.');
-          // Bắt đầu poll trạng thái đăng nhập
+
+          const linkBox = document.getElementById('oauthDirectLinkBox');
+          const directLink = document.getElementById('oauthDirectLink');
+          if (linkBox && directLink) {
+            directLink.href = data.auth_url;
+            linkBox.classList.remove('hidden');
+          }
+
+          setGoogleModalFeedback('🌐 Đang mở trang đăng nhập Google... Hãy chọn tài khoản và Cho phép (Allow) để hoàn tất.');
+
+          if (oauthPollTimer) clearInterval(oauthPollTimer);
           let pollCount = 0;
-          const pollTimer = setInterval(async () => {
+          oauthPollTimer = setInterval(async () => {
             pollCount++;
             try {
-              const r = await fetch('/api/status');
+              let checkUrl = '/api/oauth_session_status';
+              if (currentOAuthSessionId) {
+                checkUrl += '?session_id=' + encodeURIComponent(currentOAuthSessionId);
+              }
+              const r = await fetch(checkUrl);
               const d = await r.json();
-              if (d.google && d.google.authenticated) {
-                clearInterval(pollTimer);
-                setGoogleModalFeedback('🎉 Đăng nhập Google thành công!');
-                showToast('Đăng nhập Google thành công: ' + (d.google.email || ''));
+              if (d.done) {
+                clearInterval(oauthPollTimer);
+                oauthPollTimer = null;
+                const email = (d.google && d.google.email) ? d.google.email : '';
+                setGoogleModalFeedback('🎉 Đăng nhập Google thành công!' + (email ? ' (' + email + ')' : ''));
+                showToast('Đăng nhập Google thành công: ' + email);
                 setTimeout(() => {
                   closeGoogleLoginModal();
                   refreshData();
                 }, 1200);
-              } else if (pollCount > 60) {
-                clearInterval(pollTimer);
+              } else if (pollCount > 90) {
+                clearInterval(oauthPollTimer);
+                oauthPollTimer = null;
               }
             } catch (e) {}
           }, 2000);
         } else {
-          setGoogleModalFeedback(data.error || 'Lỗi lấy liên kết OAuth', true);
+          setGoogleModalFeedback('❌ ' + (data.error || 'Lỗi lấy liên kết OAuth'), true);
         }
       } catch (e) {
-        setGoogleModalFeedback('Lỗi kết nối: ' + e.message, true);
+        setGoogleModalFeedback('❌ Lỗi kết nối: ' + e.message, true);
       }
     }
 
@@ -2161,29 +2234,32 @@
         setGoogleModalFeedback('Vui lòng dán mã code hoặc URL chuyển hướng.', true);
         return;
       }
-      requirePin('Lưu mã xác thực Google OAuth', async (pin) => {
-        try {
-          setGoogleModalFeedback('Đang xác thực mã với Google API...');
-          const res = await fetch('/api/submit_oauth_code', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ code: code, pin: pin })
-          });
-          const data = await res.json();
-          if (data.ok) {
-            setGoogleModalFeedback('🎉 Đăng nhập Google thành công!');
-            showToast('Đăng nhập Google thành công: ' + (data.google ? data.google.email : ''));
-            setTimeout(() => {
-              closeGoogleLoginModal();
-              refreshData();
-            }, 1200);
-          } else {
-            setGoogleModalFeedback('❌ ' + (data.error || 'Xác thực thất bại'), true);
+      try {
+        setGoogleModalFeedback('⏳ Đang xác thực mã với Google API...');
+        const res = await fetch('/api/submit_oauth_code', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code: code, session_id: currentOAuthSessionId || '' })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          if (oauthPollTimer) {
+            clearInterval(oauthPollTimer);
+            oauthPollTimer = null;
           }
-        } catch (e) {
-          setGoogleModalFeedback('Lỗi: ' + e.message, true);
+          const email = (data.google && data.google.email) ? data.google.email : '';
+          setGoogleModalFeedback('🎉 Đăng nhập Google thành công!' + (email ? ' (' + email + ')' : ''));
+          showToast('Đăng nhập Google thành công: ' + email);
+          setTimeout(() => {
+            closeGoogleLoginModal();
+            refreshData();
+          }, 1200);
+        } else {
+          setGoogleModalFeedback('❌ ' + (data.error || 'Xác thực thất bại'), true);
         }
-      });
+      } catch (e) {
+        setGoogleModalFeedback('❌ Lỗi: ' + e.message, true);
+      }
     }
 
     async function syncHostGoogleAuth() {
