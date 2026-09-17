@@ -39,6 +39,8 @@ GEMINI_DIR = os.environ.get("GEMINI_DIR", str(Path(BASE_DIR) / "auth" / "home" /
 XDG_DATA_HOME = os.environ.get("XDG_DATA_HOME", str(Path(BASE_DIR) / "auth" / "xdg-data"))
 AGY_BIN = os.environ.get("AGY_BIN", shutil.which("agy") or str(Path(BASE_DIR) / "bin" / "agy"))
 
+import hashlib
+
 def load_app_config():
     if os.path.exists(CONFIG_FILE):
         try:
@@ -47,6 +49,39 @@ def load_app_config():
         except Exception:
             pass
     return {}
+
+def has_security_pin() -> bool:
+    cfg = load_app_config()
+    return bool(cfg.get("pin_hash") or cfg.get("pin_code"))
+
+def verify_security_pin(provided_pin: str) -> bool:
+    cfg = load_app_config()
+    current_hash = str(cfg.get("pin_hash", "") or "").strip()
+    plain_pin = str(cfg.get("pin_code", "") or "").strip()
+
+    # Nếu hệ thống chưa từng cài đặt mã PIN thì không bắt buộc
+    if not current_hash and not plain_pin:
+        return True
+    if not provided_pin:
+        return False
+
+    pin_str = str(provided_pin).strip()
+    input_hash = hashlib.sha256(pin_str.encode("utf-8")).hexdigest()
+    if current_hash and input_hash.lower() == current_hash.lower():
+        return True
+    if plain_pin and (pin_str == plain_pin or input_hash.lower() == hashlib.sha256(plain_pin.encode("utf-8")).hexdigest().lower()):
+        return True
+    return False
+
+def extract_pin_from_request(headers, body_str: str) -> str:
+    pin = headers.get("X-Security-Pin", "") or headers.get("x-security-pin", "")
+    if not pin and body_str:
+        try:
+            data = json.loads(body_str)
+            pin = str(data.get("pin", "") or data.get("security_pin", "") or "")
+        except Exception:
+            pass
+    return str(pin).strip()
 
 _cfg = load_app_config()
 BOSS_UID = os.environ.get("BOSS_UID", _cfg.get("boss_uid", ""))
@@ -1634,11 +1669,22 @@ class RequestHandler(BaseHTTPRequestHandler):
                     "boss_name": cfg.get("boss_name", BOSS_NAME),
                     "boss_caller_name": cfg.get("boss_caller_name", BOSS_CALLER_NAME),
                     "boss_uid": cfg.get("boss_uid", BOSS_UID),
-                    "bot_name": cfg.get("bot_name", BOT_NAME)
+                    "bot_name": cfg.get("bot_name", BOT_NAME),
+                    "has_pin": has_security_pin(),
+                    "has_boss": bool(cfg.get("boss_uid", BOSS_UID))
                 },
                 "supported_models": SUPPORTED_MODELS
             }
             self._send_json(resp, 200)
+        elif path_clean == "/api/pin_status":
+            cfg = load_app_config()
+            self._send_json({
+                "ok": True,
+                "has_pin": has_security_pin(),
+                "has_boss": bool(cfg.get("boss_uid", BOSS_UID)),
+                "boss_uid": cfg.get("boss_uid", BOSS_UID),
+                "boss_name": cfg.get("boss_name", BOSS_NAME)
+            }, 200)
         elif path_clean == "/api/oauth_login_url":
             import urllib.parse
             redirect_uri = f"http://localhost:{PORT}/api/oauth_callback"
@@ -1883,14 +1929,83 @@ class RequestHandler(BaseHTTPRequestHandler):
                 self._send_json({"ok": True, "message": "Đang kiểm tra quota các mô hình trong nền..."}, 200)
             except Exception as e:
                 self._send_json({"ok": False, "error": str(e)}, 500)
+        elif path_clean == "/api/set_pin":
+            try:
+                content_length = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(content_length).decode("utf-8")
+                data = json.loads(body)
+                new_pin = str(data.get("new_pin", "")).strip()
+                old_pin = str(data.get("old_pin", "")).strip()
+                
+                if not new_pin or len(new_pin) < 4 or len(new_pin) > 16:
+                    self._send_json({"ok": False, "error": "Mã PIN mới phải có độ dài từ 4 đến 16 ký tự!"}, 400)
+                    return
+                
+                cfg = load_app_config()
+                if has_security_pin():
+                    if not old_pin or not verify_security_pin(old_pin):
+                        self._send_json({"ok": False, "error": "Mã PIN hiện tại không chính xác!"}, 403)
+                        return
+                
+                pin_hash = hashlib.sha256(new_pin.encode("utf-8")).hexdigest()
+                cfg["pin_hash"] = pin_hash
+                if "pin_code" in cfg:
+                    del cfg["pin_code"]
+                with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+                    json.dump(cfg, f, ensure_ascii=False, indent=2)
+                
+                log_event("🔐 [PIN Security] Đã cập nhật mã PIN bảo mật hệ thống thành công.")
+                self._send_json({"ok": True, "message": "Đã thiết lập mã PIN bảo mật thành công!"}, 200)
+            except Exception as e:
+                self._send_json({"ok": False, "error": str(e)}, 500)
+        elif path_clean == "/api/verify_pin":
+            try:
+                content_length = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(content_length).decode("utf-8")
+                data = json.loads(body)
+                pin = str(data.get("pin", "")).strip()
+                if not has_security_pin():
+                    self._send_json({"ok": True, "message": "Hệ thống chưa thiết lập PIN", "has_pin": False}, 200)
+                    return
+                if verify_security_pin(pin):
+                    self._send_json({"ok": True, "message": "Mã PIN chính xác", "has_pin": True}, 200)
+                else:
+                    self._send_json({"ok": False, "error": "Mã PIN không chính xác!", "has_pin": True}, 403)
+            except Exception as e:
+                self._send_json({"ok": False, "error": str(e)}, 500)
+        elif path_clean == "/api/unpair_boss":
+            try:
+                content_length = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(content_length).decode("utf-8") if content_length > 0 else "{}"
+                if has_security_pin():
+                    pin = extract_pin_from_request(self.headers, body)
+                    if not verify_security_pin(pin):
+                        self._send_json({"ok": False, "error": "Mã PIN bảo mật không chính xác hoặc chưa được cung cấp!", "pin_required": True}, 403)
+                        return
+                
+                cfg = load_app_config()
+                old_boss = cfg.get("boss_uid", "")
+                cfg["boss_uid"] = ""
+                with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+                    json.dump(cfg, f, ensure_ascii=False, indent=2)
+                
+                log_event(f"🔓 [Admin Pairing] Đã hủy ghép nối Chủ nhân (UID cũ: {old_boss}). Hệ thống đang chờ ghép nối lại qua Zalo.")
+                self._send_json({"ok": True, "message": "Đã hủy ghép nối Chủ nhân thành công! Người nhắn tin đầu tiên có kết bạn với Bé Heo và gửi đúng mã PIN sẽ được pair làm Owner mới."}, 200)
+            except Exception as e:
+                self._send_json({"ok": False, "error": str(e)}, 500)
         elif path_clean == "/api/config":
             try:
                 content_length = int(self.headers.get("Content-Length", 0))
                 body = self.rfile.read(content_length).decode("utf-8")
                 data = json.loads(body)
+                if has_security_pin():
+                    pin = extract_pin_from_request(self.headers, body)
+                    if not verify_security_pin(pin):
+                        self._send_json({"ok": False, "error": "Mã PIN bảo mật không chính xác hoặc chưa được cung cấp!", "pin_required": True}, 403)
+                        return
                 cfg = load_app_config()
                 for k in ["boss_name", "boss_caller_name", "boss_uid", "bot_name"]:
-                    if k in data and data[k]:
+                    if k in data:
                         cfg[k] = data[k]
                 with open(CONFIG_FILE, "w", encoding="utf-8") as f:
                     json.dump(cfg, f, ensure_ascii=False, indent=2)
@@ -1899,6 +2014,13 @@ class RequestHandler(BaseHTTPRequestHandler):
                 self._send_json({"ok": False, "error": str(e)}, 500)
         elif path_clean == "/api/restart_zalo_bridge":
             try:
+                content_length = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(content_length).decode("utf-8") if content_length > 0 else "{}"
+                if has_security_pin():
+                    pin = extract_pin_from_request(self.headers, body)
+                    if not verify_security_pin(pin):
+                        self._send_json({"ok": False, "error": "Mã PIN bảo mật không chính xác hoặc chưa được cung cấp!", "pin_required": True}, 403)
+                        return
                 ok = restart_zalo_bridge()
                 if ok:
                     self._send_json({"ok": True, "message": "Đã khởi động lại Zalo Bridge thành công!"}, 200)
@@ -1908,6 +2030,13 @@ class RequestHandler(BaseHTTPRequestHandler):
                 self._send_json({"ok": False, "error": str(e)}, 500)
         elif path_clean == "/api/logout_zalo":
             try:
+                content_length = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(content_length).decode("utf-8") if content_length > 0 else "{}"
+                if has_security_pin():
+                    pin = extract_pin_from_request(self.headers, body)
+                    if not verify_security_pin(pin):
+                        self._send_json({"ok": False, "error": "Mã PIN bảo mật không chính xác hoặc chưa được cung cấp!", "pin_required": True}, 403)
+                        return
                 # 1. Xóa toàn bộ file session, profile, và mã QR cũ
                 for f in ["zalo_session.json", "zalo_profile.json", "zalo_qr.png", "zalo_qr_info.json"]:
                     p = os.path.join(DATA_DIR, f)
@@ -1952,6 +2081,13 @@ class RequestHandler(BaseHTTPRequestHandler):
                 self._send_json({"ok": False, "error": str(e)}, 500)
         elif path_clean == "/api/logout_google":
             try:
+                content_length = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(content_length).decode("utf-8") if content_length > 0 else "{}"
+                if has_security_pin():
+                    pin = extract_pin_from_request(self.headers, body)
+                    if not verify_security_pin(pin):
+                        self._send_json({"ok": False, "error": "Mã PIN bảo mật không chính xác hoặc chưa được cung cấp!", "pin_required": True}, 403)
+                        return
                 for token_file in glob.glob(os.path.join(GEMINI_DIR, "*token*")) + glob.glob(os.path.join(GEMINI_DIR, "antigravity-cli", "*token*")):
                     if os.path.isfile(token_file):
                         os.remove(token_file)
@@ -1965,6 +2101,11 @@ class RequestHandler(BaseHTTPRequestHandler):
                 content_length = int(self.headers.get("Content-Length", 0))
                 body = self.rfile.read(content_length).decode("utf-8")
                 data = json.loads(body)
+                if has_security_pin():
+                    pin = extract_pin_from_request(self.headers, body)
+                    if not verify_security_pin(pin):
+                        self._send_json({"ok": False, "error": "Mã PIN bảo mật không chính xác hoặc chưa được cung cấp!", "pin_required": True}, 403)
+                        return
                 raw_code = data.get("code", "").strip()
                 if not raw_code:
                     self._send_json({"ok": False, "error": "Mã code hoặc URL không được để trống"}, 400)

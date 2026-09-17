@@ -10,6 +10,7 @@ const path = require("path");
 const http = require("http");
 const axios = require("axios");
 const qrcode = require("qrcode-terminal");
+const crypto = require("crypto");
 const { Zalo, ThreadType, LoginQRCallbackEventType, Reactions } = require("zca-js");
 const { imageSize } = require("image-size");
 
@@ -25,18 +26,72 @@ const AGY_ENGINE_URL = process.env.AGY_ENGINE_URL || "http://127.0.0.1:5066";
 const OUTBOUND_PORT = parseInt(process.env.BRIDGE_PORT || "5051", 10);
 
 let config = {};
-try {
-  if (fs.existsSync(CONFIG_FILE)) {
-    config = JSON.parse(fs.readFileSync(CONFIG_FILE, "utf-8"));
+function loadConfig() {
+  try {
+    if (fs.existsSync(CONFIG_FILE)) {
+      config = JSON.parse(fs.readFileSync(CONFIG_FILE, "utf-8"));
+      BOSS_UID = process.env.BOSS_UID || config.boss_uid || "";
+      BOSS_NAME = config.boss_name || "Sếp";
+      BOSS_CALLER_NAME = config.boss_caller_name || "Sếp";
+      BOT_NAME = config.bot_name || "Bé Heo";
+    }
+  } catch (e) {
+    console.error("Warning: Could not read config file", e.message);
   }
-} catch (e) {
-  console.error("Warning: Could not read config file", e.message);
+  return config;
 }
+
+loadConfig();
 
 let BOSS_UID = process.env.BOSS_UID || config.boss_uid || "";
 let BOSS_NAME = process.env.BOSS_NAME || config.boss_name || "Sếp";
 let BOSS_CALLER_NAME = process.env.BOSS_CALLER_NAME || config.boss_caller_name || "Sếp";
+let BOT_NAME = config.bot_name || "Bé Heo";
 const QR_ONLY = process.argv.includes("--qr-only");
+
+function verifyPin(inputPin) {
+  if (!inputPin) return false;
+  const trimmed = String(inputPin).trim();
+  const cfg = loadConfig();
+  const currentHash = cfg.pin_hash || "";
+  const currentPlain = cfg.pin_code ? String(cfg.pin_code).trim() : "";
+
+  if (!currentHash && !currentPlain) {
+    return false;
+  }
+
+  const inputHash = crypto.createHash("sha256").update(trimmed).digest("hex");
+  if (currentHash && inputHash.toLowerCase() === currentHash.toLowerCase()) {
+    return true;
+  }
+  if (currentPlain && (trimmed === currentPlain || inputHash.toLowerCase() === crypto.createHash("sha256").update(currentPlain).digest("hex").toLowerCase())) {
+    return true;
+  }
+  return false;
+}
+
+function hasPinConfigured() {
+  const cfg = loadConfig();
+  return Boolean(cfg.pin_hash || cfg.pin_code);
+}
+
+async function checkIsFriend(api, userId) {
+  if (!userId) return false;
+  try {
+    const res = await api.getUserInfo(userId);
+    const profile = res?.changed_profiles?.[userId] || res?.unchanged_profiles?.[userId];
+    if (profile && (profile.isFr === 1 || profile.isFr === true)) {
+      return true;
+    }
+  } catch (e) {}
+  try {
+    const friends = await api.getAllFriends();
+    if (Array.isArray(friends) && friends.some(f => String(f.userId || f.id) === String(userId))) {
+      return true;
+    }
+  } catch (e) {}
+  return false;
+}
 
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 if (!fs.existsSync(WORKSPACE_DIR)) fs.mkdirSync(WORKSPACE_DIR, { recursive: true });
@@ -55,7 +110,8 @@ function log(msg) {
 
 async function getUserDisplayName(api, userId) {
   if (!userId) return "Thành viên";
-  if (String(userId) === BOSS_UID) return "${BOSS_NAME}";
+  loadConfig();
+  if (BOSS_UID && String(userId) === BOSS_UID) return BOSS_NAME;
   if (userCache.has(userId)) return userCache.get(userId);
   try {
     const res = await api.getUserInfo(userId);
@@ -836,21 +892,93 @@ async function startBridge() {
         rawContent = rawContent.replace(/^\s*@heo\s*/i, "").trim();
       }
 
-      // 3. CHAT 1-1 VỚI SẾP
+      // 3. CHAT 1-1 VỚI SẾP HOẶC XÁC THỰC OWNER BẰNG MÃ PIN
       if (msgType === ThreadType.User) {
         if (!rawContent && !msg.data?.quote) return;
 
-        // Tự động nhận diện / gán quyền Sếp nếu chưa cấu hình BOSS_UID
-        if (!BOSS_UID && (config.auto_claim_boss !== false)) {
-          BOSS_UID = String(senderUid);
-          log(`👑 [Auto-Claim Boss] Đã tự động nhận diện Chủ sở hữu (Boss): UID=${BOSS_UID}`);
-          config.boss_uid = BOSS_UID;
-          try {
-            fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2), "utf-8");
-            log(`💾 Đã cập nhật BOSS_UID vào ${CONFIG_FILE}`);
-          } catch (e) {}
+        loadConfig();
+
+        // -------------------------------------------------------------
+        // TRƯỜNG HỢP 1: HỆ THỐNG CHƯA GHÉP NỐI OWNER (!BOSS_UID)
+        // -------------------------------------------------------------
+        if (!BOSS_UID) {
+          // 1. Kiểm tra bạn bè: Chỉ người có kết bạn Zalo với Heo mới được ghép nối
+          const isFriend = await checkIsFriend(api, senderUid);
+          if (!isFriend) {
+            log(`🔒 [Pairing Warning] Người dùng UID=${senderUid} chưa kết bạn Zalo với Heo. Yêu cầu kết bạn trước.`);
+            await sendSafeMessage(api, {
+              msg: `👋 Chào bạn! Bé Heo đang chờ kết nối với Chủ nhân (Owner/Admin).\n\n⚠️ Để nhận quyền Quản trị viên, bạn cần **KẾT BẠN ZALO** với Heo trước nhé!\nSau khi kết bạn thành công, hãy gửi tin nhắn kèm **Mã PIN bảo mật** (đã thiết lập trên Heo Console) để xác thực.`
+            }, threadId, ThreadType.User);
+            return;
+          }
+
+          // 2. Đã là bạn bè. Kiểm tra xem hệ thống đã tạo mã PIN trên Heo Console (HCS) chưa
+          if (!hasPinConfigured()) {
+            log(`⚠️ [Pairing Notice] UID=${senderUid} là bạn bè nhắn tin nhưng hệ thống chưa tạo mã PIN trên HCS.`);
+            await sendSafeMessage(api, {
+              msg: `🔐 [XÁC THỰC QUYỀN CHỦ NHÂN - OWNER PAIRING]\n\n👋 Chào bạn! Heo đang sẵn sàng kết nối.\n⚠️ Tuy nhiên, hệ thống hiện tại **chưa có Mã PIN bảo mật**.\n\nVui lòng truy cập **Heo Console (HCS)** tại: http://localhost:5066 để tạo Mã PIN bảo mật trước, sau đó gửi mã PIN vào đây để nhận quyền Owner nhé!`
+            }, threadId, ThreadType.User);
+            return;
+          }
+
+          // 3. Hệ thống đã có mã PIN. Trích xuất mã PIN từ tin nhắn:
+          let candidatePin = rawContent.trim();
+          const pinRegex = /(?:mã\s*pin|pin)\s*[:=\s]\s*([a-zA-Z0-9_-]+)/i;
+          const match = rawContent.match(pinRegex);
+          if (match && match[1]) {
+            candidatePin = match[1];
+          }
+
+          const isPinValid = verifyPin(candidatePin) || verifyPin(rawContent.trim());
+
+          if (isPinValid) {
+            BOSS_UID = String(senderUid);
+            const bossDisplayName = await getUserDisplayName(api, senderUid);
+            BOSS_NAME = bossDisplayName || "Sếp";
+            config.boss_uid = BOSS_UID;
+            config.boss_name = BOSS_NAME;
+            try {
+              fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2), "utf-8");
+              log(`👑 [Owner Paired Success] Đã xác thực thành công Chủ nhân: ${BOSS_NAME} (UID: ${BOSS_UID}) qua mã PIN! Đã lưu vào ${CONFIG_FILE}`);
+            } catch (e) {
+              log(`⚠️ Lỗi lưu config file: ${e.message}`);
+            }
+
+            await sendSafeMessage(api, {
+              msg: `🎉 [XÁC THỰC CHỦ NHÂN THÀNH CÔNG!]\n\n👑 Heo xin kính chào Sếp ${BOSS_NAME}!\nHeo đã xác thực Mã PIN thành công và chính thức nhận Sếp là **Chủ nhân (Owner/Admin)** duy nhất của hệ thống.\n\nTừ bây giờ, Sếp có toàn quyền chỉ đạo Heo qua Zalo và quản trị hệ thống trên Heo Console (HCS). Bé Heo luôn sẵn sàng phục vụ Sếp ạ! 🥰✨`
+            }, threadId, ThreadType.User);
+            return;
+          } else {
+            const looksLikePin = (rawContent.trim().length <= 20 && /^[a-zA-Z0-9_-]+$/.test(rawContent.trim())) || Boolean(match);
+            if (looksLikePin) {
+              log(`❌ [Pairing Failed] UID=${senderUid} nhập sai mã PIN: "${rawContent.trim()}"`);
+              await sendSafeMessage(api, {
+                msg: `❌ [MÃ PIN KHÔNG CHÍNH XÁC]\n\nMã PIN bạn vừa nhập không khớp với mã PIN bảo mật trên Heo Console (HCS).\n\nVui lòng kiểm tra lại trên Heo Console (http://localhost:5066) và gửi lại đúng mã PIN để xác thực quyền Owner nhé!`
+              }, threadId, ThreadType.User);
+            } else {
+              log(`🔐 [Pairing Request] UID=${senderUid} nhắn tin nhưng chưa gửi mã PIN.`);
+              await sendSafeMessage(api, {
+                msg: `🔐 [XÁC THỰC QUYỀN CHỦ NHÂN - OWNER PAIRING]\n\n👋 Chào bạn! Để kết nối và nhận quyền Quản trị viên (Owner/Admin) của Bé Heo, vui lòng gửi **Mã PIN bảo mật** (đã thiết lập trên Heo Console) vào đây nhé!\n\n👉 Cú pháp: Chỉ cần nhắn trực tiếp mã PIN vào đây (Ví dụ: 123456).`
+              }, threadId, ThreadType.User);
+            }
+            return;
+          }
         }
 
+        // -------------------------------------------------------------
+        // TRƯỜNG HỢP 2: ĐÃ CÓ BOSS_UID NHƯNG NGƯỜI NHẮN KHÔNG PHẢI SẾP
+        // -------------------------------------------------------------
+        if (BOSS_UID && String(senderUid) !== BOSS_UID) {
+          log(`⚠️ Tin nhắn 1-1 từ tài khoản lạ (UID=${senderUid}): "${rawContent.substring(0, 40)}"`);
+          await sendSafeMessage(api, {
+            msg: `Dạ Heo chào bạn! Heo là trợ lý AI riêng của Sếp ${BOSS_NAME}. Nếu bạn cần liên hệ hoặc trao đổi công việc, bạn có thể nhắn vào nhóm chung có Sếp và Heo nhé! 🥰`
+          }, threadId, ThreadType.User);
+          return;
+        }
+
+        // -------------------------------------------------------------
+        // TRƯỜNG HỢP 3: SẾP CHÍNH THỨC NHẮN TIN (senderUid === BOSS_UID)
+        // -------------------------------------------------------------
         let userPrompt = rawContent;
         if (msg.data?.quote && msg.data.quote.msg) {
           userPrompt = `[Trích dẫn tin nhắn: "${msg.data.quote.msg}"]\n\nYêu cầu: ${rawContent || "Hãy xử lý nội dung trên"}`.trim();
@@ -861,7 +989,7 @@ async function startBridge() {
           time: new Date().toISOString(),
           msgId: String(msgId || ""),
           senderUid: BOSS_UID,
-          senderName: "${BOSS_NAME}",
+          senderName: BOSS_NAME,
           text: userPrompt
         });
         await api.sendTypingEvent(threadId, ThreadType.User).catch(() => {});

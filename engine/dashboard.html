@@ -227,15 +227,16 @@
         <div>
           <div class="flex items-center justify-between">
             <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Chủ Sở Hữu</span>
-            <span class="text-xs px-2 py-0.5 rounded-md font-medium bg-indigo-500/10 text-indigo-400">Đặc quyền</span>
+            <span id="ownerPairBadge" class="text-xs px-2 py-0.5 rounded-md font-medium bg-indigo-500/10 text-indigo-400">Đặc quyền</span>
           </div>
           <div class="mt-2">
             <div id="currentBossText" class="text-base font-bold text-white truncate">Sếp</div>
             <p id="currentBossUid" class="text-xs text-slate-400 font-mono truncate mt-0.5">Tự động nhận diện</p>
           </div>
         </div>
-        <div class="mt-3 text-xs text-indigo-400 font-medium truncate">
-          <span>👑 Toàn quyền chỉ đạo</span>
+        <div class="mt-3 flex items-center justify-between text-xs">
+          <span class="text-indigo-400 font-medium truncate">👑 Toàn quyền</span>
+          <button id="btnUnpairBoss" onclick="confirmUnpairBoss()" class="px-2 py-1 rounded-lg bg-red-500/15 hover:bg-red-500/30 text-red-400 text-[11px] font-semibold border border-red-500/20 transition hidden" title="Hủy ghép nối để pair lại qua Zalo">Hủy Pair</button>
         </div>
       </div>
     </div>
@@ -396,10 +397,22 @@
 
       <!-- Configuration Card -->
       <div class="p-6 rounded-2xl bg-dark-900 border border-slate-800 shadow-md space-y-4">
-        <h3 class="font-bold text-white text-base flex items-center space-x-2 border-b border-slate-800 pb-3">
-          <span>⚙️</span>
-          <span>Thiết Lập Danh Xưng & Boss UID</span>
-        </h3>
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+          <h3 class="font-bold text-white text-base flex items-center space-x-2">
+            <span>⚙️</span>
+            <span>Thiết Lập Danh Xưng & Admin PIN</span>
+          </h3>
+          <button type="button" onclick="openManagePinModal()" id="btnManagePin" class="text-xs px-2.5 py-1.5 rounded-xl bg-cyan-600/15 hover:bg-cyan-600/25 text-cyan-400 border border-cyan-500/30 font-semibold transition flex items-center space-x-1">
+            <span>🔑</span>
+            <span id="managePinBtnText">Quản Lý PIN</span>
+          </button>
+        </div>
+
+        <!-- Banner trạng thái PIN & Owner -->
+        <div id="pinStatusBanner" class="p-3 rounded-xl border border-slate-800 bg-dark-850 text-xs text-slate-400">
+          Đang kiểm tra bảo mật PIN...
+        </div>
+
         <form onsubmit="saveConfig(event)" class="space-y-4">
           <div>
             <label class="block text-xs font-semibold text-slate-400 mb-1">Tên Trợ Lý (Bot Name):</label>
@@ -414,8 +427,11 @@
             <input type="text" id="cfgBossName" class="w-full px-3 py-2 rounded-xl bg-dark-850 border border-slate-800 text-sm text-white focus:outline-none focus:border-cyan-500" placeholder="Sếp">
           </div>
           <div>
-            <label class="block text-xs font-semibold text-slate-400 mb-1">Boss UID (Zalo User ID):</label>
-            <input type="text" id="cfgBossUid" class="w-full px-3 py-2 rounded-xl bg-dark-850 border border-slate-800 text-sm text-cyan-400 font-mono focus:outline-none focus:border-cyan-500" placeholder="Tự động nhận diện khi nhắn tin">
+            <div class="flex items-center justify-between mb-1">
+              <label class="block text-xs font-semibold text-slate-400">Boss UID (Zalo User ID):</label>
+              <button type="button" id="btnQuickUnpair" onclick="confirmUnpairBoss()" class="text-[11px] text-red-400 hover:underline hidden">Hủy ghép nối (Unpair)</button>
+            </div>
+            <input type="text" id="cfgBossUid" class="w-full px-3 py-2 rounded-xl bg-dark-850 border border-slate-800 text-sm text-cyan-400 font-mono focus:outline-none focus:border-cyan-500" placeholder="Chưa ghép nối - Chờ xác thực PIN trên Zalo">
           </div>
           <button type="submit" class="w-full py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-sm font-semibold transition shadow-lg shadow-cyan-600/20">
             💾 Lưu Thiết Lập
@@ -511,6 +527,77 @@
         </button>
       </div>
     </div>
+  <!-- Modal Xác Nhận Mã PIN Cho Các Thao Tác Quan Trọng -->
+  <div id="pinConfirmModal" class="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+    <div class="bg-dark-900 border border-slate-800 rounded-3xl max-w-sm w-full p-6 text-center space-y-4 shadow-2xl relative">
+      <button onclick="closePinConfirmModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white">&times;</button>
+      <div class="w-12 h-12 rounded-2xl bg-cyan-500/10 text-cyan-400 flex items-center justify-center text-2xl mx-auto">
+        🔒
+      </div>
+      <h3 class="font-bold text-white text-lg">Xác Nhận Mã PIN Bảo Mật</h3>
+      <p id="pinConfirmDesc" class="text-xs text-slate-400">Vui lòng nhập mã PIN bảo mật để xác nhận quyền Quản trị viên cho thao tác này.</p>
+      
+      <div class="space-y-3">
+        <div class="relative">
+          <input type="password" id="pinConfirmInput" maxlength="16"
+            class="w-full px-4 py-3 rounded-xl bg-dark-850 border border-slate-800 text-center text-lg font-mono tracking-widest text-cyan-400 focus:outline-none focus:border-cyan-500" 
+            placeholder="Nhập mã PIN"
+            onkeydown="if(event.key==='Enter') submitPinConfirm()">
+          <button type="button" onclick="togglePinVisibility('pinConfirmInput')" class="absolute right-3 top-3.5 text-slate-400 hover:text-white text-xs">
+            👁️
+          </button>
+        </div>
+        <div id="pinConfirmError" class="text-xs text-red-400 font-medium hidden">Mã PIN không chính xác!</div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3 pt-2">
+        <button type="button" onclick="closePinConfirmModal()" class="py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold transition">
+          Hủy Bỏ
+        </button>
+        <button type="button" onclick="submitPinConfirm()" id="btnSubmitPinConfirm" class="py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold transition shadow-lg shadow-cyan-600/20">
+          Xác Nhận
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Tạo / Đổi Mã PIN -->
+  <div id="managePinModal" class="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+    <div class="bg-dark-900 border border-slate-800 rounded-3xl max-w-sm w-full p-6 space-y-4 shadow-2xl relative">
+      <button onclick="closeManagePinModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white">&times;</button>
+      <div class="text-center space-y-1">
+        <div class="w-12 h-12 rounded-2xl bg-cyan-500/10 text-cyan-400 flex items-center justify-center text-2xl mx-auto mb-2">
+          🔑
+        </div>
+        <h3 id="managePinTitle" class="font-bold text-white text-lg">Thiết Lập Mã PIN Bảo Mật</h3>
+        <p class="text-xs text-slate-400">Mã PIN dùng để xác thực quyền Owner qua Zalo và bảo vệ các thao tác quan trọng trên HCS.</p>
+      </div>
+
+      <form onsubmit="saveNewPin(event)" class="space-y-3">
+        <div id="oldPinField" class="hidden">
+          <label class="block text-xs font-semibold text-slate-400 mb-1">Mã PIN hiện tại:</label>
+          <input type="password" id="inputOldPin" maxlength="16" class="w-full px-3 py-2 rounded-xl bg-dark-850 border border-slate-800 text-sm text-white focus:outline-none focus:border-cyan-500 font-mono" placeholder="Nhập PIN cũ">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-400 mb-1">Mã PIN mới (4 - 16 ký tự):</label>
+          <input type="password" id="inputNewPin" maxlength="16" required class="w-full px-3 py-2 rounded-xl bg-dark-850 border border-slate-800 text-sm text-white focus:outline-none focus:border-cyan-500 font-mono" placeholder="Ví dụ: 123456">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-400 mb-1">Xác nhận mã PIN mới:</label>
+          <input type="password" id="inputConfirmNewPin" maxlength="16" required class="w-full px-3 py-2 rounded-xl bg-dark-850 border border-slate-800 text-sm text-white focus:outline-none focus:border-cyan-500 font-mono" placeholder="Nhập lại PIN mới">
+        </div>
+        <div id="managePinFeedback" class="text-xs font-medium hidden"></div>
+
+        <div class="grid grid-cols-2 gap-3 pt-2">
+          <button type="button" onclick="closeManagePinModal()" class="py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold transition">
+            Hủy Bỏ
+          </button>
+          <button type="submit" id="btnSavePin" class="py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold transition shadow-lg shadow-cyan-600/20">
+            Lưu Mã PIN
+          </button>
+        </div>
+      </form>
+    </div>
   </div>
 
   <!-- Footer -->
@@ -523,6 +610,9 @@
     let cachedLogs = { engine_logs: [], zalo_logs: [] };
     let currentActiveModel = '';
     let isBotPaused = false;
+    let hasSystemPin = false;
+    let hasSystemBoss = false;
+    let pendingPinAction = null;
 
     function showToast(msg, isError = false) {
       const toast = document.getElementById('toast');
@@ -833,10 +923,73 @@
           fallbackBadge.textContent = 'Primary';
         }
 
-        // Update Boss Info
+        // Update Boss & PIN Info
         if (data.config) {
+          hasSystemPin = Boolean(data.config.has_pin);
+          hasSystemBoss = Boolean(data.config.has_boss);
+
+          // 1. Cập nhật nút và banner PIN
+          const pinBtnText = document.getElementById('managePinBtnText');
+          if (pinBtnText) pinBtnText.textContent = hasSystemPin ? 'Đổi Mã PIN' : 'Tạo Mã PIN';
+
+          const banner = document.getElementById('pinStatusBanner');
+          if (banner) {
+            if (hasSystemPin) {
+              banner.className = 'p-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-xs flex items-center justify-between shadow-sm';
+              banner.innerHTML = `
+                <div class="flex items-center space-x-2.5">
+                  <span class="text-base">🔒</span>
+                  <div>
+                    <div class="font-bold text-emerald-400">Đã Kích Hoạt Bảo Mật PIN</div>
+                    <div class="text-[11px] text-slate-300">Bảo vệ các thao tác HCS & pair quyền Owner Zalo</div>
+                  </div>
+                </div>
+                <button type="button" onclick="openManagePinModal()" class="px-2.5 py-1 rounded-lg bg-emerald-600/20 text-emerald-300 hover:bg-emerald-600/30 font-semibold text-[11px] transition">
+                  Đổi PIN
+                </button>
+              `;
+            } else {
+              banner.className = 'p-3 rounded-xl border border-amber-500/30 bg-amber-500/10 text-xs flex items-center justify-between shadow-sm';
+              banner.innerHTML = `
+                <div class="flex items-center space-x-2.5">
+                  <span class="text-base animate-pulse">⚠️</span>
+                  <div>
+                    <div class="font-bold text-amber-400">Chưa Thiết Lập Mã PIN</div>
+                    <div class="text-[11px] text-slate-300">Cần tạo PIN để xác thực Owner qua Zalo và bảo vệ HCS</div>
+                  </div>
+                </div>
+                <button type="button" onclick="openManagePinModal()" class="px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-dark-950 font-bold text-[11px] transition shadow-md">
+                  ➕ Tạo PIN Ngay
+                </button>
+              `;
+            }
+          }
+
+          // 2. Cập nhật Card Boss & Nút Hủy Ghép Nối
           document.getElementById('currentBossText').textContent = data.config.boss_name || 'Sếp';
-          document.getElementById('currentBossUid').textContent = data.config.boss_uid ? 'UID: ' + data.config.boss_uid : 'Tự động nhận diện';
+          const bossUidEl = document.getElementById('currentBossUid');
+          const unpairBtn = document.getElementById('btnUnpairBoss');
+          const quickUnpairBtn = document.getElementById('btnQuickUnpair');
+          const pairBadge = document.getElementById('ownerPairBadge');
+
+          if (data.config.boss_uid) {
+            bossUidEl.textContent = 'UID: ' + data.config.boss_uid;
+            if (unpairBtn) unpairBtn.classList.remove('hidden');
+            if (quickUnpairBtn) quickUnpairBtn.classList.remove('hidden');
+            if (pairBadge) {
+              pairBadge.className = 'text-xs px-2 py-0.5 rounded-md font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
+              pairBadge.textContent = 'Đã ghép nối';
+            }
+          } else {
+            bossUidEl.textContent = '⏳ Chờ pair qua Zalo';
+            if (unpairBtn) unpairBtn.classList.add('hidden');
+            if (quickUnpairBtn) quickUnpairBtn.classList.add('hidden');
+            if (pairBadge) {
+              pairBadge.className = 'text-xs px-2 py-0.5 rounded-md font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20 animate-pulse';
+              pairBadge.textContent = 'Chờ kết nối';
+            }
+          }
+
           if (!document.getElementById('cfgBotName').value) {
             document.getElementById('cfgBotName').value = data.config.bot_name || 'Bé Heo';
             document.getElementById('cfgCallerName').value = data.config.boss_caller_name || 'Sếp';
@@ -915,69 +1068,273 @@
       }
     }
 
-    async function saveConfig(e) {
-      e.preventDefault();
+    // -------------------------------------------------------------
+    // HỆ THỐNG MÃ PIN BẢO MẬT & XÁC THỰC OWNER (PIN CODE SYSTEM)
+    // -------------------------------------------------------------
+    function requirePin(actionName, onConfirmed) {
+      if (!hasSystemPin) {
+        if (confirm(`Hệ thống chưa thiết lập Mã PIN bảo mật.\nBạn có muốn thực hiện thao tác [${actionName}] ngay không?\n(Khuyến nghị: Sếp nên tạo Mã PIN để bảo vệ hệ thống và pair quyền Owner Zalo).`)) {
+          onConfirmed("");
+        }
+        return;
+      }
+
+      pendingPinAction = onConfirmed;
+      document.getElementById('pinConfirmDesc').innerHTML = `Vui lòng nhập mã PIN bảo mật để xác nhận thao tác: <strong class="text-cyan-400">${actionName}</strong>`;
+      document.getElementById('pinConfirmInput').value = '';
+      document.getElementById('pinConfirmError').classList.add('hidden');
+      document.getElementById('pinConfirmModal').classList.remove('hidden');
+      setTimeout(() => document.getElementById('pinConfirmInput').focus(), 100);
+    }
+
+    function closePinConfirmModal() {
+      document.getElementById('pinConfirmModal').classList.add('hidden');
+      pendingPinAction = null;
+    }
+
+    async function submitPinConfirm() {
+      const input = document.getElementById('pinConfirmInput');
+      const err = document.getElementById('pinConfirmError');
+      const pin = input.value.trim();
+      if (!pin) {
+        err.textContent = 'Vui lòng nhập mã PIN!';
+        err.classList.remove('hidden');
+        return;
+      }
+
       try {
-        const payload = {
-          bot_name: document.getElementById('cfgBotName').value.trim(),
-          boss_caller_name: document.getElementById('cfgCallerName').value.trim(),
-          boss_name: document.getElementById('cfgBossName').value.trim(),
-          boss_uid: document.getElementById('cfgBossUid').value.trim()
-        };
-        const res = await fetch('/api/config', {
+        const res = await fetch('/api/verify_pin', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
+          body: JSON.stringify({ pin })
         });
         const data = await res.json();
         if (data.ok) {
-          showToast('Đã lưu cấu hình thành công!');
-          refreshData();
+          closePinConfirmModal();
+          if (pendingPinAction) {
+            const action = pendingPinAction;
+            pendingPinAction = null;
+            action(pin);
+          }
+        } else {
+          err.textContent = data.error || 'Mã PIN không chính xác!';
+          err.classList.remove('hidden');
+          input.focus();
+          input.select();
         }
       } catch (e) {
-        showToast('Lỗi lưu cấu hình', true);
+        err.textContent = 'Lỗi kết nối máy chủ!';
+        err.classList.remove('hidden');
       }
+    }
+
+    function openManagePinModal() {
+      const oldField = document.getElementById('oldPinField');
+      const title = document.getElementById('managePinTitle');
+      const feedback = document.getElementById('managePinFeedback');
+      feedback.className = 'text-xs font-medium hidden';
+      feedback.textContent = '';
+      document.getElementById('inputOldPin').value = '';
+      document.getElementById('inputNewPin').value = '';
+      document.getElementById('inputConfirmNewPin').value = '';
+
+      if (hasSystemPin) {
+        title.textContent = 'Đổi Mã PIN Bảo Mật';
+        oldField.classList.remove('hidden');
+      } else {
+        title.textContent = 'Tạo Mã PIN Bảo Mật Mới';
+        oldField.classList.add('hidden');
+      }
+
+      document.getElementById('managePinModal').classList.remove('hidden');
+      setTimeout(() => {
+        if (hasSystemPin) {
+          document.getElementById('inputOldPin').focus();
+        } else {
+          document.getElementById('inputNewPin').focus();
+        }
+      }, 100);
+    }
+
+    function closeManagePinModal() {
+      document.getElementById('managePinModal').classList.add('hidden');
+    }
+
+    async function saveNewPin(e) {
+      e.preventDefault();
+      const feedback = document.getElementById('managePinFeedback');
+      const oldPin = document.getElementById('inputOldPin').value.trim();
+      const newPin = document.getElementById('inputNewPin').value.trim();
+      const confirmPin = document.getElementById('inputConfirmNewPin').value.trim();
+
+      if (hasSystemPin && !oldPin) {
+        feedback.className = 'text-xs font-medium text-red-400 block';
+        feedback.textContent = 'Vui lòng nhập mã PIN hiện tại!';
+        return;
+      }
+
+      if (newPin.length < 4 || newPin.length > 16) {
+        feedback.className = 'text-xs font-medium text-red-400 block';
+        feedback.textContent = 'Mã PIN mới phải từ 4 đến 16 ký tự!';
+        return;
+      }
+
+      if (newPin !== confirmPin) {
+        feedback.className = 'text-xs font-medium text-red-400 block';
+        feedback.textContent = 'Xác nhận mã PIN không khớp!';
+        return;
+      }
+
+      feedback.className = 'text-xs font-medium text-cyan-400 block';
+      feedback.textContent = 'Đang lưu mã PIN bảo mật...';
+
+      try {
+        const res = await fetch('/api/set_pin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ old_pin: oldPin, new_pin: newPin })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          feedback.className = 'text-xs font-medium text-emerald-400 block';
+          feedback.textContent = '🎉 ' + data.message;
+          showToast('Đã lưu mã PIN bảo mật thành công!');
+          setTimeout(() => {
+            closeManagePinModal();
+            refreshData();
+          }, 1200);
+        } else {
+          feedback.className = 'text-xs font-medium text-red-400 block';
+          feedback.textContent = '❌ ' + (data.error || 'Lưu mã PIN thất bại!');
+        }
+      } catch (e) {
+        feedback.className = 'text-xs font-medium text-red-400 block';
+        feedback.textContent = 'Lỗi kết nối máy chủ!';
+      }
+    }
+
+    function togglePinVisibility(inputId) {
+      const el = document.getElementById(inputId);
+      if (el) {
+        el.type = el.type === 'password' ? 'text' : 'password';
+      }
+    }
+
+    function confirmUnpairBoss() {
+      requirePin('Hủy ghép nối Chủ nhân (Unpair Owner)', async (pin) => {
+        showToast('Đang hủy ghép nối Owner...');
+        try {
+          const res = await fetch('/api/unpair_boss', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pin })
+          });
+          const data = await res.json();
+          if (data.ok) {
+            showToast(data.message || 'Đã hủy ghép nối Owner thành công!');
+            document.getElementById('cfgBossUid').value = '';
+            refreshData();
+          } else {
+            showToast(data.error || 'Lỗi hủy ghép nối', true);
+          }
+        } catch (e) {
+          showToast('Lỗi kết nối máy chủ', true);
+        }
+      });
+    }
+
+    async function saveConfig(e) {
+      e.preventDefault();
+      const payload = {
+        bot_name: document.getElementById('cfgBotName').value.trim(),
+        boss_caller_name: document.getElementById('cfgCallerName').value.trim(),
+        boss_name: document.getElementById('cfgBossName').value.trim(),
+        boss_uid: document.getElementById('cfgBossUid').value.trim()
+      };
+
+      requirePin('Lưu cấu hình hệ thống & Boss UID', async (pin) => {
+        try {
+          const res = await fetch('/api/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ...payload, pin })
+          });
+          const data = await res.json();
+          if (data.ok) {
+            showToast('Đã lưu cấu hình thành công!');
+            refreshData();
+          } else {
+            showToast(data.error || 'Lỗi lưu cấu hình', true);
+          }
+        } catch (e) {
+          showToast('Lỗi lưu cấu hình', true);
+        }
+      });
     }
 
     async function restartZaloBridge() {
-      showToast('Đang kết nối lại Zalo Bridge...');
-      try {
-        const res = await fetch('/api/restart_zalo_bridge', { method: 'POST' });
-        const data = await res.json();
-        if (data.ok) {
-          showToast(data.message || 'Đã khởi động lại Zalo Bridge thành công!');
-          setTimeout(refreshData, 2000);
-        } else {
-          showToast('Lỗi: ' + (data.error || 'Không thể restart bridge'), true);
+      requirePin('Khởi động lại Zalo Bridge', async (pin) => {
+        showToast('Đang kết nối lại Zalo Bridge...');
+        try {
+          const res = await fetch('/api/restart_zalo_bridge', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pin })
+          });
+          const data = await res.json();
+          if (data.ok) {
+            showToast(data.message || 'Đã khởi động lại Zalo Bridge thành công!');
+            setTimeout(refreshData, 2000);
+          } else {
+            showToast('Lỗi: ' + (data.error || 'Không thể restart bridge'), true);
+          }
+        } catch (e) {
+          showToast('Lỗi kết nối máy chủ', true);
         }
-      } catch (e) {
-        showToast('Lỗi kết nối máy chủ', true);
-      }
+      });
     }
 
     async function logoutZalo() {
-      if (!confirm('Sếp có chắc chắn muốn đăng xuất Zalo không? Bé Heo sẽ ngắt kết nối trực tiếp ngay lập tức.')) return;
-      try {
-        showToast('Đang đăng xuất và ngắt kết nối Zalo...');
-        const res = await fetch('/api/logout_zalo', { method: 'POST' });
-        const data = await res.json();
-        showToast(data.message || 'Đã đăng xuất Zalo.');
-        setTimeout(refreshData, 1500);
-      } catch (e) {
-        showToast('Lỗi đăng xuất Zalo', true);
-      }
+      requirePin('Đăng xuất Zalo & ngắt kết nối trực tiếp', async (pin) => {
+        try {
+          showToast('Đang đăng xuất và ngắt kết nối Zalo...');
+          const res = await fetch('/api/logout_zalo', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pin })
+          });
+          const data = await res.json();
+          if (data.ok) {
+            showToast(data.message || 'Đã đăng xuất Zalo.');
+            setTimeout(refreshData, 1500);
+          } else {
+            showToast(data.error || 'Lỗi đăng xuất Zalo', true);
+          }
+        } catch (e) {
+          showToast('Lỗi đăng xuất Zalo', true);
+        }
+      });
     }
 
     async function logoutGoogle() {
-      if (!confirm('Sếp có muốn đăng xuất tài khoản Google hiện tại của AGY CLI không?')) return;
-      try {
-        const res = await fetch('/api/logout_google', { method: 'POST' });
-        const data = await res.json();
-        showToast('Đã đăng xuất Google. Bấm nút "Đăng nhập Google" để kết nối lại.');
-        refreshData();
-      } catch (e) {
-        showToast('Lỗi đăng xuất Google', true);
-      }
+      requirePin('Đăng xuất tài khoản Google AGY CLI', async (pin) => {
+        try {
+          const res = await fetch('/api/logout_google', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pin })
+          });
+          const data = await res.json();
+          if (data.ok) {
+            showToast('Đã đăng xuất Google. Bấm nút "Đăng nhập Google" để kết nối lại.');
+            refreshData();
+          } else {
+            showToast(data.error || 'Lỗi đăng xuất Google', true);
+          }
+        } catch (e) {
+          showToast('Lỗi đăng xuất Google', true);
+        }
+      });
     }
 
     function openGoogleLoginModal() {
@@ -1063,27 +1420,29 @@
         setGoogleModalFeedback('Vui lòng dán mã code hoặc URL chuyển hướng.', true);
         return;
       }
-      try {
-        setGoogleModalFeedback('Đang xác thực mã với Google API...');
-        const res = await fetch('/api/submit_oauth_code', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ code: code })
-        });
-        const data = await res.json();
-        if (data.ok) {
-          setGoogleModalFeedback('🎉 Đăng nhập Google thành công!');
-          showToast('Đăng nhập Google thành công: ' + (data.google ? data.google.email : ''));
-          setTimeout(() => {
-            closeGoogleLoginModal();
-            refreshData();
-          }, 1200);
-        } else {
-          setGoogleModalFeedback('❌ ' + (data.error || 'Xác thực thất bại'), true);
+      requirePin('Lưu mã xác thực Google OAuth', async (pin) => {
+        try {
+          setGoogleModalFeedback('Đang xác thực mã với Google API...');
+          const res = await fetch('/api/submit_oauth_code', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code: code, pin: pin })
+          });
+          const data = await res.json();
+          if (data.ok) {
+            setGoogleModalFeedback('🎉 Đăng nhập Google thành công!');
+            showToast('Đăng nhập Google thành công: ' + (data.google ? data.google.email : ''));
+            setTimeout(() => {
+              closeGoogleLoginModal();
+              refreshData();
+            }, 1200);
+          } else {
+            setGoogleModalFeedback('❌ ' + (data.error || 'Xác thực thất bại'), true);
+          }
+        } catch (e) {
+          setGoogleModalFeedback('Lỗi: ' + e.message, true);
         }
-      } catch (e) {
-        setGoogleModalFeedback('Lỗi: ' + e.message, true);
-      }
+      });
     }
 
     async function syncHostGoogleAuth() {

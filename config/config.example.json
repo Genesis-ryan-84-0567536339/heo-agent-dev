@@ -6,5 +6,6 @@
   "model": "Gemini 3.8 Flash (High)",
   "bridge_port": 5051,
   "engine_port": 5066,
+  "pin_hash": "",
   "auto_claim_boss": true
 }
