@@ -1120,12 +1120,6 @@ async function startBridge() {
           api.sendTypingEvent(threadId, ThreadType.User).catch(() => {});
         }, 4000);
 
-        // Phản hồi xác nhận tức thì: "Heo nghe ạ , chờ heo chút ...."
-        try {
-          await sendSafeMessage(api, { msg: "Heo nghe ạ , chờ heo chút ....", quote: msg.data }, threadId, ThreadType.User);
-          log(`[1-1 ${BOSS_NAME}] Đã gửi xác nhận: "Heo nghe ạ , chờ heo chút ...."`);
-        } catch (e) {}
-
         try {
           const resp = await axios.post(`${AGY_ENGINE_URL}/api/chat`, {
             session_id: `zalo_user_${threadId}`,
@@ -1247,12 +1241,6 @@ async function startBridge() {
         const typingInterval = setInterval(() => {
           api.sendTypingEvent(threadId, ThreadType.Group).catch(() => {});
         }, 4000);
-
-        // Phản hồi xác nhận tức thì trong nhóm: "Heo nghe ạ , chờ heo chút ...."
-        try {
-          await sendSafeMessage(api, { msg: "Heo nghe ạ , chờ heo chút ....", quote: msg.data }, threadId, ThreadType.Group);
-          log(`[Group ${groupDetails.name}] Đã gửi xác nhận: "Heo nghe ạ , chờ heo chút ...."`);
-        } catch (e) {}
 
         try {
           const resp = await axios.post(`${AGY_ENGINE_URL}/api/chat`, {
