@@ -37,6 +37,7 @@ workspace/*
 !workspace/GEMINI.md
 !workspace/CLAUDE.md
 !workspace/cam_nang_su_dung_heo_agent_v2_1.md
+!workspace/CHI_DAO_PHAN_TACH_REPO_VA_KE_HOACH_NANG_CAP.md
 
 # OS / IDE
 .DS_Store
