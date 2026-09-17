@@ -26,6 +26,11 @@ const AGY_ENGINE_URL = process.env.AGY_ENGINE_URL || "http://127.0.0.1:5066";
 const OUTBOUND_PORT = parseInt(process.env.BRIDGE_PORT || "5051", 10);
 
 let config = {};
+let BOSS_UID = process.env.BOSS_UID || "";
+let BOSS_NAME = process.env.BOSS_NAME || "Sếp";
+let BOSS_CALLER_NAME = process.env.BOSS_CALLER_NAME || "Sếp";
+let BOT_NAME = "Bé Heo";
+
 function loadConfig() {
   try {
     if (fs.existsSync(CONFIG_FILE)) {
@@ -43,10 +48,6 @@ function loadConfig() {
 
 loadConfig();
 
-let BOSS_UID = process.env.BOSS_UID || config.boss_uid || "";
-let BOSS_NAME = process.env.BOSS_NAME || config.boss_name || "Sếp";
-let BOSS_CALLER_NAME = process.env.BOSS_CALLER_NAME || config.boss_caller_name || "Sếp";
-let BOT_NAME = config.bot_name || "Bé Heo";
 const QR_ONLY = process.argv.includes("--qr-only");
 
 function verifyPin(inputPin) {
@@ -110,7 +111,6 @@ function log(msg) {
 
 async function getUserDisplayName(api, userId) {
   if (!userId) return "Thành viên";
-  loadConfig();
   if (BOSS_UID && String(userId) === BOSS_UID) return BOSS_NAME;
   if (userCache.has(userId)) return userCache.get(userId);
   try {
@@ -932,17 +932,32 @@ async function startBridge() {
           const isPinValid = verifyPin(candidatePin) || verifyPin(rawContent.trim());
 
           if (isPinValid) {
-            BOSS_UID = String(senderUid);
+            const newBossUid = String(senderUid);
             const bossDisplayName = await getUserDisplayName(api, senderUid);
-            BOSS_NAME = bossDisplayName || "Sếp";
-            config.boss_uid = BOSS_UID;
-            config.boss_name = BOSS_NAME;
+            const newBossName = (bossDisplayName && !bossDisplayName.startsWith("Thành viên")) ? bossDisplayName : "Sếp";
+            
+            // Đọc lại file cấu hình hiện tại để giữ nguyên các thiết lập khác
+            let currentCfg = {};
             try {
-              fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2), "utf-8");
-              log(`👑 [Owner Paired Success] Đã xác thực thành công Chủ nhân: ${BOSS_NAME} (UID: ${BOSS_UID}) qua mã PIN! Đã lưu vào ${CONFIG_FILE}`);
+              if (fs.existsSync(CONFIG_FILE)) {
+                currentCfg = JSON.parse(fs.readFileSync(CONFIG_FILE, "utf-8"));
+              }
+            } catch (e) {}
+
+            currentCfg.boss_uid = newBossUid;
+            currentCfg.boss_name = newBossName;
+
+            try {
+              fs.writeFileSync(CONFIG_FILE, JSON.stringify(currentCfg, null, 2), "utf-8");
+              log(`👑 [Owner Paired Success] Đã xác thực thành công Chủ nhân: ${newBossName} (UID: ${newBossUid}) qua mã PIN! Đã lưu vào ${CONFIG_FILE}`);
             } catch (e) {
               log(`⚠️ Lỗi lưu config file: ${e.message}`);
             }
+
+            // Cập nhật bộ nhớ biến runtime
+            config = currentCfg;
+            BOSS_UID = newBossUid;
+            BOSS_NAME = newBossName;
 
             await sendSafeMessage(api, {
               msg: `🎉 [XÁC THỰC CHỦ NHÂN THÀNH CÔNG!]\n\n👑 Heo xin kính chào Sếp ${BOSS_NAME}!\nHeo đã xác thực Mã PIN thành công và chính thức nhận Sếp là **Chủ nhân (Owner/Admin)** duy nhất của hệ thống.\n\nTừ bây giờ, Sếp có toàn quyền chỉ đạo Heo qua Zalo và quản trị hệ thống trên Heo Console (HCS). Bé Heo luôn sẵn sàng phục vụ Sếp ạ! 🥰✨`
