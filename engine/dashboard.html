@@ -230,7 +230,7 @@
       </div>
 
       <!-- Modal login Google -->
-      <div id="googleLoginModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm hidden p-4">
+      <div id="googleLoginModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm hidden p-4" onclick="if(event.target===this) closeGoogleLoginModal()">
         <div class="bg-dark-900 border border-slate-700 rounded-2xl p-6 max-w-lg w-full shadow-2xl space-y-4">
           <div class="flex items-center justify-between border-b border-slate-800 pb-3">
             <div class="flex items-center space-x-2">
@@ -584,7 +584,7 @@
   </main>
 
   <!-- Modal Quét QR Zalo -->
-  <div id="qrModal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+  <div id="qrModal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 hidden" onclick="if(event.target===this) closeZaloQRModal()">
     <div class="bg-dark-900 border border-slate-800 rounded-3xl max-w-sm w-full p-6 text-center space-y-4 shadow-2xl relative">
       <button onclick="closeZaloQRModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white">&times;</button>
       <div class="w-12 h-12 rounded-2xl bg-cyan-500/10 text-cyan-400 flex items-center justify-center text-2xl mx-auto">
@@ -645,7 +645,7 @@
   </div>
 
   <!-- Modal Xác Nhận Mã PIN Cho Các Thao Tác Quan Trọng -->
-  <div id="pinConfirmModal" class="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+  <div id="pinConfirmModal" class="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 hidden" onclick="if(event.target===this) closePinConfirmModal()">
     <div class="bg-dark-900 border border-slate-800 rounded-3xl max-w-sm w-full p-6 text-center space-y-4 shadow-2xl relative">
       <button onclick="closePinConfirmModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white">&times;</button>
       <div class="w-12 h-12 rounded-2xl bg-cyan-500/10 text-cyan-400 flex items-center justify-center text-2xl mx-auto">
@@ -679,7 +679,7 @@
   </div>
 
   <!-- Modal Tạo / Đổi Mã PIN -->
-  <div id="managePinModal" class="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+  <div id="managePinModal" class="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 hidden" onclick="if(event.target===this) closeManagePinModal()">
     <div class="bg-dark-900 border border-slate-800 rounded-3xl max-w-sm w-full p-6 space-y-4 shadow-2xl relative">
       <button onclick="closeManagePinModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white">&times;</button>
       <div class="text-center space-y-1">
@@ -718,7 +718,7 @@
   </div>
 
   <!-- Modal Hướng Dẫn & Cảnh Báo Thiết Lập Từng Bước Cho Người Mới -->
-  <div id="onboardingModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 hidden">
+  <div id="onboardingModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 hidden" onclick="if(event.target===this) closeOnboardingModal()">
     <div class="bg-dark-900 border border-slate-700 rounded-3xl max-w-2xl w-full p-6 space-y-4 shadow-2xl relative max-h-[92vh] flex flex-col">
       <button type="button" onclick="closeOnboardingModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white text-xl cursor-pointer">&times;</button>
       
@@ -917,18 +917,18 @@
         </button>
       </div>
 
-      <!-- Footer -->
+      <!-- Footer Buttons -->
       <div class="shrink-0 pt-2 border-t border-slate-800 flex items-center justify-between">
         <span class="text-[11px] text-slate-400">Thanh cảnh báo đỏ vẫn hiển thị trên đầu trang để bạn theo dõi đếm ngược.</span>
         <button type="button" onclick="closeQuotaExhaustedModal()" class="py-2 px-5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold transition cursor-pointer">
-          Đã Hiểu / Đóng
+          Đã Hiểu & Đóng
         </button>
       </div>
     </div>
   </div>
 
   <!-- Modal Cập Nhật Phiên Bản (System Update Modal) -->
-  <div id="updateModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 hidden">
+  <div id="updateModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 hidden" onclick="if(event.target===this) closeUpdateModal()">
     <div class="bg-dark-900 border border-slate-700 rounded-3xl max-w-lg w-full p-6 space-y-4 shadow-2xl relative flex flex-col">
       <button type="button" onclick="closeUpdateModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white text-xl cursor-pointer">&times;</button>
 
@@ -986,7 +986,7 @@
   </div>
 
   <!-- Modal Bác Sĩ Hệ Thống (System Doctor) -->
-  <div id="doctorModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 hidden">
+  <div id="doctorModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 hidden" onclick="if(event.target===this) closeDoctorModal()">
     <div class="bg-dark-900 border border-slate-700 rounded-3xl max-w-2xl w-full p-6 space-y-4 shadow-2xl relative max-h-[92vh] flex flex-col">
       <button type="button" onclick="closeDoctorModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white text-xl cursor-pointer">&times;</button>
       
@@ -1046,7 +1046,7 @@
   </div>
 
   <!-- Modal Tuyên Bố Miễn Trừ Trách Nhiệm (Disclaimer Modal) -->
-  <div id="disclaimerModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 hidden">
+  <div id="disclaimerModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 hidden" onclick="if(event.target===this && hasAcceptedDisclaimer) closeDisclaimerModal()">
     <div class="bg-dark-900 border border-slate-700 rounded-3xl max-w-2xl w-full p-6 space-y-4 shadow-2xl relative max-h-[92vh] flex flex-col">
       <button id="disclaimerCloseBtn" type="button" onclick="closeDisclaimerModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white text-xl hidden cursor-pointer">&times;</button>
       
@@ -2006,11 +2006,8 @@
           }
         }
 
-        // Tự động bật popup thiết lập từng bước cho người mới nếu chưa hoàn tất
-        if (hasAcceptedDisclaimer && completedSetupSteps < 3 && !onboardingModalShown && !onboardingModalDismissedThisVisit) {
-          onboardingModalShown = true;
-          openOnboardingModal();
-        }
+        // Không tự động bật popup đè toàn bộ màn hình để tránh chặn tương tác các nút chức năng (Bác Sĩ, Cập Nhật, v.v.)
+        // Banner cảnh báo ở đầu trang và nút "🚀 Thiết Lập" trên header đã hiển thị sẵn cho người dùng bấm khi cần.
 
         // Đồng bộ dữ liệu hiển thị trên modal Onboarding nếu đang mở
         renderOnboardingModalState(isPinDone, isZaloDone, isGoogleDone, completedSetupSteps, data);
@@ -2973,6 +2970,21 @@
     // Tự động kiểm tra bản cập nhật mới từ GitHub (sau 2s và định kỳ mỗi 10 phút)
     setTimeout(() => checkUpdateManual(false), 2000);
     setInterval(() => checkUpdateManual(false), 10 * 60 * 1000);
+
+    // Phím tắt Escape để đóng nhanh các modal đang mở
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        closeDoctorModal();
+        closeUpdateModal();
+        closeOnboardingModal();
+        closeZaloQRModal();
+        closePinConfirmModal();
+        closeManagePinModal();
+        closeQuotaExhaustedModal();
+        closeGoogleLoginModal();
+        if (hasAcceptedDisclaimer) closeDisclaimerModal();
+      }
+    });
   </script>
 </body>
 </html>

@@ -39,10 +39,10 @@ get_term_cols() {
     echo "$c"
 }
 
-# Vẽ thanh tiến độ % dạng thanh ngang gọn gàng [██████░░░░] (12 ký tự)
+# Vẽ thanh tiến độ % dạng thanh ngang gọn gàng [█████░░░░░] (10 ký tự)
 render_progress_bar() {
     local pct=$1
-    local width=12
+    local width=10
     local filled=$((pct * width / 100))
     local empty=$((width - filled))
     local bar=""
@@ -133,29 +133,13 @@ run_step_with_progress() {
         spin_idx=$(((spin_idx + 1) % 10))
 
         if [ "$is_tty" -eq 1 ]; then
-            local cols
-            cols=$(get_term_cols)
-
             local title_padded="$step_title"
             while [ "${#title_padded}" -lt 18 ]; do title_padded="${title_padded} "; done
             title_padded="${title_padded:0:18}"
 
-            # Độ dài dòng cơ bản = 52 cột (vừa vặn trên mọi kích thước terminal, kể cả màn hình nhỏ)
-            local base_len=52
-            local hint_str=""
-            # Chỉ hiển thị gợi ý nếu màn hình rộng >= 80 cột để tuyệt đối không bị nhảy dòng
-            if [ "$cols" -ge 80 ]; then
-                local max_hint=$((cols - base_len - 8))
-                if [ "$max_hint" -ge 10 ]; then
-                    local hint
-                    hint=$(get_step_hint)
-                    hint_str=" \033[2m↳ ${hint:0:$max_hint}\033[0m"
-                fi
-            fi
-
-            # Dùng \r\033[2K để xóa trọn vẹn dòng cũ và ghi đè trên đúng 1 dòng duy nhất
-            printf "\r\033[2K${CYAN}%s${NC} ${DIM}[%d/%d]${NC} ${BOLD}%s${NC} [${GREEN}%s${NC}] ${BOLD}%3d%%${NC} ${DIM}(%s)${NC}%b" \
-                "$spin" "$step_idx" "$total_steps" "$title_padded" "$bar" "$current_pct" "$time_str" "$hint_str"
+            # Dùng \r\033[2K để ghi đè trên đúng 1 dòng duy nhất (tổng độ dài chỉ ~48 ký tự, chống tràn tuyệt đối)
+            printf "\r\033[2K${CYAN}%s${NC} ${DIM}[%d/%d]${NC} ${BOLD}%s${NC} [${GREEN}%s${NC}] ${BOLD}%3d%%${NC} ${DIM}(%s)${NC}" \
+                "$spin" "$step_idx" "$total_steps" "$title_padded" "$bar" "$current_pct" "$time_str"
         fi
 
         sleep 0.15
@@ -354,7 +338,7 @@ prepare_workspace_and_dirs() {
             git clone https://github.com/Genesis-ryan-84-0567536339/heo-agent-free.git "$INSTALL_DIR"
         else
             # Cập nhật code mới nhất nếu folder đã tồn tại
-            (cd "$INSTALL_DIR" && git pull origin main 2>/dev/null || git pull 2>/dev/null || true)
+            (cd "$INSTALL_DIR" && git fetch origin 2>/dev/null && git reset --hard origin/main 2>/dev/null || git pull 2>/dev/null || true)
         fi
         WORKDIR="$(pwd)/$INSTALL_DIR"
         cd "$WORKDIR"

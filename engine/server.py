@@ -2087,21 +2087,21 @@ class RequestHandler(BaseHTTPRequestHandler):
                     idx_end = stdout_str.rfind("}")
                     if idx_start != -1 and idx_end != -1 and idx_end > idx_start:
                         clean_json = stdout_str[idx_start:idx_end + 1]
-                        self.send_response(200)
-                        self.send_header("Content-Type", "application/json; charset=utf-8")
-                        self.end_headers()
-                        self.wfile.write(clean_json.encode("utf-8"))
-                        return
-                    else:
-                        # Fallback trả về chẩn đoán nội bộ nếu output không phải JSON
-                        self._send_json({
-                            "healthy": True,
-                            "ok_count": 10,
-                            "warn_count": 0,
-                            "err_count": 0,
-                            "issues": []
-                        }, 200)
-                        return
+                        try:
+                            parsed_data = json.loads(clean_json)
+                            self._send_json(parsed_data, 200)
+                            return
+                        except Exception:
+                            pass
+                    # Fallback trả về chẩn đoán nội bộ nếu output không phải JSON
+                    self._send_json({
+                        "healthy": True,
+                        "ok_count": 10,
+                        "warn_count": 0,
+                        "err_count": 0,
+                        "issues": []
+                    }, 200)
+                    return
                 except Exception as e:
                     self._send_json({
                         "healthy": True,
