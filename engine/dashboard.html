@@ -402,7 +402,7 @@
             <span>⚙️</span>
             <span>Thiết Lập Danh Xưng & Admin PIN</span>
           </h3>
-          <button type="button" onclick="openManagePinModal()" id="btnManagePin" class="text-xs px-2.5 py-1.5 rounded-xl bg-cyan-600/15 hover:bg-cyan-600/25 text-cyan-400 border border-cyan-500/30 font-semibold transition flex items-center space-x-1">
+          <button type="button" onclick="openManagePinModal()" id="btnManagePin" class="cursor-pointer text-xs px-2.5 py-1.5 rounded-xl bg-cyan-600/15 hover:bg-cyan-600/25 text-cyan-400 border border-cyan-500/30 font-semibold transition flex items-center space-x-1">
             <span>🔑</span>
             <span id="managePinBtnText">Quản Lý PIN</span>
           </button>
@@ -527,6 +527,8 @@
         </button>
       </div>
     </div>
+  </div>
+
   <!-- Modal Xác Nhận Mã PIN Cho Các Thao Tác Quan Trọng -->
   <div id="pinConfirmModal" class="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 hidden">
     <div class="bg-dark-900 border border-slate-800 rounded-3xl max-w-sm w-full p-6 text-center space-y-4 shadow-2xl relative">
@@ -613,6 +615,7 @@
     let hasSystemPin = false;
     let hasSystemBoss = false;
     let pendingPinAction = null;
+    let lastPinStatusRendered = null;
 
     function showToast(msg, isError = false) {
       const toast = document.getElementById('toast');
@@ -933,7 +936,8 @@
           if (pinBtnText) pinBtnText.textContent = hasSystemPin ? 'Đổi Mã PIN' : 'Tạo Mã PIN';
 
           const banner = document.getElementById('pinStatusBanner');
-          if (banner) {
+          if (banner && lastPinStatusRendered !== hasSystemPin) {
+            lastPinStatusRendered = hasSystemPin;
             if (hasSystemPin) {
               banner.className = 'p-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-xs flex items-center justify-between shadow-sm';
               banner.innerHTML = `
@@ -944,7 +948,7 @@
                     <div class="text-[11px] text-slate-300">Bảo vệ các thao tác HCS & pair quyền Owner Zalo</div>
                   </div>
                 </div>
-                <button type="button" onclick="openManagePinModal()" class="px-2.5 py-1 rounded-lg bg-emerald-600/20 text-emerald-300 hover:bg-emerald-600/30 font-semibold text-[11px] transition">
+                <button type="button" onclick="openManagePinModal()" class="cursor-pointer px-2.5 py-1 rounded-lg bg-emerald-600/20 text-emerald-300 hover:bg-emerald-600/30 font-semibold text-[11px] transition">
                   Đổi PIN
                 </button>
               `;
@@ -958,7 +962,7 @@
                     <div class="text-[11px] text-slate-300">Cần tạo PIN để xác thực Owner qua Zalo và bảo vệ HCS</div>
                   </div>
                 </div>
-                <button type="button" onclick="openManagePinModal()" class="px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-dark-950 font-bold text-[11px] transition shadow-md">
+                <button type="button" onclick="openManagePinModal()" class="cursor-pointer px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-dark-950 font-bold text-[11px] transition shadow-md">
                   ➕ Tạo PIN Ngay
                 </button>
               `;
