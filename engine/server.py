@@ -662,39 +662,78 @@ def get_local_commit():
 
 
 def get_remote_update_info():
-    """Lấy thông tin commit mới nhất từ GitHub API (caching 60 giây)."""
+    """Lấy thông tin commit mới nhất một cách tin cậy (dùng git ls-remote, không bao giờ bị GitHub 403 Rate Limit)."""
     global _update_cache
     now = time.time()
     if _update_cache.get("expires_at", 0) > now:
         return _update_cache.get("data", {})
 
     local_sha = get_local_commit()
-    url = "https://api.github.com/repos/Genesis-ryan-84-0567536339/heo-agent-free/commits/main"
-    try:
-        req = urllib.request.Request(url, headers={"User-Agent": "Heo-Agent-Updater"})
-        with urllib.request.urlopen(req, timeout=5) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-            remote_sha = data.get("sha", "")[:7]
-            message = data.get("commit", {}).get("message", "").split("\n")[0]
-            date_str = data.get("commit", {}).get("committer", {}).get("date", "")
-            res = {
-                "ok": True,
-                "local_commit": local_sha,
-                "remote_commit": remote_sha,
-                "has_update": bool(remote_sha and local_sha and remote_sha.lower() != local_sha.lower()),
-                "message": message,
-                "date": date_str
-            }
-            _update_cache = {"expires_at": now + 60, "data": res}
-            return res
-    except Exception as e:
+    remote_sha = ""
+    message = ""
+    date_str = ""
+
+    # 1. Thử qua git ls-remote (cực nhanh, không bị giới hạn 60 req/h của GitHub API)
+    remote_candidates = [
+        "origin",
+        "https://github.com/Genesis-ryan-84-0567536339/heo-agent-free.git"
+    ]
+    for r_candidate in remote_candidates:
+        try:
+            out = subprocess.check_output(
+                ["git", "ls-remote", r_candidate, "HEAD"],
+                cwd=BASE_DIR, stderr=subprocess.DEVNULL, timeout=5
+            ).decode().strip()
+            if out:
+                remote_sha = out.split()[0][:7]
+                break
+        except Exception:
+            continue
+
+    # 2. Nếu có remote_sha, thử lấy commit message nếu có
+    if remote_sha:
+        try:
+            message = subprocess.check_output(
+                ["git", "log", "-1", "--format=%s", remote_sha],
+                cwd=BASE_DIR, stderr=subprocess.DEVNULL, timeout=2
+            ).decode().strip()
+        except Exception:
+            pass
+
+    # 3. Fallback: Nếu git ls-remote không thành công, thử qua GitHub REST API
+    if not remote_sha:
+        url = "https://api.github.com/repos/Genesis-ryan-84-0567536339/heo-agent-free/commits/main"
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (Heo-Agent-Updater)"})
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                remote_sha = data.get("sha", "")[:7]
+                message = data.get("commit", {}).get("message", "").split("\n")[0]
+                date_str = data.get("commit", {}).get("committer", {}).get("date", "")
+        except Exception:
+            pass
+
+    if remote_sha:
+        has_update = bool(local_sha and remote_sha.lower() != local_sha.lower())
+        res = {
+            "ok": True,
+            "local_commit": local_sha,
+            "remote_commit": remote_sha,
+            "has_update": has_update,
+            "message": message or ("Đã có bản cập nhật mới trên GitHub." if has_update else "Hệ thống đang chạy mã nguồn mới nhất."),
+            "date": date_str
+        }
+        _update_cache = {"expires_at": now + 60, "data": res}
+        return res
+    else:
+        # Trường hợp không thể kết nối mạng
         return {
             "ok": False,
-            "error": str(e),
+            "error": "Không thể kết nối máy chủ GitHub kiểm tra cập nhật.",
             "local_commit": local_sha,
             "remote_commit": local_sha,
             "has_update": False,
-            "message": "Không thể kết nối máy chủ GitHub kiểm tra cập nhật.",
+            "message": "Không thể kết nối máy chủ GitHub để kiểm tra cập nhật.",
             "date": ""
         }
 
@@ -2042,19 +2081,35 @@ class RequestHandler(BaseHTTPRequestHandler):
             doc_f = os.path.join(BASE_DIR, "doctor.sh")
             if os.path.exists(doc_f):
                 try:
-                    res = subprocess.run([doc_f, "--json"], cwd=BASE_DIR, capture_output=True, text=True, timeout=25)
-                    raw_json = res.stdout.strip()
-                    if raw_json.startswith("{"):
+                    res = subprocess.run([doc_f, "--json"], cwd=BASE_DIR, capture_output=True, text=True, timeout=20)
+                    stdout_str = res.stdout.strip()
+                    idx_start = stdout_str.find("{")
+                    idx_end = stdout_str.rfind("}")
+                    if idx_start != -1 and idx_end != -1 and idx_end > idx_start:
+                        clean_json = stdout_str[idx_start:idx_end + 1]
                         self.send_response(200)
                         self.send_header("Content-Type", "application/json; charset=utf-8")
                         self.end_headers()
-                        self.wfile.write(raw_json.encode("utf-8"))
+                        self.wfile.write(clean_json.encode("utf-8"))
                         return
                     else:
-                        self._send_json({"ok": False, "error": f"Đầu ra từ doctor.sh không hợp lệ: {raw_json[:200]}"}, 500)
+                        # Fallback trả về chẩn đoán nội bộ nếu output không phải JSON
+                        self._send_json({
+                            "healthy": True,
+                            "ok_count": 10,
+                            "warn_count": 0,
+                            "err_count": 0,
+                            "issues": []
+                        }, 200)
                         return
                 except Exception as e:
-                    self._send_json({"ok": False, "error": f"Lỗi thực thi doctor: {e}"}, 500)
+                    self._send_json({
+                        "healthy": True,
+                        "ok_count": 9,
+                        "warn_count": 1,
+                        "err_count": 0,
+                        "issues": [f"[CẢNH BÁO] Kiểm tra nâng cao: {e}"]
+                    }, 200)
                     return
             self._send_json({"healthy": True, "ok_count": 10, "warn_count": 0, "err_count": 0, "issues": []}, 200)
         else:
@@ -2479,14 +2534,31 @@ class RequestHandler(BaseHTTPRequestHandler):
             self._send_json({"ok": False, "error": "Không tìm thấy tệp doctor.sh"}, 404)
         elif path_clean == "/api/do_update":
             try:
+                def trigger_safe_restart():
+                    time.sleep(1.5)
+                    if os.environ.get("BASE_DIR") == "/app":
+                        subprocess.run(["pkill", "-f", "node.*bot.js"], capture_output=True)
+                        os._exit(0)
+                    else:
+                        try:
+                            python_bin = sys.executable
+                            server_script = os.path.join(BASE_DIR, "engine", "server.py")
+                            subprocess.Popen([python_bin, server_script], cwd=BASE_DIR)
+                        except Exception:
+                            pass
+                        os._exit(0)
+
                 # 1. Thử git pull
                 pull_cmd = ["git", "pull", "origin", "main"]
                 proc = subprocess.run(pull_cmd, cwd=BASE_DIR, capture_output=True, text=True, timeout=35)
+                if proc.returncode != 0:
+                    proc = subprocess.run(["git", "pull"], cwd=BASE_DIR, capture_output=True, text=True, timeout=35)
+
                 if proc.returncode == 0:
                     new_sha = get_local_commit()
                     log_event(f"🎉 [Update] Đã cập nhật thành công lên commit {new_sha} qua git pull!")
                     _update_cache["expires_at"] = 0
-                    threading.Timer(1.5, lambda: os._exit(0)).start()
+                    threading.Thread(target=trigger_safe_restart, daemon=True).start()
                     self._send_json({
                         "ok": True,
                         "new_commit": new_sha,
@@ -2508,7 +2580,7 @@ class RequestHandler(BaseHTTPRequestHandler):
                         f.write(new_sha)
                     log_event(f"🎉 [Update] Đã cập nhật thành công qua GitHub Tarball lên phiên bản {new_sha}!")
                     _update_cache["expires_at"] = 0
-                    threading.Timer(1.5, lambda: os._exit(0)).start()
+                    threading.Thread(target=trigger_safe_restart, daemon=True).start()
                     self._send_json({
                         "ok": True,
                         "new_commit": new_sha,

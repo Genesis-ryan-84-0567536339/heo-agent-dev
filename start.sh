@@ -21,11 +21,11 @@ get_docker_compose() {
         echo "podman-compose"
     elif podman compose version &> /dev/null 2>&1; then
         echo "podman compose"
-    elif sudo docker compose version &> /dev/null 2>&1; then
+    elif sudo -n docker compose version &> /dev/null 2>&1; then
         echo "sudo docker compose"
     elif command -v docker-compose &> /dev/null; then
         echo "docker-compose"
-    elif sudo command -v docker-compose &> /dev/null; then
+    elif sudo -n command -v docker-compose &> /dev/null; then
         echo "sudo docker-compose"
     else
         echo "docker compose"

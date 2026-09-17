@@ -22,6 +22,11 @@ services:
       - ./scripts:/app/scripts:Z
       - ./bridge/bot.js:/app/bridge/bot.js:Z
       - ./entrypoint.sh:/app/entrypoint.sh:Z
+      - ./doctor.sh:/app/doctor.sh:Z
+      - ./start.sh:/app/start.sh:Z
+      - ./stop.sh:/app/stop.sh:Z
+      - ./uninstall.sh:/app/uninstall.sh:Z
+      - ./install.sh:/app/install.sh:Z
       - ./DISCLAIMER.md:/app/DISCLAIMER.md:Z
       - ./skills:/app/skills:Z
       - ./.git:/app/.git:Z

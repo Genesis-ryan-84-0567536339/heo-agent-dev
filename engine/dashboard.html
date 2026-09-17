@@ -78,13 +78,13 @@
         <!-- Nút Bác Sĩ Hệ Thống (System Doctor) -->
         <button onclick="openDoctorModal()" class="px-3 py-1.5 rounded-full text-xs font-bold transition flex items-center space-x-1.5 shadow-sm border border-cyan-500/30 bg-cyan-500/10 text-cyan-300 hover:bg-cyan-500/20 cursor-pointer" title="Chẩn đoán sức khỏe & sửa chữa phục hồi hệ thống">
           <span>🩺</span>
-          <span class="hidden sm:inline">Bác Sĩ</span>
+          <span>Bác Sĩ</span>
         </button>
 
         <!-- Nút Kiểm Tra & Cập Nhật Phiên Bản -->
         <button id="headerUpdateBtn" onclick="openUpdateModal()" class="px-3 py-1.5 rounded-full text-xs font-bold transition flex items-center space-x-1.5 shadow-sm border border-purple-500/30 bg-purple-500/10 text-purple-300 hover:bg-purple-500/20 cursor-pointer" title="Kiểm tra & Cập nhật phiên bản mới">
           <span id="updateIcon">🔄</span>
-          <span class="hidden sm:inline" id="headerUpdateText">Cập Nhật</span>
+          <span id="headerUpdateText">Cập Nhật</span>
           <span id="updateDot" class="w-2 h-2 rounded-full bg-emerald-400 hidden animate-pulse"></span>
         </button>
 
@@ -1207,12 +1207,27 @@
         const updateDot = document.getElementById('updateDot');
         const headerBtn = document.getElementById('headerUpdateBtn');
 
-        if (data.has_update) {
+        if (data.ok === false) {
+          if (notice) {
+            notice.className = 'p-3 rounded-xl bg-amber-950/40 border border-amber-500/40 text-amber-300 text-xs flex items-center space-x-2';
+            notice.innerHTML = '<span>⚠️</span><span>' + (data.error || data.message || 'Không thể kết nối máy chủ GitHub kiểm tra cập nhật.') + '</span>';
+          }
+          if (applyBtn) {
+            applyBtn.classList.remove('hidden');
+            applyBtn.className = 'flex-1 py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs border border-slate-700 transition flex items-center justify-center space-x-1.5 cursor-pointer';
+            applyBtn.innerHTML = '<span>🔄</span><span>Thử Đồng Bộ / Cập Nhật Lại</span>';
+          }
+          if (updateDot) updateDot.classList.add('hidden');
+        } else if (data.has_update) {
           if (notice) {
             notice.className = 'p-3 rounded-xl bg-emerald-950/40 border border-emerald-500/40 text-emerald-300 text-xs flex items-center space-x-2';
             notice.innerHTML = '<span class="text-base">🎉</span><div><strong class="font-bold">Đã có phiên bản mới (' + (data.remote_commit || '') + ')!</strong><div class="text-[11px] text-emerald-400 mt-0.5">Bấm nút "Cập Nhật Ngay" bên dưới để nâng cấp tự động.</div></div>';
           }
-          if (applyBtn) applyBtn.classList.remove('hidden');
+          if (applyBtn) {
+            applyBtn.classList.remove('hidden');
+            applyBtn.className = 'flex-1 py-2.5 px-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs shadow-lg transition flex items-center justify-center space-x-1.5 cursor-pointer';
+            applyBtn.innerHTML = '<span>⬇️</span><span>Cập Nhật Ngay (' + (data.remote_commit || '') + ')</span>';
+          }
           if (updateDot) updateDot.classList.remove('hidden');
           if (headerBtn) headerBtn.classList.add('border-emerald-500/50', 'text-emerald-300');
         } else {
@@ -1220,13 +1235,22 @@
             notice.className = 'p-3 rounded-xl bg-slate-800/40 border border-slate-700/50 text-slate-300 text-xs flex items-center space-x-2';
             notice.innerHTML = '<span>✅</span><span>Heo-Agent đang ở phiên bản mới nhất (' + (data.local_commit || '') + ').</span>';
           }
-          if (applyBtn) applyBtn.classList.add('hidden');
+          if (applyBtn) {
+            applyBtn.classList.remove('hidden');
+            applyBtn.className = 'flex-1 py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs border border-slate-700 transition flex items-center justify-center space-x-1.5 cursor-pointer';
+            applyBtn.innerHTML = '<span>🔄</span><span>Đồng Bộ / Cập Nhật Lại</span>';
+          }
           if (updateDot) updateDot.classList.add('hidden');
         }
       } catch (e) {
         if (notice) {
           notice.className = 'p-3 rounded-xl bg-red-950/30 border border-red-500/30 text-red-300 text-xs flex items-center space-x-2';
           notice.innerHTML = '<span>❌</span><span>Lỗi kiểm tra: ' + e.message + '</span>';
+        }
+        if (applyBtn) {
+          applyBtn.classList.remove('hidden');
+          applyBtn.className = 'flex-1 py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs border border-slate-700 transition flex items-center justify-center space-x-1.5 cursor-pointer';
+          applyBtn.innerHTML = '<span>🔄</span><span>Thử Đồng Bộ / Cập Nhật</span>';
         }
       }
     }
@@ -1352,7 +1376,25 @@
               const cls = isErr 
                 ? 'p-3 rounded-xl bg-red-500/10 border border-red-500/25 text-red-300' 
                 : 'p-3 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-300';
-              html += `<div class="${cls} flex items-start space-x-2"><span>${isErr ? '✖' : '⚠️'}</span><div class="font-medium">${issue}</div></div>`;
+
+              let actionBtnHtml = '';
+              if (issue.includes('Zalo')) {
+                actionBtnHtml = `<button type="button" onclick="closeDoctorModal(); openZaloQRModal();" class="shrink-0 px-2.5 py-1 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-[11px] transition shadow-sm cursor-pointer flex items-center space-x-1"><span>📱</span><span>Quét QR</span></button>`;
+              } else if (issue.includes('Google')) {
+                actionBtnHtml = `<button type="button" onclick="closeDoctorModal(); openGoogleLoginModal();" class="shrink-0 px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] transition shadow-sm cursor-pointer flex items-center space-x-1"><span>🔐</span><span>Đăng Nhập</span></button>`;
+              } else if (issue.includes('PIN')) {
+                actionBtnHtml = `<button type="button" onclick="closeDoctorModal(); openManagePinModal();" class="shrink-0 px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-dark-950 font-bold text-[11px] transition shadow-sm cursor-pointer flex items-center space-x-1"><span>🔒</span><span>Tạo PIN</span></button>`;
+              }
+
+              html += `
+                <div class="${cls} flex items-center justify-between gap-3">
+                  <div class="flex items-start space-x-2">
+                    <span class="mt-0.5 shrink-0">${isErr ? '✖' : '⚠️'}</span>
+                    <div class="font-medium text-xs leading-snug">${issue}</div>
+                  </div>
+                  ${actionBtnHtml}
+                </div>
+              `;
             });
             html += '</div>';
             container.innerHTML = html;

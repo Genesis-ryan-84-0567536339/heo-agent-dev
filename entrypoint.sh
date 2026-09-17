@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-git config --global --add safe.directory '*' 2>/dev/null || true
+git config --system --add safe.directory '*' 2>/dev/null || git config --global --add safe.directory '*' 2>/dev/null || true
 
 # Đảm bảo các thư mục dữ liệu và profile người dùng tồn tại
 mkdir -p /app/data /app/workspace /app/logs /app/auth/xdg-data /app/auth/home/.gemini /app/bin
@@ -12,6 +12,7 @@ if [ ! -e /app/auth/gemini_profile ]; then
     ln -sf /app/auth/home/.gemini /app/auth/gemini_profile 2>/dev/null || mkdir -p /app/auth/gemini_profile
 fi
 export HOME="${HOME:-/app/auth/home}"
+git config --global --add safe.directory '*' 2>/dev/null || true
 
 # Kiểm tra và giải nén AGY CLI binary nếu có file lưu trữ nén
 if [ ! -f /app/bin/agy ] && [ -f /app/bin/agy.tar.gz ]; then

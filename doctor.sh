@@ -75,13 +75,17 @@ log_err() {
 }
 
 get_docker_compose() {
+    if [ "${IN_CONTAINER:-0}" -eq 1 ]; then
+        echo "docker compose"
+        return 0
+    fi
     if docker compose version &> /dev/null 2>&1; then
         echo "docker compose"
-    elif sudo docker compose version &> /dev/null 2>&1; then
+    elif sudo -n docker compose version &> /dev/null 2>&1; then
         echo "sudo docker compose"
     elif command -v docker-compose &> /dev/null; then
         echo "docker-compose"
-    elif sudo command -v docker-compose &> /dev/null; then
+    elif sudo -n command -v docker-compose &> /dev/null; then
         echo "sudo docker-compose"
     elif command -v podman-compose &> /dev/null; then
         echo "podman-compose"
@@ -174,7 +178,7 @@ run_diagnostics() {
             # Kiểm tra Docker Daemon đang chạy
             if docker info &>/dev/null 2>&1; then
                 log_ok "Dịch vụ Docker Daemon: Đang hoạt động bình thường"
-            elif sudo docker info &>/dev/null 2>&1; then
+            elif sudo -n docker info &>/dev/null 2>&1; then
                 log_warn "Docker Daemon đang chạy nhưng người dùng hiện tại chưa thuộc nhóm 'docker'." "Thêm user vào nhóm: sudo usermod -aG docker $USER"
             else
                 log_err "Dịch vụ Docker Daemon chưa được khởi động." "Khởi động Docker: sudo systemctl start docker"
@@ -518,7 +522,7 @@ except Exception:
     check_internet() {
         local url="$1"
         local service_name="$2"
-        if curl -s -m 2 --head "$url" &>/dev/null; then
+        if curl -s -m 1.5 --connect-timeout 1.5 --head "$url" &>/dev/null; then
             log_ok "Kết nối $service_name: Thông suốt"
         else
             log_warn "Không thể kết nối nhanh đến $service_name ($url)." "Kiểm tra lại kết nối mạng hoặc DNS"
