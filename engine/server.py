@@ -1210,8 +1210,20 @@ def zalo_bridge_watchdog():
                     spawn_zalo_bridge()
                 consecutive_dead = 0
             else:
+                # Kiểm tra nếu đang trong trạng thái chờ quét QR thì không coi là treo
+                qr_info_file = os.path.join(DATA_DIR, "zalo_qr_info.json")
+                is_waiting_qr = False
+                if os.path.exists(qr_info_file):
+                    try:
+                        with open(qr_info_file, "r", encoding="utf-8") as qrf:
+                            qdata = json.load(qrf)
+                            if not qdata.get("scanned", False):
+                                is_waiting_qr = True
+                    except Exception:
+                        pass
+
                 zalo_session_file = os.path.join(DATA_DIR, "zalo_session.json")
-                if os.path.exists(zalo_session_file) and os.path.getsize(zalo_session_file) > 20:
+                if not is_waiting_qr and os.path.exists(zalo_session_file) and os.path.getsize(zalo_session_file) > 20:
                     alive = check_zalo_bridge_alive()
                     if not alive:
                         consecutive_dead += 1
@@ -1222,6 +1234,8 @@ def zalo_bridge_watchdog():
                             consecutive_dead = 0
                     else:
                         consecutive_dead = 0
+                else:
+                    consecutive_dead = 0
         except Exception as e:
             print(f"⚠️ [Watchdog] Exception in zalo_bridge_watchdog: {e}")
         time.sleep(10)

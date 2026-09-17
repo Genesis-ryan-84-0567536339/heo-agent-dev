@@ -365,6 +365,11 @@ async function initZaloClient() {
       return api;
     } catch (err) {
       log(`⚠️ Phiên cũ không hợp lệ: ${err.message}. Chuyển sang mã QR...`);
+      try {
+        if (fs.existsSync(SESSION_FILE)) {
+          fs.unlinkSync(SESSION_FILE);
+        }
+      } catch (_) {}
     }
   }
 
