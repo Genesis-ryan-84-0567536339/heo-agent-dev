@@ -440,28 +440,45 @@ setup_system_commands() {
 run_step_with_progress 5 "Cấu hình Lệnh CLI" 90 100 "setup_system_commands"
 
 # ==============================================================================
-# TỔNG KẾT VÀ CHUYỂN TIẾP TRÌNH CẤU HÌNH
+# BẢNG HƯỚNG DẪN LỆNH KHỞI ĐỘNG & LỆNH THÔNG DỤNG
 # ==============================================================================
-echo -e "\n${GREEN}==============================================================================${NC}"
-echo -e "${BOLD}${GREEN}✔ QUÁ TRÌNH CÀI ĐẶT ĐÃ HOÀN TẤT 100%!${NC}"
-echo -e "${GREEN}==============================================================================${NC}"
-echo -e "Lệnh điều hành toàn hệ thống đã sẵn sàng: ${BOLD}${CYAN}heo-agent${NC}"
-echo -e "Bảng điều khiển quản trị Web Console:      ${BOLD}${CYAN}http://localhost:5066${NC}"
-echo -e "\n📌 ${BOLD}BỘ LỆNH ĐIỀU HÀNH NHANH:${NC}"
-echo -e "   👉 ${CYAN}heo-agent${NC}              : Mở Web Dashboard & Kiểm tra trạng thái"
-echo -e "   👉 ${CYAN}heo-agent doctor${NC}       : Chẩn đoán & tự động sửa chữa phục hồi khi bị lỗi"
-echo -e "   👉 ${CYAN}heo-agent web${NC}          : Khởi chạy giao diện Web Console (cổng 5066)"
-echo -e "   👉 ${CYAN}heo-agent --bg${NC}         : Chạy chế độ nền (Daemon 24/7 trực chiến)"
-echo -e "   👉 ${CYAN}heo-agent status${NC}       : Giám sát trạng thái Zalo, Quota & Bot"
-echo -e "   👉 ${CYAN}heo-agent model${NC}        : Xem & đổi mô hình AI (flash, pro, sonnet, opus)"
-echo -e "   👉 ${CYAN}heo-agent effort${NC}       : Điều chỉnh mức tư duy logic (low, medium, high)"
-echo -e "   👉 ${CYAN}heo-agent logs${NC}         : Xem luồng nhật ký hoạt động thời gian thực"
-echo -e "   👉 ${CYAN}heo-agent restart${NC}      : Khởi động lại dịch vụ Heo-Agent"
-echo -e "   👉 ${CYAN}heo-agent stop${NC}         : Dừng toàn bộ hệ thống an toàn"
-echo -e "   👉 ${CYAN}heo-agent uninstall${NC}    : Dọn dẹp & khôi phục cài đặt gốc (Factory Reset)"
-echo -e " ${DIM}──────────────────────────────────────────────────────────────────────────────${NC}"
-echo -e "💡 Mẹo: Nếu vừa cài xong gõ 'heo-agent' chưa nhận ngay, gõ: ${CYAN}source ~/.bashrc${NC}\n"
+print_commands_guide() {
+    echo -e "\n${GREEN}==============================================================================${NC}"
+    echo -e "${BOLD}${GREEN}✔ QUÁ TRÌNH CÀI ĐẶT ĐÃ HOÀN TẤT 100%!${NC}"
+    echo -e "${GREEN}==============================================================================${NC}"
+    echo -e " Lệnh điều hành toàn hệ thống: ${BOLD}${CYAN}heo-agent${NC}  (hoặc ${CYAN}heo-zalo${NC})"
+    echo -e " Bảng điều khiển Web Console:  ${BOLD}${CYAN}http://localhost:5066${NC}"
+    echo -e " ${DIM}──────────────────────────────────────────────────────────────────────────────${NC}"
+    echo -e "\n 🚀 ${BOLD}${YELLOW}1. CÁC LỆNH KHỞI ĐỘNG HỆ THỐNG:${NC}"
+    echo -e "    👉 ${CYAN}heo-agent${NC}              : Khởi chạy hệ thống & tự động mở Web Dashboard"
+    echo -e "    👉 ${CYAN}heo-agent --bg${NC}         : Chạy chế độ nền (Daemon 24/7 trực chiến ngầm)"
+    echo -e "    👉 ${CYAN}heo-agent tui${NC}          : Mở lại Trình cấu hình Terminal & quét mã QR Zalo"
+    echo -e "    👉 ${CYAN}heo-agent web${NC}          : Khởi chạy riêng và mở Web Console (cổng 5066)"
+    echo -e ""
+    echo -e " ⚙️ ${BOLD}${YELLOW}2. CÁC LỆNH THÔNG DỤNG HÀNG NGÀY:${NC}"
+    echo -e "    👉 ${CYAN}heo-agent status${NC}       : Giám sát trạng thái hoạt động (Zalo, Quota AI, Bot)"
+    echo -e "    👉 ${CYAN}heo-agent doctor${NC}       : Chẩn đoán toàn diện sức khỏe hệ thống (10 tiêu chuẩn)"
+    echo -e "    👉 ${CYAN}heo-agent doctor --fix${NC} : Tự động sửa chữa & phục hồi khi gặp sự cố (1-Click)"
+    echo -e "    👉 ${CYAN}heo-agent logs${NC}         : Xem luồng nhật ký hoạt động thời gian thực"
+    echo -e "    👉 ${CYAN}heo-agent model${NC}        : Xem và đổi mô hình AI (flash, pro, sonnet, opus)"
+    echo -e "    👉 ${CYAN}heo-agent effort${NC}       : Điều chỉnh mức suy luận logic (low, medium, high)"
+    echo -e "    👉 ${CYAN}heo-agent login-zalo${NC}   : Quét lại mã QR đăng nhập tài khoản Zalo"
+    echo -e "    👉 ${CYAN}heo-agent login-google${NC} : Xác thực / Đồng bộ Google AGY Core Agent"
+    echo -e "    👉 ${CYAN}heo-agent restart${NC}      : Khởi động lại toàn bộ dịch vụ Heo-Agent"
+    echo -e "    👉 ${CYAN}heo-agent stop${NC}         : Dừng toàn bộ hệ thống an toàn"
+    echo -e "    👉 ${CYAN}heo-agent uninstall${NC}    : Dọn dẹp sạch sẽ & khôi phục cài đặt gốc (Factory Reset)"
+    echo -e " ${DIM}──────────────────────────────────────────────────────────────────────────────${NC}"
+    echo -e " 💡 ${DIM}Mẹo: Nếu vừa cài xong gõ 'heo-agent' chưa nhận ngay, hãy gõ: ${CYAN}source ~/.bashrc${NC}\n"
+}
 
-# Chạy Trình hướng dẫn cấu hình tương tác Terminal (TUI)
-echo -e "${YELLOW}>>> Đang mở Trình Cấu Hình Tương Tác (TUI Setup Wizard)...${NC}\n"
-$DOCKER_COMPOSE run --rm app tui
+# Hiển thị bảng lệnh ngay khi kết thúc cài đặt
+print_commands_guide
+
+# Chạy Trình hướng dẫn cấu hình tương tác Terminal (TUI) nếu đang ở phiên tương tác
+if [ -t 0 ] && [ -t 1 ]; then
+    echo -e "${YELLOW}>>> Đang mở Trình Cấu Hình Tương Tác (TUI Setup Wizard)...${NC}"
+    echo -e "${DIM}(Nhấn Ctrl+C bất kỳ lúc nào để quay lại danh sách lệnh phía trên)${NC}\n"
+    $DOCKER_COMPOSE run --rm app tui || true
+    # Sau khi thoát khỏi TUI, in lại danh sách lệnh để người dùng luôn có sẵn tài liệu trước mắt
+    print_commands_guide
+fi

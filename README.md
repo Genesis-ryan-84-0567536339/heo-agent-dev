@@ -226,30 +226,29 @@ Sau khi đã được ghép nối làm Sếp, bạn có thể ra lệnh cho Bé 
 Sau khi cài đặt, hệ thống tự động đăng ký lệnh `heo-agent` (và bí danh `heo-zalo`) vào `PATH` toàn hệ thống:
 
 ```bash
-# === Quản Trị & Vận Hành ===
-heo-agent                  # Mở Web Dashboard & Kiểm tra trạng thái trực tiếp
-heo-agent doctor           # Chẩn đoán sức khỏe hệ thống toàn diện (10 tiêu chuẩn)
-heo-agent doctor --fix     # Tự động sửa chữa & phục hồi khi hệ thống bị lỗi / hỏng
-heo-agent web              # Mở đường link giao diện Web Dashboard (http://localhost:5066)
-heo-agent --bg             # Khởi chạy chế độ nền (Daemon 24/7) trong Docker
-heo-agent status           # Kiểm tra trạng thái hoạt động của hệ thống
-heo-agent logs             # Xem luồng nhật ký thời gian thực (live stream logs)
-heo-agent restart          # Khởi động lại toàn bộ dịch vụ
-heo-agent stop             # Dừng an toàn toàn bộ hệ thống
-heo-agent uninstall        # Dọn dẹp & khôi phục cài đặt gốc (Factory Reset 100%)
+# 🚀 1. CÁC LỆNH KHỞI ĐỘNG HỆ THỐNG
+heo-agent                  # Khởi chạy hệ thống & tự động mở Web Dashboard (http://localhost:5066)
+heo-agent --bg             # Khởi chạy chế độ nền (Daemon 24/7 trực chiến ngầm)
+heo-agent tui              # Mở Trình cấu hình Terminal & Quét mã QR Zalo trên điện thoại
+heo-agent web              # Khởi chạy riêng và mở Bảng điều khiển Web Console (cổng 5066)
 
-# === Thay Đổi Model & Mức Suy Luận (Effort) ===
+# ⚙️ 2. CÁC LỆNH THÔNG DỤNG HÀNG NGÀY
+heo-agent status           # Kiểm tra trạng thái hoạt động (Zalo, Quota AI, Bot)
+heo-agent doctor           # Chẩn đoán sức khỏe hệ thống toàn diện (10 tiêu chuẩn)
+heo-agent doctor --fix     # Tự động sửa chữa & phục hồi khi gặp sự cố (1-Click)
+heo-agent logs             # Xem luồng nhật ký hoạt động thời gian thực (Live logs)
 heo-agent model            # Xem model hiện tại và danh sách các mô hình hỗ trợ
 heo-agent model pro        # Đổi ngay sang Gemini 3.1 Pro (High)
 heo-agent model sonnet     # Đổi ngay sang Claude Sonnet 4.6 (Thinking)
 heo-agent model flash      # Đổi ngay sang Gemini 3.8 Flash (High/Medium)
 heo-agent effort high      # Chỉnh mức độ suy luận: low (nhanh), medium (vừa), high (sâu)
-
-# === Quản Lý Đăng Nhập / Đăng Xuất Tài Khoản ===
+heo-agent login-zalo       # Quét mã QR đăng nhập tài khoản Zalo mới
 heo-agent logout-zalo      # Đăng xuất tài khoản Zalo hiện tại
-heo-agent login-zalo       # Mở màn hình quét mã QR để đăng nhập tài khoản Zalo mới
+heo-agent login-google     # Đăng nhập / Đồng bộ tài khoản Google cho Core Agent AGY
 heo-agent logout-google    # Đăng xuất tài khoản Google của AGY CLI
-heo-agent login-google     # Đăng nhập tài khoản Google mới cho AGY CLI
+heo-agent restart          # Khởi động lại toàn bộ dịch vụ Heo-Agent
+heo-agent stop             # Dừng an toàn toàn bộ hệ thống
+heo-agent uninstall        # Dọn dẹp sạch sẽ & khôi phục cài đặt gốc (Factory Reset 100%)
 ```
 
 ---
