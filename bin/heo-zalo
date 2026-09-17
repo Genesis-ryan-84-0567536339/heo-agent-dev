@@ -21,6 +21,44 @@ SCRIPT_DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
 PROJECT_DIR="$(cd -P "$SCRIPT_DIR/.." && pwd)"
 cd "$PROJECT_DIR"
 
+# ==============================================================================
+# AUTO-UPDATE: Tự động cập nhật code mới nhất từ GitHub (chạy ngầm)
+# Kiểm tra tối đa 1 lần / 1 giờ để không làm chậm lệnh
+# ==============================================================================
+_HEO_UPDATE_LOCK="/tmp/.heo_agent_update.lock"
+_HEO_UPDATE_LOG="/tmp/.heo_agent_update.log"
+_auto_update_bg() {
+    local now
+    now=$(date +%s 2>/dev/null || echo 0)
+    local last=0
+    [ -f "$_HEO_UPDATE_LOCK" ] && last=$(cat "$_HEO_UPDATE_LOCK" 2>/dev/null || echo 0)
+    # Chỉ check mỗi 3600 giây (1 giờ)
+    if [ $((now - last)) -lt 3600 ]; then return 0; fi
+    echo "$now" > "$_HEO_UPDATE_LOCK" 2>/dev/null || true
+
+    # Fetch remote silently
+    if ! git -C "$PROJECT_DIR" fetch origin main --quiet 2>/dev/null; then return 0; fi
+
+    local LOCAL REMOTE
+    LOCAL=$(git -C "$PROJECT_DIR" rev-parse HEAD 2>/dev/null || echo "")
+    REMOTE=$(git -C "$PROJECT_DIR" rev-parse origin/main 2>/dev/null || echo "")
+    if [ -z "$LOCAL" ] || [ -z "$REMOTE" ] || [ "$LOCAL" = "$REMOTE" ]; then return 0; fi
+
+    # Có update mới → pull
+    git -C "$PROJECT_DIR" pull origin main --quiet 2>/dev/null && \
+        echo "updated" > "$_HEO_UPDATE_LOG" || true
+}
+
+# Chạy update ngầm (không block lệnh chính)
+_auto_update_bg &
+disown 2>/dev/null || true
+
+# Thông báo nếu vừa có update lần trước
+if [ -f "$_HEO_UPDATE_LOG" ] && [ "$(cat "$_HEO_UPDATE_LOG" 2>/dev/null)" = "updated" ]; then
+    echo "🔄 Heo-Agent vừa được cập nhật phiên bản mới tự động!" >&2
+    rm -f "$_HEO_UPDATE_LOG" 2>/dev/null || true
+fi
+
 get_docker_compose() {
     if docker compose version &> /dev/null 2>&1; then
         echo "docker compose"
@@ -79,6 +117,28 @@ open_web_ui() {
 }
 
 case "${1:-}" in
+    update)
+        echo "🔄 Đang kiểm tra và cập nhật Heo-Agent..."
+        if ! git -C "$PROJECT_DIR" fetch origin main --quiet 2>/dev/null; then
+            echo "❌ Không thể kết nối GitHub. Kiểm tra mạng và thử lại."
+            exit 1
+        fi
+        LOCAL=$(git -C "$PROJECT_DIR" rev-parse HEAD 2>/dev/null || echo "")
+        REMOTE=$(git -C "$PROJECT_DIR" rev-parse origin/main 2>/dev/null || echo "")
+        if [ "$LOCAL" = "$REMOTE" ]; then
+            echo "✅ Heo-Agent đang dùng phiên bản mới nhất ($(git -C "$PROJECT_DIR" log -1 --format='%h %s' 2>/dev/null))."
+        else
+            echo "⬆️  Phát hiện phiên bản mới! Đang cập nhật..."
+            git -C "$PROJECT_DIR" pull origin main
+            echo ""
+            echo "✅ Đã cập nhật thành công!"
+            echo "   $(git -C "$PROJECT_DIR" log -1 --format='📝 %h: %s' 2>/dev/null)"
+            echo ""
+            echo "💡 Restart để áp dụng: heo-agent restart"
+        fi
+        # Reset lock để auto-update check lại lần sau
+        rm -f "$_HEO_UPDATE_LOCK" "$_HEO_UPDATE_LOG" 2>/dev/null || true
+        ;;
     stop)
         echo "🛑 Đang dừng Heo-Agent (Bé Heo)..."
         "$PROJECT_DIR/stop.sh"
@@ -282,11 +342,14 @@ except Exception as e:
         echo "   👉 $CMD_NAME effort        : Điều chỉnh mức suy luận logic (low, medium, high)"
         echo "   👉 $CMD_NAME login-zalo    : Quét mã QR đăng nhập tài khoản Zalo mới"
         echo "   👉 $CMD_NAME logout-zalo   : Đăng xuất tài khoản Zalo hiện tại"
-        echo "   👉 $CMD_NAME login-google  : Đăng nhập / Đồng bộ tài khoản Google cho Core Agent AGY"
+        echo "   👉 $CMD_NAME login-google  : Đăng nhập tài khoản Google khác cho Core Agent AGY"
         echo "   👉 $CMD_NAME logout-google : Đăng xuất tài khoản Google của AGY CLI"
+        echo "   👉 $CMD_NAME update        : Cập nhật Heo-Agent lên phiên bản mới nhất ngay lập tức"
         echo "   👉 $CMD_NAME restart       : Khởi động lại toàn bộ dịch vụ Heo-Agent"
         echo "   👉 $CMD_NAME stop          : Dừng toàn bộ hệ thống an toàn"
         echo "   👉 $CMD_NAME uninstall     : Dọn dẹp sạch sẽ & khôi phục cài đặt gốc (Factory Reset)"
+        echo ""
+        echo "   💡 Tự động cập nhật: Heo-Agent tự pull code mới mỗi 1 giờ trong nền."
         ;;
     uninstall|clean)
         shift
