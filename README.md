@@ -219,33 +219,33 @@ Sau khi đã được ghép nối làm Sếp, bạn có thể ra lệnh cho Bé 
 
 ---
 
-## 🎮 Điều Hành Nhanh Bằng Lệnh `heo-zalo`
+## 🎮 Điều Hành Nhanh Bằng Lệnh `heo-agent` (hoặc `heo-zalo`)
 
-Sau khi cài đặt, hệ thống tự động đăng ký lệnh `heo-zalo` vào `PATH` toàn hệ thống:
+Sau khi cài đặt, hệ thống tự động đăng ký lệnh `heo-agent` (và bí danh `heo-zalo`) vào `PATH` toàn hệ thống:
 
 ```bash
 # === Quản Trị & Vận Hành ===
-heo-zalo web              # Mở đường link giao diện Web Dashboard (http://localhost:5066)
-heo-zalo                  # Mở giao diện tương tác Terminal TUI Dashboard
-heo-zalo --bg             # Khởi chạy chế độ nền (Daemon 24/7) trong Docker
-heo-zalo status           # Kiểm tra trạng thái hoạt động của hệ thống
-heo-zalo logs             # Xem luồng nhật ký thời gian thực (live stream logs)
-heo-zalo restart          # Khởi động lại toàn bộ dịch vụ
-heo-zalo stop             # Dừng an toàn toàn bộ hệ thống
-heo-zalo uninstall        # Dọn dẹp và gỡ bỏ toàn bộ container, images, symlinks
+heo-agent web              # Mở đường link giao diện Web Dashboard (http://localhost:5066)
+heo-agent                  # Mở giao diện tương tác Terminal TUI Dashboard
+heo-agent --bg             # Khởi chạy chế độ nền (Daemon 24/7) trong Docker
+heo-agent status           # Kiểm tra trạng thái hoạt động của hệ thống
+heo-agent logs             # Xem luồng nhật ký thời gian thực (live stream logs)
+heo-agent restart          # Khởi động lại toàn bộ dịch vụ
+heo-agent stop             # Dừng an toàn toàn bộ hệ thống
+heo-agent uninstall        # Dọn dẹp và gỡ bỏ toàn bộ container, images, symlinks
 
 # === Thay Đổi Model & Mức Suy Luận (Effort) ===
-heo-zalo model            # Xem model hiện tại và danh sách các mô hình hỗ trợ
-heo-zalo model pro        # Đổi ngay sang Gemini 3.1 Pro (High)
-heo-zalo model sonnet     # Đổi ngay sang Claude Sonnet 4.6 (Thinking)
-heo-zalo model flash      # Đổi ngay sang Gemini 3.8 Flash (High/Medium)
-heo-zalo effort high      # Chỉnh mức độ suy luận: low (nhanh), medium (vừa), high (sâu)
+heo-agent model            # Xem model hiện tại và danh sách các mô hình hỗ trợ
+heo-agent model pro        # Đổi ngay sang Gemini 3.1 Pro (High)
+heo-agent model sonnet     # Đổi ngay sang Claude Sonnet 4.6 (Thinking)
+heo-agent model flash      # Đổi ngay sang Gemini 3.8 Flash (High/Medium)
+heo-agent effort high      # Chỉnh mức độ suy luận: low (nhanh), medium (vừa), high (sâu)
 
 # === Quản Lý Đăng Nhập / Đăng Xuất Tài Khoản ===
-heo-zalo logout-zalo      # Đăng xuất tài khoản Zalo hiện tại
-heo-zalo login-zalo       # Mở màn hình quét mã QR để đăng nhập tài khoản Zalo mới
-heo-zalo logout-google    # Đăng xuất tài khoản Google của AGY CLI
-heo-zalo login-google     # Đăng nhập tài khoản Google mới cho AGY CLI
+heo-agent logout-zalo      # Đăng xuất tài khoản Zalo hiện tại
+heo-agent login-zalo       # Mở màn hình quét mã QR để đăng nhập tài khoản Zalo mới
+heo-agent logout-google    # Đăng xuất tài khoản Google của AGY CLI
+heo-agent login-google     # Đăng nhập tài khoản Google mới cho AGY CLI
 ```
 
 ---

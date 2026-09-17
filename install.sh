@@ -170,7 +170,7 @@ else
 fi
 
 echo -e "${YELLOW}>>> Bước 2/4: Chuẩn bị AGY Binary và Cấu hình...${NC}"
-mkdir -p bin data workspace logs auth config auth/xdg-data auth/home
+mkdir -p bin data workspace logs auth config auth/xdg-data auth/home/.gemini
 ln -sf home/.gemini auth/gemini_profile 2>/dev/null || true
 
 # Tìm hoặc tải agy binary
@@ -212,12 +212,14 @@ fi
 echo -e "${YELLOW}>>> Bước 3/4: Đóng gói Docker Container (Build Image)...${NC}"
 $DOCKER_COMPOSE build
 
-# Đăng ký lối tắt lệnh heo-zalo toàn hệ thống trước khi mở TUI
-chmod +x bin/heo-zalo 2>/dev/null || true
+# Đăng ký lối tắt lệnh heo-agent & heo-zalo toàn hệ thống trước khi mở TUI
+chmod +x bin/heo-agent bin/heo-zalo 2>/dev/null || true
 mkdir -p "$HOME/.local/bin"
-ln -sf "$WORKDIR/bin/heo-zalo" "$HOME/.local/bin/heo-zalo"
+ln -sf "$WORKDIR/bin/heo-agent" "$HOME/.local/bin/heo-agent"
+ln -sf "$WORKDIR/bin/heo-agent" "$HOME/.local/bin/heo-zalo"
 if sudo -n true 2>/dev/null; then
-    sudo ln -sf "$WORKDIR/bin/heo-zalo" /usr/local/bin/heo-zalo 2>/dev/null || true
+    sudo ln -sf "$WORKDIR/bin/heo-agent" /usr/local/bin/heo-agent 2>/dev/null || true
+    sudo ln -sf "$WORKDIR/bin/heo-agent" /usr/local/bin/heo-zalo 2>/dev/null || true
 fi
 
 echo -e "${YELLOW}>>> Bước 4/4: Khởi chạy Trình Cấu hình Trực quan (TUI Setup Wizard)...${NC}"
@@ -239,16 +241,16 @@ fi
 
 echo -e "\n${GREEN}==============================================================================${NC}"
 echo -e "${GREEN}✔ CÀI ĐẶT VÀ CẤU HÌNH THÀNH CÔNG!${NC}"
-echo -e "Hệ thống đã đăng ký lệnh điều hành toàn hệ thống: ${CYAN}heo-zalo${NC}"
+echo -e "Hệ thống đã đăng ký lệnh điều hành toàn hệ thống: ${CYAN}heo-agent${NC} (hoặc ${CYAN}heo-zalo${NC})"
 echo -e "\n📌 BỘ LỆNH ĐIỀU HÀNH:"
-echo -e "   👉 ${CYAN}heo-zalo${NC}              : Mở Web Dashboard & kiểm tra trạng thái"
-echo -e "   👉 ${CYAN}heo-zalo web${NC}          : Mở Web Dashboard quản trị (http://localhost:5066)"
-echo -e "   👉 ${CYAN}heo-zalo --bg${NC}         : Khởi chạy chế độ nền (Daemon 24/7) trong Docker"
-echo -e "   👉 ${CYAN}heo-zalo status${NC}       : Kiểm tra trạng thái máy chủ"
-echo -e "   👉 ${CYAN}heo-zalo model${NC}        : Xem và đổi mô hình AI (flash, pro, sonnet, opus)"
-echo -e "   👉 ${CYAN}heo-zalo effort${NC}       : Chỉnh mức suy luận logic (low, medium, high)"
-echo -e "   👉 ${CYAN}heo-zalo logs${NC}         : Xem nhật ký hoạt động thời gian thực"
-echo -e "   👉 ${CYAN}heo-zalo restart${NC}      : Khởi động lại dịch vụ"
-echo -e "   👉 ${CYAN}heo-zalo stop${NC}         : Dừng toàn bộ hệ thống an toàn"
-echo -e "   👉 ${CYAN}heo-zalo uninstall${NC}    : Dọn dẹp & gỡ bỏ toàn bộ container, image"
+echo -e "   👉 ${CYAN}heo-agent${NC}              : Mở Web Dashboard & kiểm tra trạng thái"
+echo -e "   👉 ${CYAN}heo-agent web${NC}          : Mở Web Dashboard quản trị (http://localhost:5066)"
+echo -e "   👉 ${CYAN}heo-agent --bg${NC}         : Khởi chạy chế độ nền (Daemon 24/7) trong Docker"
+echo -e "   👉 ${CYAN}heo-agent status${NC}       : Kiểm tra trạng thái máy chủ"
+echo -e "   👉 ${CYAN}heo-agent model${NC}        : Xem và đổi mô hình AI (flash, pro, sonnet, opus)"
+echo -e "   👉 ${CYAN}heo-agent effort${NC}       : Chỉnh mức suy luận logic (low, medium, high)"
+echo -e "   👉 ${CYAN}heo-agent logs${NC}         : Xem nhật ký hoạt động thời gian thực"
+echo -e "   👉 ${CYAN}heo-agent restart${NC}      : Khởi động lại dịch vụ"
+echo -e "   👉 ${CYAN}heo-agent stop${NC}         : Dừng toàn bộ hệ thống an toàn"
+echo -e "   👉 ${CYAN}heo-agent uninstall${NC}    : Dọn dẹp & gỡ bỏ toàn bộ container, image"
 echo -e "${GREEN}==============================================================================${NC}"

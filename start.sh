@@ -64,10 +64,10 @@ if [[ "$MODE" == "--tui" || "$MODE" == "tui" ]]; then
         python3 cli/tui.py
     fi
 else
-    echo "🚀 Đang khởi chạy Zalo-AGY Copilot chế độ nền (Daemon 24/7)..."
+    echo "🚀 Đang khởi chạy Heo-Agent (Bé Heo) chế độ nền (Daemon 24/7)..."
     if [[ -f "docker-compose.yml" ]] && command -v docker &> /dev/null; then
         $DOCKER_COMPOSE up -d
-        echo "✔ Đã khởi động Docker container! Xem log bằng lệnh: heo-zalo logs hoặc $DOCKER_COMPOSE logs -f"
+        echo "✔ Đã khởi động Docker container! Xem log bằng lệnh: heo-agent logs hoặc $DOCKER_COMPOSE logs -f"
     else
         echo "ℹ Khởi chạy chế độ Native Daemon..."
         mkdir -p logs

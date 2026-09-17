@@ -57,13 +57,13 @@ if [[ "$remove_image" =~ ^[Yy]$ ]]; then
     echo -e "${GREEN}✔ Đã xóa image.${NC}"
 fi
 
-# 4. Gỡ bỏ lệnh heo-zalo toàn hệ thống
-echo -e "${CYAN}>>> Bước 3: Gỡ bỏ phím tắt lệnh heo-zalo...${NC}"
-rm -f "$HOME/.local/bin/heo-zalo"
+# 4. Gỡ bỏ lệnh heo-agent & heo-zalo toàn hệ thống
+echo -e "${CYAN}>>> Bước 3: Gỡ bỏ phím tắt lệnh heo-agent & heo-zalo...${NC}"
+rm -f "$HOME/.local/bin/heo-agent" "$HOME/.local/bin/heo-zalo"
 if sudo -n true 2>/dev/null; then
-    sudo rm -f /usr/local/bin/heo-zalo 2>/dev/null || true
+    sudo rm -f /usr/local/bin/heo-agent /usr/local/bin/heo-zalo 2>/dev/null || true
 fi
-echo -e "${GREEN}✔ Đã gỡ bỏ symlink heo-zalo.${NC}"
+echo -e "${GREEN}✔ Đã gỡ bỏ symlink heo-agent và heo-zalo.${NC}"
 
 # 5. Dọn dẹp logs và cache
 rm -rf logs/* bin/agy*

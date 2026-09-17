@@ -2,7 +2,13 @@
 set -e
 
 # Đảm bảo các thư mục dữ liệu và profile người dùng tồn tại
-mkdir -p /app/data /app/workspace /app/logs /app/auth/gemini_profile /app/auth/xdg-data /app/auth/home /app/bin
+mkdir -p /app/data /app/workspace /app/logs /app/auth/xdg-data /app/auth/home/.gemini /app/bin
+if [ -L /app/auth/gemini_profile ] && [ ! -e /app/auth/gemini_profile ]; then
+    rm -f /app/auth/gemini_profile
+fi
+if [ ! -e /app/auth/gemini_profile ]; then
+    ln -sf /app/auth/home/.gemini /app/auth/gemini_profile 2>/dev/null || mkdir -p /app/auth/gemini_profile
+fi
 export HOME="${HOME:-/app/auth/home}"
 
 # Kiểm tra và giải nén AGY CLI binary nếu có file lưu trữ nén
@@ -19,7 +25,7 @@ fi
 
 # Nếu chạy chế độ Daemon ngầm
 if [ "$1" = "daemon" ]; then
-    echo "🚀 Đang khởi chạy Zalo-AGY Copilot chế độ Daemon..."
+    echo "🚀 Đang khởi chạy Heo-Agent (Bé Heo) chế độ Daemon..."
     export BASE_DIR=/app
     export WORKSPACE_DIR=/app/workspace
     export DATA_DIR=/app/data
