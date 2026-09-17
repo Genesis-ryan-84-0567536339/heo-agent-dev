@@ -112,7 +112,8 @@
         </div>
         <div class="mt-3 flex items-center space-x-2">
           <button onclick="openZaloQRModal()" class="text-xs flex-1 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-medium transition text-center">Quét QR</button>
-          <button onclick="logoutZalo()" class="text-xs px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-red-500/20 hover:text-red-400 text-slate-400 font-medium transition">Đăng xuất</button>
+          <button onclick="restartZaloBridge()" class="text-xs px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-amber-500/20 hover:text-amber-400 text-slate-300 font-medium transition" title="Khởi động lại Zalo Bridge">🔄</button>
+          <button onclick="logoutZalo()" class="text-xs px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-red-500/20 hover:text-red-400 text-slate-400 font-medium transition" title="Đăng xuất Zalo">Đăng xuất</button>
         </div>
       </div>
 
@@ -730,9 +731,15 @@
         const zaloBadge = document.getElementById('zaloBadge');
         const zaloUid = document.getElementById('zaloUid');
         if (data.zalo && data.zalo.logged_in) {
-          zaloBadge.className = 'text-xs px-2 py-0.5 rounded-md font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
-          zaloBadge.textContent = 'Đã kết nối';
-          zaloUid.textContent = data.zalo.user_id ? 'UID: ' + data.zalo.user_id : 'Đang trực chiến';
+          if (data.zalo.connected) {
+            zaloBadge.className = 'text-xs px-2 py-0.5 rounded-md font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
+            zaloBadge.textContent = 'Đã kết nối';
+            zaloUid.textContent = data.zalo.user_id ? 'UID: ' + data.zalo.user_id : 'Đang trực chiến';
+          } else {
+            zaloBadge.className = 'text-xs px-2 py-0.5 rounded-md font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20 animate-pulse';
+            zaloBadge.textContent = 'Đang kết nối lại...';
+            zaloUid.textContent = data.zalo.user_id ? 'UID: ' + data.zalo.user_id : 'Chờ Bridge...';
+          }
         } else {
           zaloBadge.className = 'text-xs px-2 py-0.5 rounded-md font-medium bg-red-500/10 text-red-400 border border-red-500/20';
           zaloBadge.textContent = 'Chưa đăng nhập';
@@ -891,6 +898,22 @@
         }
       } catch (e) {
         showToast('Lỗi lưu cấu hình', true);
+      }
+    }
+
+    async function restartZaloBridge() {
+      showToast('Đang kết nối lại Zalo Bridge...');
+      try {
+        const res = await fetch('/api/restart_zalo_bridge', { method: 'POST' });
+        const data = await res.json();
+        if (data.ok) {
+          showToast(data.message || 'Đã khởi động lại Zalo Bridge thành công!');
+          setTimeout(refreshData, 2000);
+        } else {
+          showToast('Lỗi: ' + (data.error || 'Không thể restart bridge'), true);
+        }
+      } catch (e) {
+        showToast('Lỗi kết nối máy chủ', true);
       }
     }
 

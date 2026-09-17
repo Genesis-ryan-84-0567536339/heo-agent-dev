@@ -830,6 +830,126 @@ def probe_gemini_quota():
     except Exception:
         return False
 
+def check_zalo_bridge_alive():
+    """Kiểm tra xem Zalo Outbound HTTP Server (cổng 5051) có đang mở và phản hồi không"""
+    import socket
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.settimeout(0.8)
+    try:
+        res = s.connect_ex(("127.0.0.1", 5051))
+        s.close()
+        return res == 0
+    except Exception:
+        return False
+
+def get_zalo_info():
+    """Lấy thông tin trạng thái Zalo chi tiết (kết nối, phiên đăng nhập, UID)"""
+    zalo_session_file = os.path.join(DATA_DIR, "zalo_session.json")
+    logged_in = os.path.exists(zalo_session_file) and os.path.getsize(zalo_session_file) > 20
+    uid = ""
+    connected = check_zalo_bridge_alive()
+    if logged_in:
+        # 1. Thử lấy UID từ zalo_profile.json
+        profile_file = os.path.join(DATA_DIR, "zalo_profile.json")
+        if os.path.exists(profile_file):
+            try:
+                with open(profile_file, "r", encoding="utf-8") as pf:
+                    pdata = json.load(pf)
+                    uid = str(pdata.get("ownId") or "")
+            except Exception:
+                pass
+        # 2. Thử truy vấn qua endpoint /api/info trên port 5051
+        if not uid and connected:
+            try:
+                req = urllib.request.Request("http://127.0.0.1:5051/api/info")
+                with urllib.request.urlopen(req, timeout=1.0) as resp:
+                    inf = json.loads(resp.read().decode("utf-8"))
+                    uid = str(inf.get("ownId", ""))
+            except Exception:
+                pass
+        # 3. Thử đọc từ zalo_session.json
+        if not uid:
+            try:
+                with open(zalo_session_file, "r", encoding="utf-8") as zf:
+                    zdata = json.load(zf)
+                    uid = str(zdata.get("userId") or zdata.get("uid") or "")
+            except Exception:
+                pass
+    return {
+        "logged_in": logged_in,
+        "connected": connected,
+        "user_id": uid
+    }
+
+def spawn_zalo_bridge():
+    """Khởi động process node bot.js trong bridge nếu chưa chạy"""
+    bridge_dir = os.path.join(BASE_DIR, "bridge")
+    bot_js = os.path.join(bridge_dir, "bot.js")
+    if not os.path.exists(bot_js):
+        return False
+    log_file = os.path.join(LOG_DIR, "zalo.log")
+    try:
+        log_f = open(log_file, "a", encoding="utf-8")
+        subprocess.Popen(
+            ["node", "bot.js"],
+            cwd=bridge_dir,
+            stdout=log_f,
+            stderr=subprocess.STDOUT,
+            close_fds=True
+        )
+        return True
+    except Exception as e:
+        print(f"⚠️ [Watchdog] Lỗi khi spawn Zalo bridge: {e}")
+        return False
+
+def restart_zalo_bridge():
+    """Khởi động lại Zalo Bridge một cách an toàn"""
+    try:
+        subprocess.run(["pkill", "-9", "-f", "node.*bot.js"], timeout=5)
+    except Exception:
+        pass
+    time.sleep(1.0)
+    for _ in range(4):
+        if check_zalo_bridge_alive():
+            return True
+        time.sleep(1.0)
+    spawn_zalo_bridge()
+    time.sleep(2.0)
+    return check_zalo_bridge_alive()
+
+def zalo_bridge_watchdog():
+    """
+    Giám sát Zalo Bridge định kỳ 10 giây.
+    Nếu đã đăng nhập Zalo mà cổng 5051 không mở và không có process node bot.js,
+    hoặc process bị treo cổng 5051 quá 30 giây, tự động khôi phục.
+    """
+    time.sleep(5)
+    consecutive_dead = 0
+    while True:
+        try:
+            zalo_session_file = os.path.join(DATA_DIR, "zalo_session.json")
+            if os.path.exists(zalo_session_file) and os.path.getsize(zalo_session_file) > 20:
+                alive = check_zalo_bridge_alive()
+                if not alive:
+                    consecutive_dead += 1
+                    proc_check = subprocess.run(["pgrep", "-f", "node.*bot.js"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                    is_running = (proc_check.returncode == 0)
+                    if not is_running:
+                        print("⚠️ [Watchdog] Zalo Bridge không hoạt động. Đang tự động kích hoạt lại...")
+                        log_event("🔄 [Watchdog] Zalo Bridge đã dừng. Đang tự động kết nối lại...")
+                        spawn_zalo_bridge()
+                        consecutive_dead = 0
+                    elif consecutive_dead >= 3:
+                        print("⚠️ [Watchdog] Zalo Bridge bị treo (port 5051 không phản hồi 30s). Đang khởi động lại...")
+                        log_event("🔄 [Watchdog] Zalo Bridge không phản hồi. Đang khởi động lại...")
+                        restart_zalo_bridge()
+                        consecutive_dead = 0
+                else:
+                    consecutive_dead = 0
+        except Exception as e:
+            print(f"⚠️ [Watchdog] Exception in zalo_bridge_watchdog: {e}")
+        time.sleep(10)
+
 def auto_recovery_daemon():
     """Background loop that checks cooldown and auto-recovers to Gemini 3.8"""
     while True:
@@ -1474,17 +1594,8 @@ class RequestHandler(BaseHTTPRequestHandler):
             cooldown = state.get("cooldown_seconds", DEFAULT_COOLDOWN_SECONDS)
             remaining = max(0, int(cooldown - elapsed)) if state.get("is_fallback") else 0
 
-            # Check Zalo session
-            zalo_session_file = os.path.join(DATA_DIR, "zalo_session.json")
-            zalo_logged_in = os.path.exists(zalo_session_file) and os.path.getsize(zalo_session_file) > 20
-            zalo_uid = ""
-            if zalo_logged_in:
-                try:
-                    with open(zalo_session_file, "r", encoding="utf-8") as zf:
-                        zdata = json.load(zf)
-                        zalo_uid = str(zdata.get("userId") or zdata.get("uid") or "")
-                except Exception:
-                    pass
+            # Check Zalo session & bridge connectivity
+            zalo_info = get_zalo_info()
 
             # Thông tin tài khoản Google chi tiết (trạng thái, email, loại gói)
             google_info = get_google_auth_info()
@@ -1505,10 +1616,7 @@ class RequestHandler(BaseHTTPRequestHandler):
                 "total_failovers": state.get("total_failovers", 0),
                 "total_recoveries": state.get("total_recoveries", 0),
                 "history": state.get("history", [])[-5:],
-                "zalo": {
-                    "logged_in": zalo_logged_in,
-                    "user_id": zalo_uid
-                },
+                "zalo": zalo_info,
                 "google": google_info,
                 "config": {
                     "boss_name": cfg.get("boss_name", BOSS_NAME),
@@ -1722,6 +1830,15 @@ class RequestHandler(BaseHTTPRequestHandler):
                 self._send_json({"ok": True, "config": cfg}, 200)
             except Exception as e:
                 self._send_json({"ok": False, "error": str(e)}, 500)
+        elif path_clean == "/api/restart_zalo_bridge":
+            try:
+                ok = restart_zalo_bridge()
+                if ok:
+                    self._send_json({"ok": True, "message": "Đã khởi động lại Zalo Bridge thành công!"}, 200)
+                else:
+                    self._send_json({"ok": False, "error": "Zalo Bridge đang kết nối lại, vui lòng kiểm tra sau 3s."}, 500)
+            except Exception as e:
+                self._send_json({"ok": False, "error": str(e)}, 500)
         elif path_clean == "/api/logout_zalo":
             zalo_session_file = os.path.join(DATA_DIR, "zalo_session.json")
             if os.path.exists(zalo_session_file):
@@ -1845,6 +1962,10 @@ if __name__ == "__main__":
     recovery_thread = threading.Thread(target=auto_recovery_daemon, daemon=True)
     recovery_thread.start()
 
+    # Start background Zalo bridge watchdog thread
+    zalo_watchdog_thread = threading.Thread(target=zalo_bridge_watchdog, daemon=True)
+    zalo_watchdog_thread.start()
+
     # Start background token auto-refresh (mỗi 45 phút)
     start_token_refresh_loop()
 
@@ -1853,6 +1974,7 @@ if __name__ == "__main__":
     print(f"🔹 Primary Model: {PRIMARY_MODEL}")
     print(f"🔹 Fallback Model: {FALLBACK_MODEL}")
     print(f"🔹 Auto-Recovery Daemon: Active (Cooldown: {DEFAULT_COOLDOWN_SECONDS}s)")
+    print(f"🔹 Zalo Bridge Watchdog: Active (giám sát tự động 10s)")
     print(f"🔹 Token Auto-Refresh: Active (mỗi 45 phút)")
     try:
         server.serve_forever()

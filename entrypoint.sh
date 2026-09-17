@@ -29,17 +29,33 @@ if [ "$1" = "daemon" ]; then
     export XDG_DATA_HOME=/app/auth/xdg-data
     export AGY_BIN=/app/bin/agy
 
-    python3 /app/engine/server.py >> /app/logs/engine.log 2>&1 &
+    # Khởi chạy AI Engine với auto-restart supervisor
+    (
+        while true; do
+            python3 /app/engine/server.py >> /app/logs/engine.log 2>&1
+            EXIT_C=$?
+            echo "[$(date '+%Y-%m-%d %H:%M:%S')] [Supervisor] 🔄 AI Engine thoát (mã $EXIT_C). Khởi động lại sau 2s..." >> /app/logs/engine.log
+            sleep 2
+        done
+    ) &
     ENGINE_PID=$!
 
-    cd /app/bridge
-    node bot.js >> /app/logs/zalo.log 2>&1 &
+    # Khởi chạy Zalo Bridge với auto-restart supervisor
+    (
+        cd /app/bridge
+        while true; do
+            node bot.js >> /app/logs/zalo.log 2>&1
+            EXIT_C=$?
+            echo "[$(date '+%Y-%m-%d %H:%M:%S')] [Supervisor] 🔄 Zalo Bridge thoát (mã $EXIT_C). Tự động kết nối lại sau 2s..." >> /app/logs/zalo.log
+            sleep 2
+        done
+    ) &
     BRIDGE_PID=$!
 
-    echo "✔ AI Engine PID: $ENGINE_PID"
-    echo "✔ Zalo Bridge PID: $BRIDGE_PID"
+    echo "✔ AI Engine Supervisor PID: $ENGINE_PID"
+    echo "✔ Zalo Bridge Supervisor PID: $BRIDGE_PID"
 
-    trap "kill $ENGINE_PID $BRIDGE_PID; exit 0" SIGINT SIGTERM
+    trap "kill -9 $ENGINE_PID $BRIDGE_PID 2>/dev/null; pkill -f 'python3 /app/engine/server.py' 2>/dev/null; pkill -f 'node bot.js' 2>/dev/null; exit 0" SIGINT SIGTERM
 
     tail -f /app/logs/engine.log /app/logs/zalo.log &
     wait

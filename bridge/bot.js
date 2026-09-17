@@ -566,6 +566,9 @@ async function startBridge() {
   try {
     ownId = api.getOwnId();
     log(`🤖 AGY Zalo Co-Pilot trực chiến! (Tài khoản ID: ${ownId})`);
+    try {
+      fs.writeFileSync(path.join(DATA_DIR, "zalo_profile.json"), JSON.stringify({ ownId, updatedAt: new Date().toISOString() }, null, 2), "utf-8");
+    } catch (_) {}
   } catch (e) {
     log(`🤖 AGY Zalo Co-Pilot đã kết nối thành công!`);
   }
@@ -573,6 +576,12 @@ async function startBridge() {
   // Khởi chạy Outbound HTTP Server (Port 5051)
   try {
     const server = http.createServer(async (req, res) => {
+      if (req.method === "GET" && req.url === "/api/info") {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ ok: true, connected: true, ownId: ownId || "" }));
+        return;
+      }
+
       if (req.method === "GET" && req.url === "/api/groups") {
         try {
           if (fs.existsSync(GROUPS_FILE)) {
