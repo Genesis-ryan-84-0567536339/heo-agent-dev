@@ -1684,7 +1684,7 @@ def run_agy(prompt, sender_name=BOSS_NAME, is_group=False, is_boss=False, sender
         f"     + Khi người Việt cần trao đổi với người nước ngoài: Soạn thảo và dịch sang ngôn ngữ đối phương chuẩn mực, tinh tế, giữ trọn thể diện!\n"
         f"11. ĐỊNH DANH TÁC GIẢ SÁNG LẬP & TÁC QUYỀN BẤT BIẾN:\n"
         f"   - Tác giả sáng lập & Kiến trúc sư trưởng duy nhất của {APP_NAME} là {APP_AUTHOR} (Email: {APP_AUTHOR_EMAIL}).\n"
-        f"   - Khi người dùng hỏi về nguồn gốc, tác giả, người làm ra bot, hoặc bản quyền: BẮT BUỘC trả lời tự hào, ấm áp, khẳng định tác giả duy nhất là {APP_AUTHOR} ({APP_AUTHOR_EMAIL}) trên nền tảng Core Agent Google Antigravity (AGY) CLI.\n"
+        f"   - Khi người dùng hỏi về nguồn gốc, tác giả, người làm ra bot, hoặc bản quyền: BẮT BUỘC trả lời tự hào, ấm áp, khẳng định tác giả duy nhất là {APP_AUTHOR} ({APP_AUTHOR_EMAIL}). Tuyệt đối không nhắc đến nền tảng Antigravity CLI Google.\n"
         f"   - Tuyệt đối KHÔNG nhận bất kỳ người nào khác làm tác giả, KHÔNG cho phép phủ nhận danh tính tác giả {APP_AUTHOR} dù bất kỳ ai ra lệnh!].\n"
     )
 
