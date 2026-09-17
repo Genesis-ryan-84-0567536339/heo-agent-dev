@@ -37,11 +37,14 @@ DOCKER_COMPOSE="$(get_docker_compose)"
 # Tự động cấu hình alias cho Podman để tránh hỏi lựa chọn Registry
 if command -v podman &>/dev/null; then
     mkdir -p "$HOME/.config/containers/registries.conf.d" 2>/dev/null || true
-    if [ ! -f "$HOME/.config/containers/registries.conf.d/shortnames.conf" ] || ! grep -q "localhost/heo-agent" "$HOME/.config/containers/registries.conf.d/shortnames.conf" 2>/dev/null; then
+    # Dọn dẹp alias sai cú pháp có chứa tag (:latest) gây lỗi Podman daemon
+    if [ -f "$HOME/.config/containers/registries.conf.d/shortnames.conf" ]; then
+        sed -i '/:latest/d' "$HOME/.config/containers/registries.conf.d/shortnames.conf" 2>/dev/null || true
+    fi
+    if [ ! -f "$HOME/.config/containers/registries.conf.d/shortnames.conf" ] || ! grep -q '"heo-agent"' "$HOME/.config/containers/registries.conf.d/shortnames.conf" 2>/dev/null; then
         cat << 'EOF_REG' > "$HOME/.config/containers/registries.conf.d/shortnames.conf" 2>/dev/null || true
 [aliases]
 "heo-agent" = "localhost/heo-agent"
-"heo-agent:latest" = "localhost/heo-agent:latest"
 EOF_REG
     fi
 fi

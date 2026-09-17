@@ -4,7 +4,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: heo-agent:latest
+    image: localhost/heo-agent:latest
     container_name: heo-agent-copilot
     restart: unless-stopped
     ports:

@@ -191,6 +191,12 @@ run_diagnostics() {
             log_warn "Chưa cài đặt Docker Engine hoặc Podman (Hệ thống chạy chế độ Native)." "Có thể chạy trực tiếp bằng python & node hoặc ./install.sh"
         fi
 
+        # Kiểm tra tính hợp lệ của registries shortnames.conf (Podman)
+        local shortnames_file="$HOME/.config/containers/registries.conf.d/shortnames.conf"
+        if [ -f "$shortnames_file" ] && grep -q ':latest' "$shortnames_file" 2>/dev/null; then
+            log_warn "Tệp shortnames.conf chứa tag không hợp lệ (:latest) làm hỏng Podman daemon." "Chạy 'heo-agent doctor --fix' để tự động dọn dẹp."
+        fi
+
         # Kiểm tra compose
         if [ "$HAS_CONTAINER_ENGINE" -eq 1 ]; then
             if $DOCKER_COMPOSE version &>/dev/null 2>&1; then
@@ -712,6 +718,10 @@ EOF
     # 5. Dọn dẹp lock file và làm sạch môi trường
     echo -e "\n${CYAN}>>> Bước 5/7: Dọn dẹp lock file và làm sạch bộ đệm...${NC}"
     rm -f /tmp/.heo_agent_*.lock /tmp/.heo_agent_web_open.lock 2>/dev/null || true
+    # Dọn dẹp alias sai cú pháp có chứa tag (:latest) gây lỗi Podman daemon
+    if [ -f "$HOME/.config/containers/registries.conf.d/shortnames.conf" ]; then
+        sed -i '/:latest/d' "$HOME/.config/containers/registries.conf.d/shortnames.conf" 2>/dev/null || true
+    fi
     # Chỉ kill port 5051 nếu KHÔNG phải chế độ --no-restart / web và KHÔNG ở trong container
     if [ "$NO_RESTART" -eq 0 ] && [ "$IN_CONTAINER" -eq 0 ]; then
         if command -v fuser &>/dev/null; then
