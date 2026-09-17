@@ -81,15 +81,10 @@
           <span>Bác Sĩ</span>
         </button>
 
-        <!-- Nút Kiểm Tra & Cập Nhật Phiên Bản -->
-        <button id="headerUpdateBtn" onclick="openUpdateModal()" class="px-3 py-1.5 rounded-full text-xs font-bold transition flex items-center space-x-1.5 shadow-sm border border-purple-500/30 bg-purple-500/10 text-purple-300 hover:bg-purple-500/20 cursor-pointer" title="Kiểm tra & Cập nhật phiên bản mới">
-          <span id="updateIcon">🔄</span>
-          <span id="headerUpdateText">Cập Nhật</span>
-          <span id="updateDot" class="w-2 h-2 rounded-full bg-emerald-400 hidden animate-pulse"></span>
-        </button>
-
-        <button onclick="refreshData()" class="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition" title="Làm mới dữ liệu">
+        <!-- Nút Cập Nhật Phiên Bản (Dùng chính icon làm mới trên góc phải) -->
+        <button id="headerUpdateBtn" onclick="openUpdateModal()" class="relative p-2 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800 border border-transparent hover:border-slate-700 transition cursor-pointer" title="Kiểm tra & Cập nhật phiên bản Heo-Agent">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+          <span id="updateDot" class="w-2.5 h-2.5 rounded-full bg-emerald-400 absolute top-1 right-1 hidden animate-pulse ring-2 ring-dark-900" title="Có bản cập nhật mới!"></span>
         </button>
       </div>
     </div>
@@ -99,7 +94,7 @@
   <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
 
     <!-- Toast Notification -->
-    <div id="toast" class="fixed bottom-5 right-5 z-50 transform transition-all duration-300 translate-y-20 opacity-0 pointer-events-none">
+    <div id="toast" class="fixed top-5 right-5 z-50 transform transition-all duration-300 -translate-y-12 opacity-0 pointer-events-none">
       <div id="toastContent" class="px-4 py-3 rounded-xl shadow-2xl text-sm font-medium flex items-center space-x-2 border"></div>
     </div>
 
@@ -1118,8 +1113,91 @@
         <span>⚖️</span>
         <span>Tuyên bố miễn trừ trách nhiệm</span>
       </button>
+      <span>•</span>
+      <button type="button" onclick="openFeedbackWidget()" class="text-cyan-400 hover:text-cyan-300 hover:underline inline-flex items-center space-x-1 cursor-pointer font-medium" title="Mở hộp thoại góp ý & báo lỗi">
+        <span>💬</span>
+        <span>Góp ý & Báo lỗi (Gen-hub)</span>
+      </button>
     </div>
   </footer>
+
+  <!-- Floating Feedback & Support Launcher Button (Chatbot Widget) -->
+  <div class="fixed bottom-6 right-6 z-40">
+    <button id="feedbackLauncherBtn" onclick="toggleFeedbackWidget()" class="w-14 h-14 rounded-full bg-gradient-to-tr from-cyan-600 via-blue-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white shadow-2xl shadow-cyan-500/30 flex items-center justify-center text-2xl transition-all transform hover:scale-105 active:scale-95 cursor-pointer border border-cyan-400/40 relative group" title="Nhắn tin góp ý & Báo lỗi cho Tác giả (Gen-hub Ingest)">
+      <span id="feedbackIconOpen" class="transition-transform duration-200 group-hover:rotate-12">💬</span>
+      <span id="feedbackIconClose" class="hidden text-2xl font-bold leading-none">&times;</span>
+      <span class="absolute -top-1 -right-1 flex h-3.5 w-3.5">
+        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+        <span class="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500 border-2 border-dark-900"></span>
+      </span>
+    </button>
+  </div>
+
+  <!-- Chatbot Support & Feedback Box -->
+  <div id="feedbackWidgetBox" class="fixed bottom-24 right-4 sm:right-6 z-50 w-[92vw] max-w-[380px] sm:max-w-[420px] bg-dark-900/95 border border-slate-700 rounded-3xl shadow-2xl backdrop-blur-md hidden flex flex-col overflow-hidden transition-all duration-300">
+    <!-- Header -->
+    <div class="p-4 bg-gradient-to-r from-dark-950 via-dark-900 to-slate-900 border-b border-slate-800 flex items-center justify-between shrink-0">
+      <div class="flex items-center space-x-3">
+        <div class="relative">
+          <div class="w-10 h-10 rounded-2xl bg-cyan-500/15 border border-cyan-500/30 text-cyan-400 flex items-center justify-center text-xl">
+            🐷
+          </div>
+          <span class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-dark-950"></span>
+        </div>
+        <div>
+          <h3 class="font-bold text-white text-sm flex items-center space-x-1.5">
+            <span>Bé Heo Support & Góp Ý</span>
+            <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 font-mono">Gen-hub</span>
+          </h3>
+          <p class="text-[11px] text-slate-400">Trực tiếp tới Nhà phát triển Ryan</p>
+        </div>
+      </div>
+      <button type="button" onclick="closeFeedbackWidget()" class="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center text-lg transition cursor-pointer">&times;</button>
+    </div>
+
+    <!-- Chat Message Stream -->
+    <div id="feedbackChatStream" class="flex-1 p-4 overflow-y-auto space-y-3 max-h-[320px] text-xs custom-scroll">
+      <!-- Bot welcome message -->
+      <div class="flex items-start space-x-2.5">
+        <div class="w-7 h-7 rounded-xl bg-cyan-500/15 text-cyan-400 flex items-center justify-center text-sm shrink-0 border border-cyan-500/20">
+          🐷
+        </div>
+        <div class="p-3 rounded-2xl rounded-tl-none bg-dark-950/80 border border-slate-800 text-slate-300 space-y-1 max-w-[85%] shadow-sm">
+          <div class="font-bold text-cyan-400 text-[11px]">Bé Heo Trợ Lý</div>
+          <div class="leading-relaxed">Chào Sếp! Em là kênh tiếp nhận phản hồi & góp ý trực tiếp. Sếp có ý kiến đóng góp, tính năng muốn thêm hoặc gặp bất kỳ sự cố gì hãy nhắn cho em nhé! Ý kiến của Sếp sẽ được chuyển tự động tới <strong>Gen-hub Feedback Ingest</strong> ❤️</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick suggestion chips -->
+    <div class="px-4 py-2 bg-dark-950/40 border-t border-slate-800/60 flex items-center space-x-1.5 overflow-x-auto text-[11px] shrink-0 no-scrollbar">
+      <button type="button" onclick="setFeedbackChip('💡 Góp ý tính năng: ')" class="px-2.5 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white whitespace-nowrap transition cursor-pointer border border-slate-700/60">💡 Thêm tính năng</button>
+      <button type="button" onclick="setFeedbackChip('🐛 Báo lỗi: ')" class="px-2.5 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white whitespace-nowrap transition cursor-pointer border border-slate-700/60">🐛 Báo lỗi</button>
+      <button type="button" onclick="setFeedbackChip('⭐ Nhận xét: ')" class="px-2.5 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white whitespace-nowrap transition cursor-pointer border border-slate-700/60">⭐ Nhận xét</button>
+    </div>
+
+    <!-- Input Footer -->
+    <div class="p-3 bg-dark-950 border-t border-slate-800 shrink-0 space-y-2">
+      <form id="feedbackForm" onsubmit="handleSendFeedback(event)" class="space-y-2">
+        <div class="relative">
+          <textarea id="feedbackInputText" rows="2" required maxlength="1000"
+            placeholder="Nhập nội dung góp ý hoặc báo lỗi... (Enter để gửi)"
+            class="w-full px-3 py-2 rounded-xl bg-dark-850 border border-slate-700 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 resize-none font-sans leading-relaxed"
+            onkeydown="if(event.key==='Enter' && !event.shiftKey){ event.preventDefault(); handleSendFeedback(event); }"></textarea>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="text-[10px] text-slate-500 flex items-center space-x-1">
+            <span>🔒</span>
+            <span>Gen-hub Ingest</span>
+          </span>
+          <button type="submit" id="btnSendFeedback" class="py-1.5 px-4 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold text-xs shadow-lg shadow-cyan-600/20 transition flex items-center space-x-1.5 cursor-pointer disabled:opacity-50">
+            <span id="feedbackSendText">Gửi Góp Ý</span>
+            <span id="feedbackSendIcon">✈️</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
 
   <script>
     let activeLogTab = 'engine';
@@ -1559,9 +1637,9 @@
         ? 'px-4 py-3 rounded-xl shadow-2xl text-sm font-medium flex items-center space-x-2 border bg-red-950/90 text-red-200 border-red-800'
         : 'px-4 py-3 rounded-xl shadow-2xl text-sm font-medium flex items-center space-x-2 border bg-emerald-950/90 text-emerald-200 border-emerald-800';
       content.innerHTML = (isError ? '⚠️ ' : '✅ ') + msg;
-      toast.classList.remove('translate-y-20', 'opacity-0', 'pointer-events-none');
+      toast.classList.remove('-translate-y-12', 'opacity-0', 'pointer-events-none');
       setTimeout(() => {
-        toast.classList.add('translate-y-20', 'opacity-0', 'pointer-events-none');
+        toast.classList.add('-translate-y-12', 'opacity-0', 'pointer-events-none');
       }, 3500);
     }
 
@@ -2971,6 +3049,144 @@
     setTimeout(() => checkUpdateManual(false), 2000);
     setInterval(() => checkUpdateManual(false), 10 * 60 * 1000);
 
+    // ==============================================================================
+    // HỘP THOẠI SUPPORT & GÓP Ý TRỰC TIẾP (GEN-HUB FEEDBACK INGEST)
+    // ==============================================================================
+    function toggleFeedbackWidget() {
+      const box = document.getElementById('feedbackWidgetBox');
+      if (!box) return;
+      if (box.classList.contains('hidden')) {
+        openFeedbackWidget();
+      } else {
+        closeFeedbackWidget();
+      }
+    }
+
+    function openFeedbackWidget() {
+      const box = document.getElementById('feedbackWidgetBox');
+      const openIcon = document.getElementById('feedbackIconOpen');
+      const closeIcon = document.getElementById('feedbackIconClose');
+      if (!box) return;
+      box.classList.remove('hidden');
+      if (openIcon) openIcon.classList.add('hidden');
+      if (closeIcon) closeIcon.classList.remove('hidden');
+      setTimeout(() => {
+        const inp = document.getElementById('feedbackInputText');
+        if (inp) inp.focus();
+      }, 100);
+    }
+
+    function closeFeedbackWidget() {
+      const box = document.getElementById('feedbackWidgetBox');
+      const openIcon = document.getElementById('feedbackIconOpen');
+      const closeIcon = document.getElementById('feedbackIconClose');
+      if (!box) return;
+      box.classList.add('hidden');
+      if (openIcon) openIcon.classList.remove('hidden');
+      if (closeIcon) closeIcon.classList.add('hidden');
+    }
+
+    function setFeedbackChip(prefix) {
+      const inp = document.getElementById('feedbackInputText');
+      if (!inp) return;
+      if (!inp.value.startsWith(prefix)) {
+        inp.value = prefix + inp.value;
+      }
+      inp.focus();
+    }
+
+    async function handleSendFeedback(e) {
+      if (e) e.preventDefault();
+      const inp = document.getElementById('feedbackInputText');
+      const btn = document.getElementById('btnSendFeedback');
+      const sendText = document.getElementById('feedbackSendText');
+      const sendIcon = document.getElementById('feedbackSendIcon');
+      const stream = document.getElementById('feedbackChatStream');
+
+      if (!inp) return;
+      const text = inp.value.trim();
+      if (!text) return;
+
+      if (btn) btn.disabled = true;
+      if (sendText) sendText.textContent = 'Đang gửi...';
+      if (sendIcon) sendIcon.innerHTML = '<span class="animate-spin inline-block">🔄</span>';
+
+      // Tạo bubble tin nhắn của người dùng
+      const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const userBubble = document.createElement('div');
+      userBubble.className = 'flex items-start justify-end space-x-2.5';
+      userBubble.innerHTML = `
+        <div class="p-3 rounded-2xl rounded-tr-none bg-gradient-to-r from-cyan-600 to-blue-600 text-white text-xs space-y-1 max-w-[85%] shadow-md">
+          <div class="leading-relaxed whitespace-pre-wrap">${escapeHtml(text)}</div>
+          <div class="text-[10px] text-cyan-200 text-right font-mono">${nowStr}</div>
+        </div>
+      `;
+      stream.appendChild(userBubble);
+      stream.scrollTop = stream.scrollHeight;
+
+      inp.value = '';
+
+      try {
+        const res = await fetch('/api/feedback', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: text })
+        });
+        const data = await res.json();
+
+        if (data.ok) {
+          const botBubble = document.createElement('div');
+          botBubble.className = 'flex items-start space-x-2.5';
+          botBubble.innerHTML = `
+            <div class="w-7 h-7 rounded-xl bg-cyan-500/15 text-cyan-400 flex items-center justify-center text-sm shrink-0 border border-cyan-500/20">
+              🐷
+            </div>
+            <div class="p-3 rounded-2xl rounded-tl-none bg-dark-950/80 border border-emerald-500/30 text-slate-300 space-y-1 max-w-[85%] shadow-sm">
+              <div class="font-bold text-emerald-400 text-[11px] flex items-center space-x-1">
+                <span>✓ Đã chuyển thành công tới Gen-hub Ingest</span>
+              </div>
+              <div class="leading-relaxed text-slate-300">${escapeHtml(data.message || 'Cảm ơn Sếp rất nhiều, đội ngũ phát triển đã tiếp nhận góp ý!')}</div>
+            </div>
+          `;
+          stream.appendChild(botBubble);
+          showToast('🎉 Đã gửi góp ý tới Gen-hub thành công!');
+        } else {
+          const errBubble = document.createElement('div');
+          errBubble.className = 'flex items-start space-x-2.5';
+          errBubble.innerHTML = `
+            <div class="w-7 h-7 rounded-xl bg-red-500/15 text-red-400 flex items-center justify-center text-sm shrink-0 border border-red-500/20">
+              ⚠️
+            </div>
+            <div class="p-3 rounded-2xl rounded-tl-none bg-red-950/40 border border-red-500/30 text-red-300 space-y-1 max-w-[85%]">
+              <div class="font-bold text-red-400 text-[11px]">Chưa thể gửi tới Gen-hub</div>
+              <div class="leading-relaxed">${escapeHtml(data.error || 'Vui lòng thử lại sau.')}</div>
+            </div>
+          `;
+          stream.appendChild(errBubble);
+          showToast(data.error || 'Lỗi gửi góp ý', true);
+        }
+      } catch (err) {
+        const errBubble = document.createElement('div');
+        errBubble.className = 'flex items-start space-x-2.5';
+        errBubble.innerHTML = `
+          <div class="w-7 h-7 rounded-xl bg-red-500/15 text-red-400 flex items-center justify-center text-sm shrink-0 border border-red-500/20">
+            ⚠️
+          </div>
+          <div class="p-3 rounded-2xl rounded-tl-none bg-red-950/40 border border-red-500/30 text-red-300 space-y-1 max-w-[85%]">
+            <div class="font-bold text-red-400 text-[11px]">Lỗi kết nối máy chủ</div>
+            <div class="leading-relaxed">${escapeHtml(err.message)}</div>
+          </div>
+        `;
+        stream.appendChild(errBubble);
+        showToast('Lỗi kết nối máy chủ', true);
+      } finally {
+        if (btn) btn.disabled = false;
+        if (sendText) sendText.textContent = 'Gửi Góp Ý';
+        if (sendIcon) sendIcon.innerHTML = '✈️';
+        stream.scrollTop = stream.scrollHeight;
+      }
+    }
+
     // Phím tắt Escape để đóng nhanh các modal đang mở
     window.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
@@ -2982,6 +3198,7 @@
         closeManagePinModal();
         closeQuotaExhaustedModal();
         closeGoogleLoginModal();
+        closeFeedbackWidget();
         if (hasAcceptedDisclaimer) closeDisclaimerModal();
       }
     });

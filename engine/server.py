@@ -15,8 +15,10 @@ import json
 import time
 import base64
 import datetime
-import glob
 import urllib.request
+import urllib.parse
+import urllib.error
+import glob
 import subprocess
 import threading
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
@@ -1880,7 +1882,6 @@ class RequestHandler(BaseHTTPRequestHandler):
                 "disclaimer_accepted": bool(cfg.get("disclaimer_accepted", False))
             }, 200)
         elif path_clean == "/api/oauth_login_url":
-            import urllib.parse
             import uuid
             session_id = uuid.uuid4().hex
             _oauth_pending_sessions[session_id] = {
@@ -1905,7 +1906,6 @@ class RequestHandler(BaseHTTPRequestHandler):
                 "session_id": session_id
             }, 200)
         elif path_clean == "/api/oauth_session_status":
-            import urllib.parse
             parsed = urllib.parse.urlparse(self.path)
             qs = urllib.parse.parse_qs(parsed.query)
             session_id = qs.get("session_id", [""])[0]
@@ -1915,7 +1915,6 @@ class RequestHandler(BaseHTTPRequestHandler):
             else:
                 self._send_json({"done": False}, 200)
         elif path_clean == "/api/check_update":
-            import urllib.parse
             parsed = urllib.parse.urlparse(self.path)
             qs = urllib.parse.parse_qs(parsed.query)
             if qs.get("force", ["0"])[0] == "1":
@@ -1924,7 +1923,6 @@ class RequestHandler(BaseHTTPRequestHandler):
             self._send_json(res, 200)
         elif path_clean == "/api/oauth_callback":
             # Google OAuth redirect callback
-            import urllib.parse
             parsed = urllib.parse.urlparse(self.path)
             qs = urllib.parse.parse_qs(parsed.query)
             code = qs.get("code", [""])[0]
@@ -2419,7 +2417,6 @@ class RequestHandler(BaseHTTPRequestHandler):
                     return
                 # Hỗ trợ dán cả URL chuyển hướng (ví dụ http://localhost:5066/api/oauth_callback?code=4/...)
                 if "code=" in raw_code:
-                    import urllib.parse
                     parsed = urllib.parse.urlparse(raw_code)
                     qs = urllib.parse.parse_qs(parsed.query)
                     code = qs.get("code", [raw_code])[0]
@@ -2502,7 +2499,6 @@ class RequestHandler(BaseHTTPRequestHandler):
                 self._send_json({"ok": False, "error": f"JSON không hợp lệ: {e}"}, 400)
         elif path_clean == "/api/login_google":
             # API trả về URL OAuth cho client
-            import urllib.parse
             redirect_uri = f"http://localhost:{PORT}/api/oauth_callback"
             params = {
                 "client_id": GOOGLE_OAUTH_CLIENT_ID,
@@ -2591,6 +2587,39 @@ class RequestHandler(BaseHTTPRequestHandler):
                     self._send_json({"ok": False, "error": f"Lỗi giải nén: {sub_proc.stderr}"}, 500)
             except Exception as e:
                 self._send_json({"ok": False, "error": str(e)}, 500)
+        elif path_clean == "/api/feedback":
+            try:
+                content_length = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(content_length).decode("utf-8") if content_length > 0 else "{}"
+                data = json.loads(body)
+                raw_msg = (data.get("message") or "").strip()
+                if not raw_msg:
+                    self._send_json({"ok": False, "error": "Nội dung góp ý không được để trống."}, 400)
+                    return
+
+                # Chuyển tiếp tới Gen-hub Feedback Ingest
+                feedback_url = "https://hub.genos.top/feedback/ingest"
+                headers = {
+                    "Authorization": "Bearer fbk_gdbluz4x0eO9m5uvneiiNIhK",
+                    "Content-Type": "application/json",
+                    "User-Agent": "curl/7.88.1"
+                }
+                payload = json.dumps({"message": raw_msg}).encode("utf-8")
+                req = urllib.request.Request(feedback_url, data=payload, headers=headers, method="POST")
+                with urllib.request.urlopen(req, timeout=15) as resp:
+                    resp_body = resp.read().decode("utf-8")
+                    log_event(f"💌 [Feedback] Đã gửi góp ý thành công tới Gen-hub: {raw_msg[:80]}...")
+                    self._send_json({
+                        "ok": True,
+                        "message": "Cảm ơn bạn đã gửi ý kiến đóng góp! Đội ngũ phát triển đã tiếp nhận phản hồi."
+                    }, 200)
+            except urllib.error.HTTPError as he:
+                err_text = he.read().decode("utf-8") if hasattr(he, "read") else str(he)
+                log_event(f"⚠️ [Feedback] Lỗi HTTP {he.code} từ Gen-hub: {err_text}")
+                self._send_json({"ok": False, "error": f"Lỗi cổng tiếp nhận ({he.code}): {err_text}"}, 502)
+            except Exception as e:
+                log_event(f"⚠️ [Feedback] Ngoại lệ khi gửi góp ý: {e}")
+                self._send_json({"ok": False, "error": f"Lỗi gửi góp ý: {str(e)}"}, 500)
         else:
             try:
                 self.send_response(404)
