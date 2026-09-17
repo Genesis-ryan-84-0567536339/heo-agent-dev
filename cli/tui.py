@@ -489,4 +489,8 @@ def main():
     run_services_dashboard(agy_bin, config)
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        console.print("\n[yellow]👋 Đã dừng Trình cấu hình Heo-Agent an toàn.[/yellow]")
+        sys.exit(0)
