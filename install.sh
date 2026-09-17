@@ -143,11 +143,15 @@ check_and_install_engine() {
 
 check_and_install_engine
 
-# Tự động chọn lệnh docker compose phù hợp (kể cả khi user chưa logout để nạp nhóm docker)
+## Tự động chọn lệnh docker compose phù hợp (kể cả khi user chưa logout để nạp nhóm docker)
 if docker compose version &> /dev/null 2>&1; then
     DOCKER_COMPOSE="docker compose"
 elif sudo docker compose version &> /dev/null 2>&1; then
     DOCKER_COMPOSE="sudo docker compose"
+elif command -v podman-compose &> /dev/null; then
+    DOCKER_COMPOSE="podman-compose"
+elif podman compose version &> /dev/null 2>&1; then
+    DOCKER_COMPOSE="podman compose"
 elif command -v docker-compose &> /dev/null && docker-compose version &> /dev/null 2>&1; then
     DOCKER_COMPOSE="docker-compose"
 elif sudo command -v docker-compose &> /dev/null; then
@@ -190,7 +194,7 @@ if [[ ! -f "bin/agy" ]]; then
         chmod +x bin/agy
     else
         echo -e "${CYAN}Đang tải AGY CLI binary từ GitHub Release...${NC}"
-        curl -fsSL -o bin/agy.tar.gz https://github.com/Genesis-ryan-84-0567536339/heo-agent-free/releases/download/v1.0.0/agy.tar.gz || curl -fsSL -o bin/agy.tar.gz https://github.com/Genesis-ryan-84-0567536339/Heo-Agent/releases/download/v1.0.0/agy.tar.gz || true
+        curl -fsSL -o bin/agy.tar.gz https://github.com/Genesis-ryan-84-0567536339/heo-agent-free/releases/download/v2.1/agy.tar.gz || curl -fsSL -o bin/agy.tar.gz https://github.com/Genesis-ryan-84-0567536339/heo-agent-free/releases/download/v1.0.0/agy.tar.gz || true
         if [[ -f "bin/agy.tar.gz" ]]; then
             tar -xzf bin/agy.tar.gz -C bin/
             chmod +x bin/agy
@@ -217,7 +221,25 @@ chmod +x bin/heo-agent bin/heo-zalo 2>/dev/null || true
 mkdir -p "$HOME/.local/bin"
 ln -sf "$WORKDIR/bin/heo-agent" "$HOME/.local/bin/heo-agent"
 ln -sf "$WORKDIR/bin/heo-agent" "$HOME/.local/bin/heo-zalo"
+
+# Tự động nạp $HOME/.local/bin vào PATH của shell hiện tại và file cấu hình
+if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
+    export PATH="$HOME/.local/bin:$PATH"
+    for rc in "$HOME/.bashrc" "$HOME/.zshrc" "$HOME/.profile"; do
+        if [ -f "$rc" ]; then
+            if ! grep -q 'PATH=.*\.local/bin' "$rc" 2>/dev/null; then
+                echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$rc"
+            fi
+        fi
+    done
+fi
+
+# Đăng ký vào /usr/local/bin (thư mục luôn nằm trong PATH toàn hệ thống)
 if sudo -n true 2>/dev/null; then
+    sudo ln -sf "$WORKDIR/bin/heo-agent" /usr/local/bin/heo-agent 2>/dev/null || true
+    sudo ln -sf "$WORKDIR/bin/heo-agent" /usr/local/bin/heo-zalo 2>/dev/null || true
+elif command -v sudo >/dev/null 2>&1 && [ -t 0 ]; then
+    echo -e "${CYAN}Đăng ký lệnh heo-agent vào /usr/local/bin...${NC}"
     sudo ln -sf "$WORKDIR/bin/heo-agent" /usr/local/bin/heo-agent 2>/dev/null || true
     sudo ln -sf "$WORKDIR/bin/heo-agent" /usr/local/bin/heo-zalo 2>/dev/null || true
 fi
@@ -241,7 +263,7 @@ fi
 
 echo -e "\n${GREEN}==============================================================================${NC}"
 echo -e "${GREEN}✔ CÀI ĐẶT VÀ CẤU HÌNH THÀNH CÔNG!${NC}"
-echo -e "Hệ thống đã đăng ký lệnh điều hành toàn hệ thống: ${CYAN}heo-agent${NC} (hoặc ${CYAN}heo-zalo${NC})"
+echo -e "Hệ thống đã đăng ký lệnh điều hành toàn hệ thống: ${CYAN}heo-agent${NC}"
 echo -e "\n📌 BỘ LỆNH ĐIỀU HÀNH:"
 echo -e "   👉 ${CYAN}heo-agent${NC}              : Mở Web Dashboard & kiểm tra trạng thái"
 echo -e "   👉 ${CYAN}heo-agent web${NC}          : Mở Web Dashboard quản trị (http://localhost:5066)"
@@ -253,4 +275,5 @@ echo -e "   👉 ${CYAN}heo-agent logs${NC}         : Xem nhật ký hoạt đ�
 echo -e "   👉 ${CYAN}heo-agent restart${NC}      : Khởi động lại dịch vụ"
 echo -e "   👉 ${CYAN}heo-agent stop${NC}         : Dừng toàn bộ hệ thống an toàn"
 echo -e "   👉 ${CYAN}heo-agent uninstall${NC}    : Dọn dẹp & gỡ bỏ toàn bộ container, image"
+echo -e "\n💡 Nếu vừa cài đặt xong gõ 'heo-agent' chưa nhận, vui lòng gõ: ${CYAN}source ~/.bashrc${NC} (hoặc mở tab terminal mới)"
 echo -e "${GREEN}==============================================================================${NC}"
