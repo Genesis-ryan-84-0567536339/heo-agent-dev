@@ -100,22 +100,92 @@ Hệ thống **Heo-Agent (Bé Heo)** được xây dựng trên kiến trúc **M
 
 ---
 
-## ⚡ Cài Đặt Nhanh 1 Lệnh Duy Nhất (One-Line Install)
+## ⚡ Hướng Dẫn Cài Đặt Chi Tiết Cho Từng Hệ Điều Hành (Installation Guide)
 
-Chạy lệnh sau trên bất kỳ máy chủ Linux nào (Ubuntu, Debian, Fedora, CentOS, Arch...) hoặc macOS / Windows WSL2:
+Hệ thống **Heo-Agent (Bé Heo)** được đóng gói tiêu chuẩn trên Docker, hỗ trợ cài đặt và vận hành trơn tru trên **Linux**, **Windows 10/11 (WSL2)** và **macOS (Apple Silicon & Intel)**.
+
+> [!NOTE]
+> **Tiêu chuẩn hóa 100% trên Docker Engine:** Hệ thống sử dụng Docker Engine và Docker Compose v2 chính thức để đảm bảo tính tương thích và hoạt động ổn định trên mọi hệ điều hành. Nếu máy chủ Linux chưa có Docker (hoặc đang dùng Podman giả lập), bộ cài đặt sẽ tự động thiết lập Docker CE chính thức chỉ với 1 cú nhấn phím `Enter`.
+
+---
+
+### 🐧 1. Linux (Ubuntu, Debian, Fedora, Arch Linux, CentOS, VPS / Cloud Server)
+> Nền tảng gốc (Native 100%) — Tự động thiết lập hoàn chỉnh chỉ với 1 lệnh.
+
+Mở ứng dụng Terminal trên máy chủ hoặc máy trạm Linux và dán lệnh sau:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Genesis-ryan-84-0567536339/heo-agent-free/main/install.sh | bash
 ```
 
-> [!NOTE]
-> **Tiêu chuẩn hóa 100% trên Docker Engine:** Hệ thống sử dụng Docker Engine và Docker Compose v2 chính thức để đảm bảo tính tương thích và hoạt động ổn định trên mọi hệ điều hành. Nếu máy chủ chưa có Docker (hoặc đang dùng Podman giả lập), bộ cài đặt sẽ tự động thiết lập Docker CE chính thức cho bạn chỉ với 1 cú nhấn phím `Enter`.
+* **Quy trình tự động hóa:**
+  1. Kiểm tra Docker Engine & Docker Compose v2 (tự động cài đặt Docker CE chính thức nếu chưa có).
+  2. Tải mã nguồn mới nhất và chuẩn bị binary Core Agent `agy`.
+  3. Đóng gói Docker Container (`heo-agent:latest`) với thanh tiến độ % trực quan.
+  4. Khởi chạy ngay **Terminal UI (TUI)** để đăng nhập tài khoản Google và quét mã QR Zalo.
+* **Truy cập Web Console:** Mở trình duyệt truy cập: `http://localhost:5066` (hoặc `http://<IP_MÁY_CHỦ>:5066`).
 
-Trình cài đặt tự động:
-1. Kiểm tra và thiết lập môi trường Docker Engine & Docker Compose v2 tiêu chuẩn.
-2. Tải mã nguồn và chuẩn bị binary `agy`.
-3. Tự động đóng gói Docker Container (`heo-agent:latest`).
-4. Mở ngay **Terminal UI (TUI)** tương tác để bạn đăng nhập Google AGY và quét mã QR Zalo trên điện thoại.
+---
+
+### 🪟 2. Windows 10 / Windows 11 (Thông qua WSL2 + Ubuntu)
+> Chạy hoàn hảo 100% trên Windows thông qua môi trường **WSL2 (Windows Subsystem for Linux)**.
+
+* **Bước 1: Kích hoạt WSL2 (Nếu máy chưa có)**  
+  Mở **PowerShell** (hoặc Windows Terminal) với quyền Quản trị viên (**Run as Administrator**), gõ lệnh:
+  ```powershell
+  wsl --install
+  ```
+  *(Khởi động lại máy tính nếu Windows yêu cầu để hoàn tất việc thiết lập phân vùng Ubuntu Linux).*
+
+* **Bước 2: Cài đặt Docker Desktop for Windows**  
+  * Tải và cài đặt **[Docker Desktop for Windows](https://www.docker.com/products/docker-desktop/)**.
+  * Trong phần `Settings` -> `General` của Docker Desktop, đảm bảo tùy chọn **Use the WSL 2 based engine** đã được tích chọn (mặc định bật).
+  * Trong mục `Settings` -> `Resources` -> `WSL Integration`, bật tích chọn phân vùng Ubuntu của bạn.
+
+* **Bước 3: Chạy lệnh cài đặt Heo-Agent**  
+  Mở ứng dụng **Ubuntu** (hoặc gõ `wsl` trong PowerShell) và dán lệnh:
+  ```bash
+  curl -fsSL https://raw.githubusercontent.com/Genesis-ryan-84-0567536339/heo-agent-free/main/install.sh | bash
+  ```
+
+* **Bước 4: Sử dụng trên Windows**  
+  * Thực hiện đăng nhập Google AGY và quét mã QR Zalo trên màn hình Terminal của Ubuntu.
+  * Mở trình duyệt (Chrome, Edge) trên Windows truy cập thẳng vào:  
+    👉 **`http://localhost:5066`**  
+    *(WSL2 tự động forward toàn bộ cổng mạng ra Windows mà không cần cấu hình thêm).*
+
+---
+
+### 🍎 3. macOS (Apple Silicon M1/M2/M3/M4 & Intel Mac)
+> Chạy mượt mà thông qua Docker Desktop for Mac hoặc OrbStack.
+
+* **Bước 1: Cài đặt & Khởi động Docker Desktop**  
+  * Tải và cài đặt **[Docker Desktop for Mac](https://www.docker.com/products/docker-desktop/)** (chọn phiên bản *Mac with Apple Silicon* hoặc *Mac with Intel chip* tương ứng máy của bạn) hoặc sử dụng **[OrbStack](https://orbstack.dev/)**.
+  * Mở ứng dụng Docker Desktop lên và đợi biểu tượng trạng thái chuyển sang màu xanh (Running).
+  * *(Khuyên dùng cho Mac Apple Silicon M1-M4):* Vào `Settings` -> `General` -> Tích chọn **Use Rosetta for x86/amd64 emulation on Apple Silicon** để tăng tốc giả lập tối đa.
+
+* **Bước 2: Chạy lệnh cài đặt**  
+  Mở ứng dụng **Terminal** (hoặc iTerm2) trên macOS và dán lệnh:
+  ```zsh
+  curl -fsSL https://raw.githubusercontent.com/Genesis-ryan-84-0567536339/heo-agent-free/main/install.sh | bash
+  ```
+  *Hệ thống đã tích hợp sẵn chỉ thị kiến trúc `platform: linux/amd64` giúp chạy trơn tru binary Core Agent `agy` trên toàn bộ dòng chip Apple Silicon mà không gặp lỗi `Exec format error`.*
+
+* **Bước 3: Sử dụng trên macOS**  
+  * Hoàn tất xác thực Google AGY và quét mã QR Zalo trong Terminal.
+  * Mở Safari hoặc Chrome trên Mac truy cập vào:  
+    👉 **`http://localhost:5066`**
+
+---
+
+### 📊 Bảng Tổng Hợp Tính Tương Thích & Yêu Cầu Nền Tảng:
+
+| Hệ điều hành | Môi trường khuyến nghị | Yêu cầu tiên quyết | Thời gian cài đặt | Trạng thái hỗ trợ |
+| :--- | :--- | :--- | :---: | :---: |
+| **Linux (Ubuntu / Debian / Fedora...)** | Docker Engine Native | `curl`, `git`, quyền `sudo` | ~2 phút | ✅ **Native 100%** |
+| **Windows 10 / 11** | WSL2 (Ubuntu) + Docker Desktop | Bật WSL2 (`wsl --install`) | ~3 phút | ✅ **Hoạt động trơn tru 100%** |
+| **macOS (Apple Silicon M1 - M4)** | Docker Desktop / OrbStack | Docker Desktop bật Rosetta 2 | ~3 phút | ✅ **Hỗ trợ đầy đủ qua Container** |
+| **macOS (Intel Core x86_64)** | Docker Desktop for Mac | Docker Desktop đang chạy | ~3 phút | ✅ **Hỗ trợ đầy đủ qua Container** |
 
 ---
 
