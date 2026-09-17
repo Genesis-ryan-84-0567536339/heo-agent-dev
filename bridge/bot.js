@@ -411,17 +411,23 @@ async function initZaloClient() {
               qrcode.generate(qrPayload, { small: true });
             }
 
-            if (evt.actions && evt.actions.saveToFile) {
-              await evt.actions.saveToFile(QR_PATH);
-            } else if (evt.data && evt.data.image) {
-              fs.writeFileSync(QR_PATH, Buffer.from(evt.data.image, "base64"));
-            }
-
             try {
-              const dataQrPath = path.join(DATA_DIR, "zalo_qr.png");
-              if (fs.existsSync(QR_PATH)) {
-                fs.copyFileSync(QR_PATH, dataQrPath);
+              let imgBuf = null;
+              if (evt.data && evt.data.image) {
+                imgBuf = Buffer.from(evt.data.image, "base64");
               }
+              if (imgBuf) {
+                fs.writeFileSync(QR_PATH, imgBuf);
+                const dataQrPath = path.join(DATA_DIR, "zalo_qr.png");
+                fs.writeFileSync(dataQrPath, imgBuf);
+              } else if (evt.actions && evt.actions.saveToFile) {
+                await evt.actions.saveToFile(QR_PATH);
+                const dataQrPath = path.join(DATA_DIR, "zalo_qr.png");
+                if (fs.existsSync(QR_PATH)) {
+                  fs.copyFileSync(QR_PATH, dataQrPath);
+                }
+              }
+
               const qrInfoPath = path.join(DATA_DIR, "zalo_qr_info.json");
               fs.writeFileSync(qrInfoPath, JSON.stringify({
                 created_at: Date.now(),
@@ -430,7 +436,9 @@ async function initZaloClient() {
                 declined: false,
                 user_name: ""
               }), "utf-8");
-            } catch (_) {}
+            } catch (qrSaveErr) {
+              log(`⚠️ Lỗi ghi file QR: ${qrSaveErr.message}`);
+            }
 
             console.log(`\n🖼️ Ảnh QR gốc đã được lưu tại: ${QR_PATH}`);
             console.log("   (Sếp cũng có thể mở trực tiếp file ảnh này để quét nếu terminal bị vỡ dòng!)\n");

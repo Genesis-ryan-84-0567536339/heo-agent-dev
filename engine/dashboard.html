@@ -2322,7 +2322,12 @@
 
       // 4. Trạng thái có QR hợp lệ
       if (data.has_qr && !data.qr_expired) {
-        if (data.qr_mtime && data.qr_mtime !== currentLoadedQrMtime) {
+        if (data.qr_base64) {
+          img.src = data.qr_base64;
+          spinner.classList.add('hidden');
+          img.classList.remove('hidden');
+          expiredOverlay.classList.add('hidden');
+        } else if (data.qr_mtime && data.qr_mtime !== currentLoadedQrMtime) {
           currentLoadedQrMtime = data.qr_mtime;
           img.src = '/api/qr?t=' + data.qr_mtime;
           img.onload = () => {

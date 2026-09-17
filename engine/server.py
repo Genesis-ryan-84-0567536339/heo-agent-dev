@@ -13,6 +13,7 @@ import sys
 import re
 import json
 import time
+import base64
 import datetime
 import glob
 import urllib.request
@@ -1838,11 +1839,18 @@ class RequestHandler(BaseHTTPRequestHandler):
             qr_age = -1
             qr_expired = False
             qr_mtime = 0
+            qr_base64 = ""
             if qr_f:
                 qr_mtime = int(os.path.getmtime(qr_f) * 1000)
                 qr_age = int(time.time() - os.path.getmtime(qr_f))
                 if qr_age > 95:  # QR Zalo hết hạn sau ~95 giây
                     qr_expired = True
+                else:
+                    try:
+                        with open(qr_f, "rb") as qf:
+                            qr_base64 = "data:image/png;base64," + base64.b64encode(qf.read()).decode("utf-8")
+                    except Exception:
+                        pass
 
             scanned = False
             scanned_user = ""
@@ -1872,6 +1880,7 @@ class RequestHandler(BaseHTTPRequestHandler):
                 "qr_mtime": qr_mtime,
                 "qr_age_seconds": qr_age,
                 "qr_expired": qr_expired,
+                "qr_base64": qr_base64,
                 "scanned": scanned,
                 "user_name": scanned_user,
                 "user_avatar": scanned_avatar,
@@ -1888,13 +1897,18 @@ class RequestHandler(BaseHTTPRequestHandler):
                         qr_f = candidate
                         break
             if qr_f:
-                with open(qr_f, "rb") as f:
-                    data = f.read()
-                self.send_response(200)
-                self.send_header("Content-Type", "image/png")
-                self.send_header("Cache-Control", "no-store, no-cache, must-revalidate")
-                self.send_header("Content-Length", str(len(data)))
-                self.send_header("Connection", "close")
+                try:
+                    with open(qr_f, "rb") as f:
+                        data = f.read()
+                    self.send_response(200)
+                    self.send_header("Content-Type", "image/png")
+                    self.send_header("Cache-Control", "no-store, no-cache, must-revalidate")
+                    self.send_header("Content-Length", str(len(data)))
+                    self.send_header("Connection", "close")
+                    self.end_headers()
+                    self.wfile.write(data)
+                except Exception as e:
+                    self._send_json({"error": f"Lỗi đọc ảnh QR: {e}"}, 500)
             else:
                 self._send_json({"error": "Mã QR chưa sẵn sàng hoặc đã hết hạn"}, 404)
         elif path_clean == "/api/doctor":
