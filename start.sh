@@ -17,6 +17,10 @@ MODE="${1:-daemon}"
 get_docker_compose() {
     if docker compose version &> /dev/null 2>&1; then
         echo "docker compose"
+    elif podman-compose version &> /dev/null 2>&1; then
+        echo "podman-compose"
+    elif podman compose version &> /dev/null 2>&1; then
+        echo "podman compose"
     elif sudo docker compose version &> /dev/null 2>&1; then
         echo "sudo docker compose"
     elif command -v docker-compose &> /dev/null; then
