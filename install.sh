@@ -394,7 +394,7 @@ setup_agy_cli() {
     fi
 
     if [[ -f "bin/agy.tar.gz" ]]; then
-        tar -xzf bin/agy.tar.gz -C bin/
+        tar --overwrite -xzf bin/agy.tar.gz -C bin/ 2>/dev/null || tar -xzf bin/agy.tar.gz -C bin/
         chmod +x bin/agy
         return 0
     fi
@@ -416,7 +416,7 @@ setup_agy_cli() {
     curl -fsSL -o bin/agy.tar.gz https://github.com/Genesis-ryan-84-0567536339/heo-agent-free/releases/download/v1.0.0/agy.tar.gz
 
     if [[ -f "bin/agy.tar.gz" ]]; then
-        tar -xzf bin/agy.tar.gz -C bin/
+        tar --overwrite -xzf bin/agy.tar.gz -C bin/ 2>/dev/null || tar -xzf bin/agy.tar.gz -C bin/
         chmod +x bin/agy
     fi
 

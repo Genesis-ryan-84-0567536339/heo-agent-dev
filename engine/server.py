@@ -21,6 +21,8 @@ import urllib.error
 import glob
 import subprocess
 import threading
+import tarfile
+import tempfile
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 
 PORT = int(os.environ.get("ENGINE_PORT", "5066"))
@@ -2755,47 +2757,120 @@ class RequestHandler(BaseHTTPRequestHandler):
                             pass
                         os._exit(0)
 
-                # 1. Thử git pull
-                pull_cmd = ["git", "pull", "origin", "main"]
-                proc = subprocess.run(pull_cmd, cwd=BASE_DIR, capture_output=True, text=True, timeout=35)
-                if proc.returncode != 0:
-                    proc = subprocess.run(["git", "pull"], cwd=BASE_DIR, capture_output=True, text=True, timeout=35)
+                # 1. Thử git pull nếu có kho lưu trữ git
+                git_dir = os.path.join(BASE_DIR, ".git")
+                if os.path.exists(git_dir):
+                    try:
+                        # Tạm thời dọn / stash thay đổi nhỏ để tránh xung đột
+                        subprocess.run(["git", "stash"], cwd=BASE_DIR, capture_output=True, timeout=10)
+                        pull_cmd = ["git", "pull", "origin", "main"]
+                        proc = subprocess.run(pull_cmd, cwd=BASE_DIR, capture_output=True, text=True, timeout=35)
+                        if proc.returncode != 0:
+                            proc = subprocess.run(["git", "pull"], cwd=BASE_DIR, capture_output=True, text=True, timeout=35)
 
-                if proc.returncode == 0:
-                    new_sha = get_local_commit()
-                    log_event(f"🎉 [Update] Đã cập nhật thành công lên commit {new_sha} qua git pull!")
-                    _update_cache["expires_at"] = 0
-                    threading.Thread(target=trigger_safe_restart, daemon=True).start()
-                    self._send_json({
-                        "ok": True,
-                        "new_commit": new_sha,
-                        "message": f"Cập nhật thành công ({new_sha})! Hệ thống đang tự động khởi động lại sau 2 giây...",
-                        "output": proc.stdout or "Đã cập nhật mới nhất."
-                    }, 200)
-                    return
+                        if proc.returncode == 0:
+                            new_sha = get_local_commit()
+                            log_event(f"🎉 [Update] Đã cập nhật thành công lên commit {new_sha} qua git pull!")
+                            _update_cache["expires_at"] = 0
+                            threading.Thread(target=trigger_safe_restart, daemon=True).start()
+                            self._send_json({
+                                "ok": True,
+                                "new_commit": new_sha,
+                                "message": f"Cập nhật thành công ({new_sha})! Hệ thống đang tự động khởi động lại sau 2 giây...",
+                                "output": proc.stdout or "Đã cập nhật mới nhất."
+                            }, 200)
+                            return
+                    except Exception as git_err:
+                        print(f"⚠️ [Update] Git pull không khả dụng ({git_err}), chuyển sang gói tải GitHub...")
 
-                # 2. Nếu git pull lỗi, tải tarball từ GitHub
+                # 2. Tải tarball từ GitHub và giải nén an toàn qua thư mục tạm (tránh lỗi File exists / bind mount)
                 tar_url = "https://github.com/Genesis-ryan-84-0567536339/heo-agent-free/archive/refs/heads/main.tar.gz"
                 tmp_tar = "/tmp/heo_agent_update.tar.gz"
-                urllib.request.urlretrieve(tar_url, tmp_tar)
-                extract_cmd = ["tar", "-xzf", tmp_tar, "--strip-components=1", "-C", BASE_DIR]
-                sub_proc = subprocess.run(extract_cmd, capture_output=True, text=True, timeout=25)
-                if sub_proc.returncode == 0:
+
+                req = urllib.request.Request(tar_url, headers={"User-Agent": "Mozilla/5.0 (Heo-Agent-Updater)"})
+                with urllib.request.urlopen(req, timeout=35) as resp, open(tmp_tar, "wb") as out_f:
+                    shutil.copyfileobj(resp, out_f)
+
+                tmp_extract_dir = tempfile.mkdtemp(prefix="heo_update_")
+                try:
+                    # Giải nén vào thư mục tạm (100% an toàn, không xung đột tệp có sẵn / mount point)
+                    with tarfile.open(tmp_tar, "r:gz") as tar:
+                        if hasattr(tarfile, "data_filter"):
+                            tar.extractall(tmp_extract_dir, filter="data")
+                        else:
+                            tar.extractall(tmp_extract_dir)
+
+                    sub_entries = [os.path.join(tmp_extract_dir, e) for e in os.listdir(tmp_extract_dir)]
+                    extracted_root = sub_entries[0] if (len(sub_entries) == 1 and os.path.isdir(sub_entries[0])) else tmp_extract_dir
+
+                    # Các tệp/thư mục nhạy cảm tuyệt đối KHÔNG được ghi đè
+                    PROTECTED_PATHS = {
+                        "config/config.json",
+                        "data/zalo_session.json",
+                        "data/zalo_profile.json",
+                        "data/model_state.json",
+                        "data/qr_info.json",
+                        "data/zalo_qr_info.json",
+                        "auth",
+                        ".git",
+                        "logs",
+                        "bin/agy"
+                    }
+
+                    updated_count = 0
+                    for root, dirs, files in os.walk(extracted_root):
+                        rel_dir = os.path.relpath(root, extracted_root)
+                        if rel_dir == ".":
+                            rel_dir = ""
+
+                        target_dir = os.path.join(BASE_DIR, rel_dir) if rel_dir else BASE_DIR
+                        os.makedirs(target_dir, exist_ok=True)
+
+                        for file_name in files:
+                            rel_file_path = os.path.normpath(os.path.join(rel_dir, file_name))
+                            if any(rel_file_path == p or rel_file_path.startswith(p + "/") or rel_file_path.startswith(p + "\\") for p in PROTECTED_PATHS):
+                                continue
+
+                            src_file = os.path.join(root, file_name)
+                            dst_file = os.path.join(BASE_DIR, rel_file_path)
+
+                            try:
+                                with open(src_file, "rb") as sf:
+                                    content = sf.read()
+                                with open(dst_file, "wb") as df:
+                                    df.write(content)
+                                if file_name.endswith(".sh") or rel_file_path.startswith("bin/"):
+                                    try:
+                                        os.chmod(dst_file, 0o755)
+                                    except Exception:
+                                        pass
+                                updated_count += 1
+                            except Exception as write_err:
+                                print(f"⚠️ [Update] Bỏ qua file {rel_file_path}: {write_err}")
+
                     info = get_remote_update_info()
                     new_sha = info.get("remote_commit", "")
                     with open(os.path.join(BASE_DIR, ".git_commit"), "w", encoding="utf-8") as f:
                         f.write(new_sha)
-                    log_event(f"🎉 [Update] Đã cập nhật thành công qua GitHub Tarball lên phiên bản {new_sha}!")
+                    log_event(f"🎉 [Update] Đã cập nhật thành công {updated_count} tệp qua GitHub Tarball lên phiên bản {new_sha}!")
                     _update_cache["expires_at"] = 0
                     threading.Thread(target=trigger_safe_restart, daemon=True).start()
                     self._send_json({
                         "ok": True,
                         "new_commit": new_sha,
-                        "message": f"Cập nhật thành công ({new_sha})! Hệ thống đang tự động khởi động lại sau 2 giây...",
-                        "output": "Cập nhật thành công qua gói GitHub chính thức."
+                        "message": f"Cập nhật thành công ({new_sha})! Đã đồng bộ {updated_count} tệp. Hệ thống đang tự động khởi động lại sau 2 giây...",
+                        "output": f"Cập nhật thành công {updated_count} tệp qua gói GitHub chính thức."
                     }, 200)
-                else:
-                    self._send_json({"ok": False, "error": f"Lỗi giải nén: {sub_proc.stderr}"}, 500)
+                except Exception as extract_err:
+                    log_event(f"❌ [Update] Lỗi giải nén: {extract_err}")
+                    self._send_json({"ok": False, "error": f"Lỗi giải nén: {extract_err}"}, 500)
+                finally:
+                    shutil.rmtree(tmp_extract_dir, ignore_errors=True)
+                    if os.path.exists(tmp_tar):
+                        try:
+                            os.remove(tmp_tar)
+                        except Exception:
+                            pass
             except Exception as e:
                 self._send_json({"ok": False, "error": str(e)}, 500)
         elif path_clean == "/api/feedback":

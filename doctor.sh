@@ -691,7 +691,7 @@ EOF
     if [ "$AGY_NEED_RESTORE" -eq 1 ]; then
         echo -e "  ↳ Đang trích xuất lại Core Agent từ kho lưu trữ..."
         if [ -f "bin/agy.tar.gz" ]; then
-            tar -xzf bin/agy.tar.gz -C bin/ 2>/dev/null || true
+            tar --overwrite -xzf bin/agy.tar.gz -C bin/ 2>/dev/null || tar -xzf bin/agy.tar.gz -C bin/ 2>/dev/null || true
             chmod +x bin/agy 2>/dev/null || true
         elif command -v agy &>/dev/null; then
             cp "$(which agy)" bin/agy
@@ -700,7 +700,7 @@ EOF
             echo -e "  ↳ Đang tải bản Release mới nhất từ GitHub..."
             curl -fsSL -o bin/agy.tar.gz https://github.com/Genesis-ryan-84-0567536339/heo-agent-free/releases/download/v2.1/agy.tar.gz || true
             if [ -f "bin/agy.tar.gz" ]; then
-                tar -xzf bin/agy.tar.gz -C bin/ 2>/dev/null || true
+                tar --overwrite -xzf bin/agy.tar.gz -C bin/ 2>/dev/null || tar -xzf bin/agy.tar.gz -C bin/ 2>/dev/null || true
                 chmod +x bin/agy 2>/dev/null || true
             fi
         fi

@@ -23,7 +23,7 @@ git config --global --add safe.directory '*' 2>/dev/null || true
 # Kiểm tra và giải nén AGY CLI binary nếu có file lưu trữ nén
 if [ ! -f /app/bin/agy ] && [ -f /app/bin/agy.tar.gz ]; then
     echo "📦 Đang giải nén AGY CLI binary từ /app/bin/agy.tar.gz..."
-    tar -xzf /app/bin/agy.tar.gz -C /app/bin
+    tar --overwrite -xzf /app/bin/agy.tar.gz -C /app/bin 2>/dev/null || tar -xzf /app/bin/agy.tar.gz -C /app/bin
     chmod +x /app/bin/agy
 fi
 
