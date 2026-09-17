@@ -335,6 +335,9 @@ prepare_workspace_and_dirs() {
     else
         if [[ ! -d "$INSTALL_DIR" ]]; then
             git clone https://github.com/Genesis-ryan-84-0567536339/heo-agent-free.git "$INSTALL_DIR"
+        else
+            # Cập nhật code mới nhất nếu folder đã tồn tại
+            (cd "$INSTALL_DIR" && git pull origin main 2>/dev/null || git pull 2>/dev/null || true)
         fi
         WORKDIR="$(pwd)/$INSTALL_DIR"
         cd "$WORKDIR"

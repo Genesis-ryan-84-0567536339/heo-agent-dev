@@ -584,9 +584,10 @@
         <img id="modalQrImg" src="" alt="Mã QR Zalo" class="w-56 h-56 object-contain hidden transition-opacity duration-300">
         <div id="qrExpiredOverlay" class="absolute inset-0 bg-white/95 rounded-2xl flex flex-col items-center justify-center space-y-3 p-4 hidden">
           <span class="text-3xl">⏳</span>
-          <span class="text-xs font-bold text-red-600">Mã QR đã hết hạn</span>
+          <span id="qrExpiredLabel" class="text-xs font-bold text-red-600">Mã QR đã hết hạn</span>
           <p class="text-[11px] text-slate-500 max-w-[200px]">Mã QR Zalo hết hạn sau ~95 giây vì lý do bảo mật.</p>
           <button onclick="refreshZaloQR()" class="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl text-xs font-semibold transition shadow-md">🔄 Tạo mã QR mới</button>
+          <a id="qrDirectLink" href="/api/qr" target="_blank" class="text-[10px] text-blue-500 hover:underline hidden">🔗 Mở ảnh QR trực tiếp (debug)</a>
         </div>
       </div>
 
@@ -2323,20 +2324,60 @@
       // 4. Trạng thái có QR hợp lệ
       if (data.has_qr && !data.qr_expired) {
         if (data.qr_base64) {
+          console.log('[Zalo QR] Hiển thị từ base64, length:', data.qr_base64.length);
           img.src = data.qr_base64;
-          spinner.classList.add('hidden');
-          img.classList.remove('hidden');
-          expiredOverlay.classList.add('hidden');
-        } else if (data.qr_mtime && data.qr_mtime !== currentLoadedQrMtime) {
-          currentLoadedQrMtime = data.qr_mtime;
-          img.src = '/api/qr?t=' + data.qr_mtime;
           img.onload = () => {
             spinner.classList.add('hidden');
             img.classList.remove('hidden');
+            expiredOverlay.classList.add('hidden');
+            console.log('[Zalo QR] ✅ Ảnh base64 hiển thị thành công');
+          };
+          img.onerror = () => {
+            console.error('[Zalo QR] ❌ Lỗi hiển thị base64, thử fallback /api/qr');
+            // Fallback sang /api/qr nếu base64 fail
+            currentLoadedQrMtime = 0;
+            img.src = '/api/qr?t=' + (data.qr_mtime || Date.now());
+            img.onload = () => {
+              spinner.classList.add('hidden');
+              img.classList.remove('hidden');
+            };
+            img.onerror = () => {
+              spinner.classList.add('hidden');
+              const qrExpiredLabel = document.getElementById('qrExpiredLabel');
+              const qrDirectLink = document.getElementById('qrDirectLink');
+              const fallbackUrl = '/api/qr?t=' + (data.qr_mtime || Date.now());
+              if (qrExpiredLabel) qrExpiredLabel.textContent = '❌ Không tải được ảnh QR';
+              if (qrDirectLink) {
+                qrDirectLink.href = fallbackUrl;
+                qrDirectLink.classList.remove('hidden');
+              }
+              expiredOverlay.classList.remove('hidden');
+              timerText.textContent = '❌ Không tải được ảnh QR. Thử làm mới?';
+              console.error('[Zalo QR] ❌ Lỗi cả base64 lẫn /api/qr');
+            };
+          };
+        } else if (data.qr_mtime && data.qr_mtime !== currentLoadedQrMtime) {
+          currentLoadedQrMtime = data.qr_mtime;
+          const qrUrl = '/api/qr?t=' + data.qr_mtime;
+          console.log('[Zalo QR] Tải ảnh từ', qrUrl);
+          img.src = qrUrl;
+          img.onload = () => {
+            spinner.classList.add('hidden');
+            img.classList.remove('hidden');
+            console.log('[Zalo QR] ✅ Ảnh /api/qr hiển thị thành công');
           };
           img.onerror = () => {
             spinner.classList.add('hidden');
+            const qrExpiredLabel = document.getElementById('qrExpiredLabel');
+            const qrDirectLink = document.getElementById('qrDirectLink');
+            if (qrExpiredLabel) qrExpiredLabel.textContent = '❌ Không tải được ảnh QR';
+            if (qrDirectLink) {
+              qrDirectLink.href = qrUrl;
+              qrDirectLink.classList.remove('hidden');
+            }
             expiredOverlay.classList.remove('hidden');
+            timerText.textContent = '❌ Không tải được ảnh QR. Thử làm mới?';
+            console.error('[Zalo QR] ❌ Lỗi tải ảnh từ', qrUrl);
           };
         } else if (img.classList.contains('hidden') && img.src) {
           spinner.classList.add('hidden');
