@@ -1891,6 +1891,10 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.send_header("Connection", "close")
             self.end_headers()
             self.wfile.write(payload)
+            try:
+                self.wfile.flush()
+            except Exception:
+                pass
         except (BrokenPipeError, ConnectionResetError):
             pass
         except Exception as e:
@@ -1908,6 +1912,10 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.send_header("Connection", "close")
             self.end_headers()
             self.wfile.write(payload)
+            try:
+                self.wfile.flush()
+            except Exception:
+                pass
         except (BrokenPipeError, ConnectionResetError):
             pass
         except Exception as e:
@@ -2747,7 +2755,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         elif path_clean == "/api/do_update":
             try:
                 def trigger_safe_restart():
-                    time.sleep(1.5)
+                    time.sleep(2.5)
                     if os.environ.get("BASE_DIR") == "/app":
                         subprocess.run(["pkill", "-f", "node.*bot.js"], capture_output=True)
                         os._exit(0)
@@ -2775,13 +2783,13 @@ class RequestHandler(BaseHTTPRequestHandler):
                             new_sha = get_local_commit()
                             log_event(f"🎉 [Update] Đã cập nhật thành công lên commit {new_sha} qua git pull!")
                             _update_cache["expires_at"] = 0
-                            threading.Thread(target=trigger_safe_restart, daemon=True).start()
                             self._send_json({
                                 "ok": True,
                                 "new_commit": new_sha,
                                 "message": f"Cập nhật thành công ({new_sha})! Hệ thống đang tự động khởi động lại sau 2 giây...",
                                 "output": proc.stdout or "Đã cập nhật mới nhất."
                             }, 200)
+                            threading.Thread(target=trigger_safe_restart, daemon=True).start()
                             return
                     except Exception as git_err:
                         print(f"⚠️ [Update] Git pull không khả dụng ({git_err}), chuyển sang gói tải GitHub...")
@@ -2857,13 +2865,13 @@ class RequestHandler(BaseHTTPRequestHandler):
                         f.write(new_sha)
                     log_event(f"🎉 [Update] Đã cập nhật thành công {updated_count} tệp qua GitHub Tarball lên phiên bản {new_sha}!")
                     _update_cache["expires_at"] = 0
-                    threading.Thread(target=trigger_safe_restart, daemon=True).start()
                     self._send_json({
                         "ok": True,
                         "new_commit": new_sha,
                         "message": f"Cập nhật thành công ({new_sha})! Đã đồng bộ {updated_count} tệp. Hệ thống đang tự động khởi động lại sau 2 giây...",
                         "output": f"Cập nhật thành công {updated_count} tệp qua gói GitHub chính thức."
                     }, 200)
+                    threading.Thread(target=trigger_safe_restart, daemon=True).start()
                 except Exception as extract_err:
                     log_event(f"❌ [Update] Lỗi giải nén: {extract_err}")
                     self._send_json({"ok": False, "error": f"Lỗi giải nén: {extract_err}"}, 500)

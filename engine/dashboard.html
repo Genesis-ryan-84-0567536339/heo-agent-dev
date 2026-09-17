@@ -1382,13 +1382,62 @@
 
         if (data.ok) {
           if (notice) {
-            notice.className = 'p-3 rounded-xl bg-emerald-950/40 border border-emerald-500/40 text-emerald-300 text-xs flex items-center space-x-2';
-            notice.innerHTML = '<span>🎉</span><span><strong>' + (data.message || 'Cập nhật thành công!') + '</strong> Đang tải lại Bảng điều khiển...</span>';
+            notice.className = 'p-3 rounded-xl bg-emerald-950/40 border border-emerald-500/40 text-emerald-300 text-xs flex flex-col space-y-2';
+            notice.innerHTML = `
+              <div class="flex items-center space-x-2">
+                <span class="text-base">🎉</span>
+                <span><strong>${data.message || 'Cập nhật thành công!'}</strong></span>
+              </div>
+              <div id="updateReconnectStatus" class="flex items-center space-x-2 text-cyan-300 text-xs mt-1">
+                <span class="animate-spin">🔄</span>
+                <span>Hệ thống đang tự khởi động lại dịch vụ... Vui lòng đợi trong giây lát</span>
+              </div>
+            `;
           }
-          showToast('🎉 Cập nhật thành công! Hệ thống đang tự khởi động lại...');
+          showToast('🎉 Cập nhật thành công! Đang tự động kết nối lại...');
+
+          // Thăm dò thông minh (Smart Polling): Đợi server khởi động lại xong mới reload trang
+          let pollAttempts = 0;
+          const maxPollAttempts = 40;
           setTimeout(() => {
-            window.location.reload();
-          }, 3500);
+            const reconnectTimer = setInterval(async () => {
+              pollAttempts++;
+              const statusElem = document.getElementById('updateReconnectStatus');
+              try {
+                const ping = await fetch('/api/status?_t=' + Date.now(), { cache: 'no-store' });
+                if (ping.ok) {
+                  clearInterval(reconnectTimer);
+                  if (statusElem) {
+                    statusElem.innerHTML = '<span>✅ Máy chủ đã sẵn sàng! Đang tải lại Bảng điều khiển...</span>';
+                  }
+                  setTimeout(() => {
+                    window.location.reload();
+                  }, 800);
+                  return;
+                }
+              } catch (pingErr) {
+                // Server đang trong quá trình boot lại, tiếp tục chờ
+              }
+
+              if (statusElem) {
+                statusElem.innerHTML = `
+                  <span class="animate-spin">🔄</span>
+                  <span>Đang kết nối lại máy chủ (thử lại lần ${pollAttempts})...</span>
+                  <button onclick="window.location.reload()" class="ml-2 underline text-white hover:text-cyan-300">Tải lại ngay</button>
+                `;
+              }
+
+              if (pollAttempts >= maxPollAttempts) {
+                clearInterval(reconnectTimer);
+                if (statusElem) {
+                  statusElem.innerHTML = `
+                    <span>⚠️ Máy chủ mất nhiều thời gian hơn dự kiến.</span>
+                    <button onclick="window.location.reload()" class="ml-2 underline font-bold text-white hover:text-cyan-300">Bấm vào đây để tải lại trang</button>
+                  `;
+                }
+              }
+            }, 1500);
+          }, 3000);
         } else {
           if (notice) {
             notice.className = 'p-3 rounded-xl bg-red-950/40 border border-red-500/40 text-red-300 text-xs flex items-center space-x-2';
@@ -1401,15 +1450,22 @@
           if (checkBtn) checkBtn.disabled = false;
         }
       } catch (e) {
+        // Nếu fetch bị ngắt kết nối do server đã restart nhanh
         if (notice) {
-          notice.className = 'p-3 rounded-xl bg-red-950/40 border border-red-500/40 text-red-300 text-xs flex items-center space-x-2';
-          notice.innerHTML = '<span>❌</span><span>Lỗi kết nối máy chủ: ' + e.message + '</span>';
+          notice.className = 'p-3 rounded-xl bg-amber-950/40 border border-amber-500/40 text-amber-300 text-xs flex flex-col space-y-2';
+          notice.innerHTML = `
+            <div class="flex items-center space-x-2">
+              <span class="animate-spin">🔄</span>
+              <span>Máy chủ đang khởi động lại sau khi nạp bản cập nhật...</span>
+            </div>
+            <div class="mt-1">
+              <button onclick="window.location.reload()" class="underline text-white hover:text-cyan-300">Bấm vào đây để tải lại trang</button>
+            </div>
+          `;
         }
-        if (applyBtn) {
-          applyBtn.disabled = false;
-          applyBtn.innerHTML = '<span>⬇️</span><span>Thử lại</span>';
-        }
-        if (checkBtn) checkBtn.disabled = false;
+        setTimeout(() => {
+          window.location.reload();
+        }, 5000);
       }
     }
 
