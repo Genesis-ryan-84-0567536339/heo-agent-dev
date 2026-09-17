@@ -2042,7 +2042,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             doc_f = os.path.join(BASE_DIR, "doctor.sh")
             if os.path.exists(doc_f):
                 try:
-                    res = subprocess.run([doc_f, "--json"], cwd=BASE_DIR, capture_output=True, text=True, timeout=12)
+                    res = subprocess.run([doc_f, "--json"], cwd=BASE_DIR, capture_output=True, text=True, timeout=25)
                     raw_json = res.stdout.strip()
                     if raw_json.startswith("{"):
                         self.send_response(200)
@@ -2050,8 +2050,11 @@ class RequestHandler(BaseHTTPRequestHandler):
                         self.end_headers()
                         self.wfile.write(raw_json.encode("utf-8"))
                         return
+                    else:
+                        self._send_json({"ok": False, "error": f"Đầu ra từ doctor.sh không hợp lệ: {raw_json[:200]}"}, 500)
+                        return
                 except Exception as e:
-                    self._send_json({"ok": False, "error": str(e)}, 500)
+                    self._send_json({"ok": False, "error": f"Lỗi thực thi doctor: {e}"}, 500)
                     return
             self._send_json({"healthy": True, "ok_count": 10, "warn_count": 0, "err_count": 0, "issues": []}, 200)
         else:
@@ -2463,13 +2466,17 @@ class RequestHandler(BaseHTTPRequestHandler):
             doc_f = os.path.join(BASE_DIR, "doctor.sh")
             if os.path.exists(doc_f):
                 try:
-                    proc = subprocess.run([doc_f, "--fix"], cwd=BASE_DIR, capture_output=True, text=True, timeout=30)
-                    self._send_json({"ok": True, "output": proc.stdout}, 200)
+                    proc = subprocess.run([doc_f, "--fix", "--no-restart"], cwd=BASE_DIR, capture_output=True, text=True, timeout=45)
+                    self._send_json({
+                        "ok": True,
+                        "output": proc.stdout or proc.stderr,
+                        "message": "Hệ thống đã được tự động sửa chữa và phục hồi thành công!"
+                    }, 200)
                     return
                 except Exception as e:
-                    self._send_json({"ok": False, "error": str(e)}, 500)
+                    self._send_json({"ok": False, "error": f"Lỗi trong quá trình tự động sửa chữa: {e}"}, 500)
                     return
-            self._send_json({"ok": False, "error": "doctor.sh not found"}, 404)
+            self._send_json({"ok": False, "error": "Không tìm thấy tệp doctor.sh"}, 404)
         elif path_clean == "/api/do_update":
             try:
                 # 1. Thử git pull

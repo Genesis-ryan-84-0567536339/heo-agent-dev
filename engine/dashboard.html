@@ -1077,7 +1077,7 @@
             <input type="checkbox" id="chkAcceptDisclaimer" onchange="toggleAcceptDisclaimerBtn()" class="mt-0.5 rounded border-slate-700 text-amber-500 focus:ring-amber-400 cursor-pointer">
             <span>Tôi xác nhận đã đọc kỹ, hiểu rõ và <strong>chấp thuận vô điều kiện</strong> toàn bộ Điều khoản sử dụng & Tuyên bố miễn trừ mọi trách nhiệm pháp lý, dân sự và tài chính từ tác giả Ryan khi sử dụng phần mềm này.</span>
           </label>
-          <button type="button" id="btnAcceptDisclaimer" onclick="submitAcceptDisclaimer()" disabled class="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-40 disabled:cursor-not-allowed text-dark-950 font-bold text-xs md:text-sm shadow-lg shadow-amber-500/20 transition flex items-center justify-center space-x-2 cursor-pointer">
+          <button type="button" id="btnAcceptDisclaimer" onclick="submitAcceptDisclaimer()" class="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-dark-950 font-bold text-xs md:text-sm shadow-lg shadow-amber-500/20 transition flex items-center justify-center space-x-2 cursor-pointer">
             <span>✅</span>
             <span id="btnAcceptDisclaimerText">Chấp Thuận & Bắt Đầu Sử Dụng</span>
           </button>
@@ -1317,6 +1317,21 @@
       try {
         const res = await fetch('/api/doctor');
         const data = await res.json();
+
+        if (!res.ok || data.ok === false) {
+          if (container) {
+            container.innerHTML = `
+              <div class="p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 text-center space-y-2">
+                <div class="text-2xl">⚠️</div>
+                <div class="font-bold text-sm">Không thể nạp báo cáo khám sức khỏe</div>
+                <div class="text-xs text-slate-400">${data.error || 'Lỗi HTTP ' + res.status}</div>
+                <button type="button" onclick="loadDoctorReport()" class="mt-2 px-4 py-1.5 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-200 text-xs font-semibold cursor-pointer transition">🔄 Thử Lại</button>
+              </div>
+            `;
+          }
+          return;
+        }
+
         if (okElem) okElem.textContent = data.ok_count ?? 0;
         if (warnElem) warnElem.textContent = data.warn_count ?? 0;
         if (errElem) errElem.textContent = data.err_count ?? 0;
@@ -1327,7 +1342,7 @@
               <div class="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-center space-y-1">
                 <div class="text-2xl">🎉</div>
                 <div class="font-bold text-sm">Hệ thống hoàn toàn khỏe mạnh 100%!</div>
-                <div class="text-slate-400 text-xs">Tất cả 10 tiêu chuẩn vận hành (Docker, Cổng mạng, AGY Core Agent, Session Zalo, Token Google, Quyền thư mục) đều đạt chuẩn.</div>
+                <div class="text-slate-400 text-xs">Tất cả 10 tiêu chuẩn vận hành (Docker / Container, Cổng mạng, AGY Core Agent, Session Zalo, Token Google, Quyền thư mục) đều đạt chuẩn.</div>
               </div>
             `;
           } else {
@@ -1345,7 +1360,14 @@
         }
       } catch (e) {
         if (container) {
-          container.innerHTML = `<div class="p-4 text-center text-red-400">Lỗi kết nối kiểm tra: ${e.message}</div>`;
+          container.innerHTML = `
+            <div class="p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 text-center space-y-2">
+              <div class="text-2xl">⚠️</div>
+              <div class="font-bold text-sm">Lỗi kết nối kiểm tra sức khỏe</div>
+              <div class="text-xs text-slate-400">${e.message}</div>
+              <button type="button" onclick="loadDoctorReport()" class="mt-2 px-4 py-1.5 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-200 text-xs font-semibold cursor-pointer transition">🔄 Thử Lại</button>
+            </div>
+          `;
         }
       }
     }
@@ -1360,7 +1382,7 @@
         const res = await fetch('/api/doctor_repair', { method: 'POST' });
         const data = await res.json();
         if (data.ok) {
-          showToast('🎉 Đã phục hồi và sửa chữa hệ thống thành công!');
+          showToast('🎉 ' + (data.message || 'Đã phục hồi và sửa chữa hệ thống thành công!'));
           await loadDoctorReport();
           refreshData();
         } else {
@@ -2790,11 +2812,7 @@
     // ĐIỀU KHOẢN SỬ DỤNG & TUYÊN BỐ MIỄN TRỪ TRÁCH NHIỆM (DISCLAIMER)
     // -------------------------------------------------------------
     function toggleAcceptDisclaimerBtn() {
-      const chk = document.getElementById('chkAcceptDisclaimer');
-      const btn = document.getElementById('btnAcceptDisclaimer');
-      if (btn && chk) {
-        btn.disabled = !chk.checked;
-      }
+      // Kept for backward compatibility
     }
 
     async function loadDisclaimerContent() {
@@ -2839,15 +2857,14 @@
       const textBody = document.getElementById('disclaimerTextBody');
       const chk = document.getElementById('chkAcceptDisclaimer');
 
-      if (chk) chk.checked = false;
-      toggleAcceptDisclaimerBtn();
+      if (chk) chk.checked = true;
+
+      if (closeBtn) closeBtn.classList.remove('hidden');
 
       if (isMandatory || !hasAcceptedDisclaimer) {
-        if (closeBtn) closeBtn.classList.add('hidden');
         if (mandatoryNotice) mandatoryNotice.classList.remove('hidden');
         if (viewOnlyNotice) viewOnlyNotice.classList.add('hidden');
       } else {
-        if (closeBtn) closeBtn.classList.remove('hidden');
         if (mandatoryNotice) mandatoryNotice.classList.add('hidden');
         if (viewOnlyNotice) viewOnlyNotice.classList.remove('hidden');
       }
@@ -2861,13 +2878,13 @@
     }
 
     function closeDisclaimerModal() {
-      if (!hasAcceptedDisclaimer) {
-        return; // Bắt buộc phải chấp thuận ở lần đầu tiên
-      }
       document.getElementById('disclaimerModal').classList.add('hidden');
     }
 
     async function submitAcceptDisclaimer() {
+      const chk = document.getElementById('chkAcceptDisclaimer');
+      if (chk) chk.checked = true;
+
       const btn = document.getElementById('btnAcceptDisclaimer');
       const btnText = document.getElementById('btnAcceptDisclaimerText');
       if (btn) btn.disabled = true;

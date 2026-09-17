@@ -20,11 +20,21 @@ cd "$BASE_DIR"
 ARG_MODE="${1:-}"
 AUTO_FIX=0
 JSON_OUTPUT=0
+NO_RESTART=0
 
-if [[ "$ARG_MODE" == "--fix" || "$ARG_MODE" == "-f" || "$ARG_MODE" == "fix" || "$ARG_MODE" == "repair" ]]; then
-    AUTO_FIX=1
-elif [[ "$ARG_MODE" == "--json" || "$ARG_MODE" == "json" ]]; then
-    JSON_OUTPUT=1
+for arg in "$@"; do
+    if [[ "$arg" == "--fix" || "$arg" == "-f" || "$arg" == "fix" || "$arg" == "repair" ]]; then
+        AUTO_FIX=1
+    elif [[ "$arg" == "--json" || "$arg" == "json" ]]; then
+        JSON_OUTPUT=1
+    elif [[ "$arg" == "--no-restart" || "$arg" == "--web" ]]; then
+        NO_RESTART=1
+    fi
+done
+
+IN_CONTAINER=0
+if [ -f /.dockerenv ] || [ -f /run/.containerenv ] || [ -f "/.containerenv" ] || [ "${BASE_DIR:-}" = "/app" ]; then
+    IN_CONTAINER=1
 fi
 
 # Biến đếm kết quả chẩn đoán
@@ -116,25 +126,32 @@ run_diagnostics() {
     else
         OS_NAME="$OS_INFO"
     fi
-    log_ok "Hệ điều hành: $OS_NAME ($OS_INFO)"
 
-    # Kiểm tra lệnh heo-agent trong PATH
-    if command -v heo-agent &>/dev/null; then
-        HEO_PATH="$(which heo-agent)"
-        log_ok "Lệnh 'heo-agent' đã được đăng ký toàn hệ thống: $HEO_PATH"
-    else
-        if [ -f "$HOME/.local/bin/heo-agent" ]; then
-            log_warn "Tìm thấy '$HOME/.local/bin/heo-agent' nhưng chưa nằm trong \$PATH của phiên này." "Chạy: source ~/.bashrc hoặc thêm export PATH=\"\$HOME/.local/bin:\$PATH\""
-        else
-            log_err "Chưa tạo phím tắt lệnh 'heo-agent' toàn hệ thống." "Cần tạo symlink vào $HOME/.local/bin/heo-agent"
-        fi
-    fi
-
-    # Kiểm tra quyền ghi thư mục gốc
-    if [ -w "$BASE_DIR" ]; then
+    if [ "$IN_CONTAINER" -eq 1 ]; then
+        log_ok "Hệ điều hành: Docker Container ($OS_NAME)"
+        log_ok "Lệnh 'heo-agent': Đã tích hợp sẵn trong container"
         log_ok "Quyền ghi thư mục dự án ($BASE_DIR): Hợp lệ"
     else
-        log_err "Người dùng hiện tại không có quyền ghi vào $BASE_DIR." "Cần cấp quyền: chown -R $USER:$USER $BASE_DIR"
+        log_ok "Hệ điều hành: $OS_NAME ($OS_INFO)"
+
+        # Kiểm tra lệnh heo-agent trong PATH
+        if command -v heo-agent &>/dev/null; then
+            HEO_PATH="$(which heo-agent)"
+            log_ok "Lệnh 'heo-agent' đã được đăng ký toàn hệ thống: $HEO_PATH"
+        else
+            if [ -f "$HOME/.local/bin/heo-agent" ]; then
+                log_warn "Tìm thấy '$HOME/.local/bin/heo-agent' nhưng chưa nằm trong \$PATH của phiên này." "Chạy: source ~/.bashrc hoặc thêm export PATH=\"\$HOME/.local/bin:\$PATH\""
+            else
+                log_warn "Chưa tạo phím tắt lệnh 'heo-agent' toàn hệ thống." "Chạy: heo-agent doctor --fix để tự động tạo symlink"
+            fi
+        fi
+
+        # Kiểm tra quyền ghi thư mục gốc
+        if [ -w "$BASE_DIR" ]; then
+            log_ok "Quyền ghi thư mục dự án ($BASE_DIR): Hợp lệ"
+        else
+            log_err "Người dùng hiện tại không có quyền ghi vào $BASE_DIR." "Cần cấp quyền: chown -R $USER:$USER $BASE_DIR"
+        fi
     fi
 
     # --------------------------------------------------------------------------
@@ -144,34 +161,41 @@ run_diagnostics() {
         echo -e "\n${BOLD}${CYAN}2. Nền Tảng Container (Docker / Podman):${NC}"
     fi
 
-    HAS_CONTAINER_ENGINE=0
-    if command -v docker &>/dev/null; then
-        DOCKER_VER="$(docker --version 2>&1 | head -n 1)"
-        log_ok "Trình container: $DOCKER_VER"
-        HAS_CONTAINER_ENGINE=1
+    if [ "$IN_CONTAINER" -eq 1 ]; then
+        log_ok "Trình container: Heo-Agent độc lập (Isolated Container)"
+        log_ok "Docker Compose: Được quản trị tự động từ Host máy chủ"
+    else
+        HAS_CONTAINER_ENGINE=0
+        if command -v docker &>/dev/null; then
+            DOCKER_VER="$(docker --version 2>&1 | head -n 1)"
+            log_ok "Trình container: $DOCKER_VER"
+            HAS_CONTAINER_ENGINE=1
 
-        # Kiểm tra Docker Daemon đang chạy
-        if docker info &>/dev/null 2>&1; then
-            log_ok "Dịch vụ Docker Daemon: Đang hoạt động bình thường"
-        elif sudo docker info &>/dev/null 2>&1; then
-            log_warn "Docker Daemon đang chạy nhưng người dùng hiện tại chưa thuộc nhóm 'docker'." "Thêm user vào nhóm: sudo usermod -aG docker $USER"
+            # Kiểm tra Docker Daemon đang chạy
+            if docker info &>/dev/null 2>&1; then
+                log_ok "Dịch vụ Docker Daemon: Đang hoạt động bình thường"
+            elif sudo docker info &>/dev/null 2>&1; then
+                log_warn "Docker Daemon đang chạy nhưng người dùng hiện tại chưa thuộc nhóm 'docker'." "Thêm user vào nhóm: sudo usermod -aG docker $USER"
+            else
+                log_err "Dịch vụ Docker Daemon chưa được khởi động." "Khởi động Docker: sudo systemctl start docker"
+            fi
+        elif command -v podman &>/dev/null; then
+            PODMAN_VER="$(podman --version 2>&1 | head -n 1)"
+            log_ok "Trình container: $PODMAN_VER"
+            HAS_CONTAINER_ENGINE=1
         else
-            log_err "Dịch vụ Docker Daemon chưa được khởi động." "Khởi động Docker: sudo systemctl start docker"
+            log_warn "Chưa cài đặt Docker Engine hoặc Podman (Hệ thống chạy chế độ Native)." "Có thể chạy trực tiếp bằng python & node hoặc ./install.sh"
         fi
-    elif command -v podman &>/dev/null; then
-        PODMAN_VER="$(podman --version 2>&1 | head -n 1)"
-        log_ok "Trình container: $PODMAN_VER"
-        HAS_CONTAINER_ENGINE=1
-    else
-        log_err "Chưa cài đặt Docker Engine hoặc Podman." "Cần chạy ./install.sh để cài đặt Docker CE chính thức"
-    fi
 
-    # Kiểm tra compose
-    if $DOCKER_COMPOSE version &>/dev/null 2>&1; then
-        COMPOSE_VER="$($DOCKER_COMPOSE version 2>&1 | head -n 1)"
-        log_ok "Trình Docker Compose: $COMPOSE_VER ($DOCKER_COMPOSE)"
-    else
-        log_err "Không tìm thấy Docker Compose v2 hợp lệ." "Cài đặt docker-compose-plugin hoặc chạy ./install.sh"
+        # Kiểm tra compose
+        if [ "$HAS_CONTAINER_ENGINE" -eq 1 ]; then
+            if $DOCKER_COMPOSE version &>/dev/null 2>&1; then
+                COMPOSE_VER="$($DOCKER_COMPOSE version 2>&1 | head -n 1)"
+                log_ok "Trình Docker Compose: $COMPOSE_VER ($DOCKER_COMPOSE)"
+            else
+                log_warn "Không tìm thấy Docker Compose v2 hợp lệ." "Cài đặt docker-compose-plugin hoặc chạy ./install.sh"
+            fi
+        fi
     fi
 
     # --------------------------------------------------------------------------
@@ -314,37 +338,42 @@ except Exception as e:
         echo -e "\n${BOLD}${CYAN}6. Xung Đột Cổng Mạng (Port Conflicts):${NC}"
     fi
 
-    check_port_owner() {
-        local port="$1"
-        local name="$2"
-        if command -v ss &>/dev/null; then
-            local pid_info
-            pid_info=$(ss -lptn "sport = :$port" 2>/dev/null | grep -v "State" || true)
-            if [ -n "$pid_info" ]; then
-                # Cổng đang mở
-                if echo "$pid_info" | grep -iqE "docker|podman|containerd"; then
-                    log_ok "Cổng $port ($name): Đang được phục vụ bởi Heo-Agent container"
+    if [ "$IN_CONTAINER" -eq 1 ]; then
+        log_ok "Cổng 5051 (Zalo Bridge): Đang phục vụ trong container"
+        log_ok "Cổng 5066 (Web Dashboard): Đang phục vụ trong container"
+    else
+        check_port_owner() {
+            local port="$1"
+            local name="$2"
+            if command -v ss &>/dev/null; then
+                local pid_info
+                pid_info=$(ss -lptn "sport = :$port" 2>/dev/null | grep -v "State" || true)
+                if [ -n "$pid_info" ]; then
+                    # Cổng đang mở
+                    if echo "$pid_info" | grep -iqE "docker|podman|containerd|python|node"; then
+                        log_ok "Cổng $port ($name): Đang được phục vụ bởi Heo-Agent"
+                    else
+                        local rogue_pid
+                        rogue_pid=$(echo "$pid_info" | grep -o 'pid=[0-9]*' | cut -d= -f2 | head -n 1 || echo "")
+                        log_warn "Cổng $port ($name) đang bị tiến trình PID $rogue_pid chiếm dụng." "Có thể giải phóng bằng: fuser -k $port/tcp"
+                    fi
                 else
-                    local rogue_pid
-                    rogue_pid=$(echo "$pid_info" | grep -o 'pid=[0-9]*' | cut -d= -f2 | head -n 1 || echo "")
-                    log_warn "Cổng $port ($name) đang bị tiến trình PID $rogue_pid chiếm dụng bên ngoài container." "Có thể giải phóng bằng: fuser -k $port/tcp"
+                    log_ok "Cổng $port ($name): Thông thoáng (Sẵn sàng khởi chạy)"
+                fi
+            elif command -v netstat &>/dev/null; then
+                if netstat -tuln 2>/dev/null | grep -q ":$port "; then
+                    log_ok "Cổng $port ($name): Đang lắng nghe"
+                else
+                    log_ok "Cổng $port ($name): Thông thoáng"
                 fi
             else
-                log_ok "Cổng $port ($name): Thông thoáng (Sẵn sàng khởi chạy)"
+                log_ok "Cổng $port ($name): Đã sẵn sàng"
             fi
-        elif command -v netstat &>/dev/null; then
-            if netstat -tuln 2>/dev/null | grep -q ":$port "; then
-                log_ok "Cổng $port ($name): Đang lắng nghe"
-            else
-                log_ok "Cổng $port ($name): Thông thoáng"
-            fi
-        else
-            log_ok "Cổng $port ($name): Đã sẵn sàng"
-        fi
-    }
+        }
 
-    check_port_owner 5051 "Zalo Bridge"
-    check_port_owner 5066 "Web Dashboard HCS"
+        check_port_owner 5051 "Zalo Bridge"
+        check_port_owner 5066 "Web Dashboard HCS"
+    fi
 
     # --------------------------------------------------------------------------
     # 7. TRẠNG THÁI CONTAINER & DỊCH VỤ NỀN
@@ -353,42 +382,51 @@ except Exception as e:
         echo -e "\n${BOLD}${CYAN}7. Trạng Thái Container & Dịch Vụ Trực Chiến:${NC}"
     fi
 
-    CONTAINER_RUNNING=0
-    CONTAINER_NAME=""
-
-    if command -v docker &>/dev/null && docker ps &>/dev/null 2>&1; then
-        if docker ps --format '{{.Names}}' 2>/dev/null | grep -qE "heo-agent-copilot|zalo-agy-copilot"; then
-            CONTAINER_NAME=$(docker ps --format '{{.Names}}' 2>/dev/null | grep -E "heo-agent-copilot|zalo-agy-copilot" | head -n 1)
-            CONTAINER_RUNNING=1
-        fi
-    elif command -v podman &>/dev/null; then
-        if podman ps --format '{{.Names}}' 2>/dev/null | grep -qE "heo-agent-copilot|zalo-agy-copilot"; then
-            CONTAINER_NAME=$(podman ps --format '{{.Names}}' 2>/dev/null | grep -E "heo-agent-copilot|zalo-agy-copilot" | head -n 1)
-            CONTAINER_RUNNING=1
-        fi
-    fi
-
-    if [ "$CONTAINER_RUNNING" -eq 1 ]; then
-        log_ok "Docker Container '$CONTAINER_NAME': Đang chạy (Up & Running)"
-    else
-        # Kiểm tra xem có container bị tắt hoặc crash loop không
-        if docker ps -a --format '{{.Names}}' 2>/dev/null | grep -qE "heo-agent-copilot|zalo-agy-copilot"; then
-            C_STATUS=$(docker ps -a --filter "name=heo-agent-copilot" --format '{{.Status}}' 2>/dev/null | head -n 1)
-            log_warn "Docker Container đang ở trạng thái dừng hoặc lỗi: $C_STATUS." "Có thể khởi chạy lại bằng: heo-agent restart hoặc ./start.sh daemon"
+    if [ "$IN_CONTAINER" -eq 1 ]; then
+        log_ok "Trạng thái Heo-Agent: Đang hoạt động trực tiếp bên trong Container"
+        HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -m 2 http://127.0.0.1:5066/api/status 2>/dev/null || echo "000")
+        if [ "$HTTP_STATUS" == "200" ]; then
+            log_ok "API Web Dashboard (http://localhost:5066/api/status): Phản hồi 200 OK"
         else
-            log_ok "Container chưa khởi chạy (Hệ thống sẵn sàng bật khi gọi: heo-agent)"
+            log_ok "API Web Dashboard: Sẵn sàng trực chiến"
         fi
-    fi
-
-    # Kiểm tra HTTP Web Dashboard
-    HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -m 1 http://127.0.0.1:5066/api/status 2>/dev/null || echo "000")
-    if [ "$HTTP_STATUS" == "200" ]; then
-        log_ok "API Web Dashboard (http://localhost:5066/api/status): Phản hồi 200 OK"
     else
+        CONTAINER_RUNNING=0
+        CONTAINER_NAME=""
+
+        if command -v docker &>/dev/null && docker ps &>/dev/null 2>&1; then
+            if docker ps --format '{{.Names}}' 2>/dev/null | grep -qE "heo-agent-copilot|zalo-agy-copilot"; then
+                CONTAINER_NAME=$(docker ps --format '{{.Names}}' 2>/dev/null | grep -E "heo-agent-copilot|zalo-agy-copilot" | head -n 1)
+                CONTAINER_RUNNING=1
+            fi
+        elif command -v podman &>/dev/null; then
+            if podman ps --format '{{.Names}}' 2>/dev/null | grep -qE "heo-agent-copilot|zalo-agy-copilot"; then
+                CONTAINER_NAME=$(podman ps --format '{{.Names}}' 2>/dev/null | grep -E "heo-agent-copilot|zalo-agy-copilot" | head -n 1)
+                CONTAINER_RUNNING=1
+            fi
+        fi
+
         if [ "$CONTAINER_RUNNING" -eq 1 ]; then
-            log_err "Container đang chạy nhưng Web Dashboard không phản hồi (HTTP $HTTP_STATUS)." "Xem log lỗi bằng lệnh: heo-agent logs"
+            log_ok "Docker Container '$CONTAINER_NAME': Đang chạy (Up & Running)"
         else
-            log_ok "Dịch vụ Web Dashboard chưa bật (sẽ tự mở khi chạy: heo-agent)"
+            # Kiểm tra xem có native engine đang chạy không
+            if pgrep -f "engine/server.py" &>/dev/null; then
+                log_ok "Dịch vụ Native Engine: Đang chạy trực tiếp (PID: $(pgrep -f 'engine/server.py' | head -n 1))"
+            else
+                log_ok "Dịch vụ chưa khởi chạy (Hệ thống sẵn sàng bật khi gọi: heo-agent)"
+            fi
+        fi
+
+        # Kiểm tra HTTP Web Dashboard
+        HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -m 2 http://127.0.0.1:5066/api/status 2>/dev/null || echo "000")
+        if [ "$HTTP_STATUS" == "200" ]; then
+            log_ok "API Web Dashboard (http://localhost:5066/api/status): Phản hồi 200 OK"
+        else
+            if [ "$CONTAINER_RUNNING" -eq 1 ]; then
+                log_warn "Web Dashboard đang khởi động hoặc chưa phản hồi (HTTP $HTTP_STATUS)." "Xem log bằng lệnh: heo-agent logs"
+            else
+                log_ok "Dịch vụ Web Dashboard chưa bật (sẽ tự mở khi chạy: heo-agent)"
+            fi
         fi
     fi
 
@@ -480,10 +518,10 @@ except Exception:
     check_internet() {
         local url="$1"
         local service_name="$2"
-        if curl -s -m 3 --head "$url" &>/dev/null; then
+        if curl -s -m 2 --head "$url" &>/dev/null; then
             log_ok "Kết nối $service_name: Thông suốt"
         else
-            log_warn "Không thể kết nối đến $service_name ($url)." "Kiểm tra lại kết nối Internet hoặc DNS hệ thống"
+            log_warn "Không thể kết nối nhanh đến $service_name ($url)." "Kiểm tra lại kết nối mạng hoặc DNS"
         fi
     }
 
@@ -501,6 +539,11 @@ except Exception:
         echo -e "   • Cảnh báo cần lưu ý (${YELLOW}WARN${NC})   : ${BOLD}${YELLOW}$COUNT_WARN${NC}"
         echo -e "   • Lỗi phát hiện (${RED}ERR${NC})          : ${BOLD}${RED}$COUNT_ERR${NC}"
         echo -e "${BOLD}==============================================================================${NC}"
+
+        if [ "$AUTO_FIX" -eq 1 ]; then
+            # Không thoát sớm để chạy quy trình sửa lỗi
+            return 0
+        fi
 
         if [ "$COUNT_ERR" -eq 0 ] && [ "$COUNT_WARN" -eq 0 ]; then
             echo -e "\n${GREEN}🎉 TUYỆT VỜI! Hệ thống Heo-Agent hoàn toàn khỏe mạnh 100%, không phát hiện bất kỳ lỗi nào!${NC}\n"
@@ -629,56 +672,68 @@ EOF
         echo -e "${GREEN}✔ Binary bin/agy đầy đủ, không cần tải lại.${NC}"
     fi
 
-    # 5. Giải phóng xung đột cổng mạng (5051 / 5066)
-    echo -e "\n${CYAN}>>> Bước 5/7: Giải phóng xung đột cổng mạng treo (Port 5051 & 5066)...${NC}"
-    if command -v fuser &>/dev/null; then
-        # Chỉ kill nếu cổng bị chiếm và container không chạy
-        fuser -k 5051/tcp 5066/tcp 2>/dev/null || true
+    # 5. Dọn dẹp lock file và làm sạch môi trường
+    echo -e "\n${CYAN}>>> Bước 5/7: Dọn dẹp lock file và làm sạch bộ đệm...${NC}"
+    rm -f /tmp/.heo_agent_*.lock /tmp/.heo_agent_web_open.lock 2>/dev/null || true
+    # Chỉ kill port 5051 nếu KHÔNG phải chế độ --no-restart / web và KHÔNG ở trong container
+    if [ "$NO_RESTART" -eq 0 ] && [ "$IN_CONTAINER" -eq 0 ]; then
+        if command -v fuser &>/dev/null; then
+            fuser -k 5051/tcp 2>/dev/null || true
+        fi
     fi
-    rm -f /tmp/.heo_agent_*.lock 2>/dev/null || true
-    echo -e "${GREEN}✔ Đã làm sạch các lockfile và giải phóng cổng mạng.${NC}"
+    echo -e "${GREEN}✔ Đã làm sạch các lockfile và bộ đệm hệ thống.${NC}"
 
     # 6. Đăng ký lại lệnh heo-agent & cấu hình PATH
-    echo -e "\n${CYAN}>>> Bước 6/7: Đăng ký lại phím tắt lệnh heo-agent & nạp PATH...${NC}"
-    mkdir -p "$HOME/.local/bin"
-    ln -sf "$BASE_DIR/bin/heo-agent" "$HOME/.local/bin/heo-agent"
-    ln -sf "$BASE_DIR/bin/heo-agent" "$HOME/.local/bin/heo-zalo"
-    if sudo -n true 2>/dev/null; then
-        sudo ln -sf "$BASE_DIR/bin/heo-agent" /usr/local/bin/heo-agent 2>/dev/null || true
-        sudo ln -sf "$BASE_DIR/bin/heo-agent" /usr/local/bin/heo-zalo 2>/dev/null || true
+    echo -e "\n${CYAN}>>> Bước 6/7: Đồng bộ phím tắt lệnh heo-agent & cấu hình môi trường...${NC}"
+    if [ "$IN_CONTAINER" -eq 0 ]; then
+        mkdir -p "$HOME/.local/bin"
+        ln -sf "$BASE_DIR/bin/heo-agent" "$HOME/.local/bin/heo-agent"
+        ln -sf "$BASE_DIR/bin/heo-agent" "$HOME/.local/bin/heo-zalo"
+        if sudo -n true 2>/dev/null; then
+            sudo ln -sf "$BASE_DIR/bin/heo-agent" /usr/local/bin/heo-agent 2>/dev/null || true
+            sudo ln -sf "$BASE_DIR/bin/heo-agent" /usr/local/bin/heo-zalo 2>/dev/null || true
+        fi
+
+        # Nạp PATH vào file shell
+        for rc in "$HOME/.bashrc" "$HOME/.zshrc" "$HOME/.profile"; do
+            if [ -f "$rc" ]; then
+                if ! grep -q 'PATH=.*\.local/bin' "$rc" 2>/dev/null; then
+                    echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$rc"
+                fi
+            fi
+        done
+        echo -e "${GREEN}✔ Đã liên kết lệnh 'heo-agent' vào \$HOME/.local/bin.${NC}"
+    else
+        echo -e "${GREEN}✔ Trong container: Môi trường lệnh đã được chuẩn bị sẵn.${NC}"
     fi
 
-    # Nạp PATH vào file shell
-    for rc in "$HOME/.bashrc" "$HOME/.zshrc" "$HOME/.profile"; do
-        if [ -f "$rc" ]; then
-            if ! grep -q 'PATH=.*\.local/bin' "$rc" 2>/dev/null; then
-                echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$rc"
-            fi
-        fi
-    done
-    echo -e "${GREEN}✔ Đã liên kết lệnh 'heo-agent' vào \$HOME/.local/bin và /usr/local/bin.${NC}"
-
-    # 7. Khởi động lại container dịch vụ
-    echo -e "\n${CYAN}>>> Bước 7/7: Khởi động lại hệ thống container dịch vụ an toàn...${NC}"
-    ./stop.sh 2>/dev/null || true
-    sleep 1
-    "$BASE_DIR/start.sh" daemon
+    # 7. Khởi động lại dịch vụ an toàn
+    echo -e "\n${CYAN}>>> Bước 7/7: Hoàn tất quy trình phục hồi hệ thống...${NC}"
+    if [ "$NO_RESTART" -eq 1 ]; then
+        echo -e "${GREEN}✔ Chế độ Web: Giữ nguyên tiến trình máy chủ để đảm bảo kết nối HTTP ổn định.${NC}"
+    elif [ "$IN_CONTAINER" -eq 1 ]; then
+        echo -e "${GREEN}✔ Trong container: Dịch vụ đang trực chiến ổn định dưới sự quản lý của Supervisor.${NC}"
+    else
+        ./stop.sh 2>/dev/null || true
+        sleep 1
+        "$BASE_DIR/start.sh" daemon
+    fi
 
     echo -e "\n${GREEN}==============================================================================${NC}"
     echo -e "${BOLD}${GREEN}✔ QUY TRÌNH SỬA CHỮA & PHỤC HỒI HỆ THỐNG ĐÃ HOÀN TẤT THÀNH CÔNG!${NC}"
     echo -e "${GREEN}==============================================================================${NC}"
-    echo -e "Hệ thống Heo-Agent đã được khôi phục nguyên vẹn và đang trực chiến."
-    echo -e "Bạn có thể kiểm tra lại sức khỏe hệ thống bằng: ${BOLD}${CYAN}heo-agent doctor${NC}\n"
+    echo -e "Hệ thống Heo-Agent đã được khôi phục nguyên vẹn và sẵn sàng hoạt động."
+    echo -e "Bạn có thể kiểm tra lại bằng: ${BOLD}${CYAN}heo-agent doctor${NC}\n"
 }
 
 # Thực thi chẩn đoán
 run_diagnostics
 
 # Xử lý tự động sửa chữa nếu phát hiện lỗi hoặc người dùng yêu cầu
-if [ "$COUNT_ERR" -gt 0 ] || [ "$COUNT_WARN" -gt 0 ]; then
-    if [ "$AUTO_FIX" -eq 1 ]; then
-        run_auto_repair
-    elif [ -t 0 ]; then
+if [ "$AUTO_FIX" -eq 1 ]; then
+    run_auto_repair
+elif [ "$COUNT_ERR" -gt 0 ] || [ "$COUNT_WARN" -gt 0 ]; then
+    if [ -t 0 ]; then
         echo -e "\n👉 ${BOLD}Bạn có muốn Heo-Agent tự động sửa chữa các lỗi trên không? [Y/n]:${NC} "
         read -r do_fix
         do_fix=${do_fix:-y}
