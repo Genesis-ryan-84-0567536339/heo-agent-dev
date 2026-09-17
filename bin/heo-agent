@@ -166,7 +166,47 @@ except Exception as e:
         fi
         ;;
     login-google)
-        echo "⚡ KHỞI CHẠY XÁC THỰC GOOGLE CHO AGY CLI..."
+        echo "⚡ ĐĂNG NHẬP TÀI KHOẢN GOOGLE MỚI CHO AGY CORE AGENT..."
+        echo ""
+        echo "📌 Bước này sẽ mở trình duyệt để bạn chọn tài khoản Google muốn dùng."
+        echo "   Bất kỳ tài khoản nào bạn chọn sẽ được dùng cho AI của Heo-Agent."
+        echo ""
+
+        HOST_AGY="$(which agy 2>/dev/null || echo "$HOME/.local/bin/agy")"
+
+        if [ -x "$HOST_AGY" ]; then
+            # Xóa token cũ để buộc OAuth chạy lại từ đầu
+            rm -f "$HOME/.gemini/antigravity-cli/antigravity-oauth-token" 2>/dev/null || true
+
+            echo "🌐 Đang mở trình duyệt để đăng nhập Google..."
+            "$HOST_AGY" --dangerously-skip-permissions -p "ping"
+
+            # Đọc token mới sau khi OAuth xong
+            NEW_TOKEN=""
+            if command -v secret-tool >/dev/null 2>&1; then
+                NEW_TOKEN=$(secret-tool lookup service gemini username antigravity 2>/dev/null || true)
+            fi
+            if [ -z "$NEW_TOKEN" ] && [ -f "$HOME/.gemini/antigravity-cli/antigravity-oauth-token" ]; then
+                NEW_TOKEN=$(cat "$HOME/.gemini/antigravity-cli/antigravity-oauth-token" 2>/dev/null || true)
+            fi
+            if [ -n "$NEW_TOKEN" ]; then
+                mkdir -p "$PROJECT_DIR/auth/home/.gemini/antigravity-cli"
+                echo "$NEW_TOKEN" > "$PROJECT_DIR/auth/home/.gemini/antigravity-cli/antigravity-oauth-token"
+                echo ""
+                echo "✔ Đăng nhập Google thành công và đã đồng bộ vào Heo-Agent!"
+                curl -s -X POST http://127.0.0.1:5066/api/check_quota >/dev/null 2>&1 || true
+                echo "💡 Chạy 'heo-agent status' để xem tài khoản đang dùng."
+            else
+                echo "❌ Chưa nhận được token Google. Vui lòng thử lại."
+            fi
+        else
+            echo "⚠️  Không tìm thấy lệnh 'agy' trên máy chủ."
+            echo "   Vui lòng đảm bảo AGY CLI đã được cài đặt, sau đó thử lại."
+            echo "   Hoặc mở Web Console: http://localhost:5066"
+        fi
+        ;;
+    sync-google)
+        # Lệnh ẩn: chỉ đồng bộ token hiện có (không chạy OAuth mới)
         HOST_TOKEN=""
         if command -v secret-tool >/dev/null 2>&1; then
             HOST_TOKEN=$(secret-tool lookup service gemini username antigravity 2>/dev/null || true)
@@ -177,29 +217,10 @@ except Exception as e:
         if [ -n "$HOST_TOKEN" ]; then
             mkdir -p "$PROJECT_DIR/auth/home/.gemini/antigravity-cli"
             echo "$HOST_TOKEN" > "$PROJECT_DIR/auth/home/.gemini/antigravity-cli/antigravity-oauth-token"
-            echo "✔ Đã tự động đồng bộ phiên đăng nhập Google từ máy chủ vào Heo-Agent!"
+            echo "✔ Đã đồng bộ phiên đăng nhập Google hiện tại vào Heo-Agent."
             curl -s -X POST http://127.0.0.1:5066/api/check_quota >/dev/null 2>&1 || true
         else
-            echo "🌐 Đang khởi chạy xác thực Google AGY qua trình duyệt máy chủ..."
-            HOST_AGY="$(which agy 2>/dev/null || echo "$HOME/.local/bin/agy")"
-            if [ -x "$HOST_AGY" ]; then
-                "$HOST_AGY" --dangerously-skip-permissions -p "ping"
-                if command -v secret-tool >/dev/null 2>&1; then
-                    HOST_TOKEN=$(secret-tool lookup service gemini username antigravity 2>/dev/null || true)
-                fi
-                if [ -z "$HOST_TOKEN" ] && [ -f "$HOME/.gemini/antigravity-cli/antigravity-oauth-token" ]; then
-                    HOST_TOKEN=$(cat "$HOME/.gemini/antigravity-cli/antigravity-oauth-token" 2>/dev/null || true)
-                fi
-                if [ -n "$HOST_TOKEN" ]; then
-                    mkdir -p "$PROJECT_DIR/auth/home/.gemini/antigravity-cli"
-                    echo "$HOST_TOKEN" > "$PROJECT_DIR/auth/home/.gemini/antigravity-cli/antigravity-oauth-token"
-                    echo "✔ Đăng nhập Google thành công và đã lưu vào Heo-Agent!"
-                    curl -s -X POST http://127.0.0.1:5066/api/check_quota >/dev/null 2>&1 || true
-                fi
-            else
-                echo "🌐 Vui lòng mở Web UI để cấu hình: http://localhost:5066"
-                open_web_ui
-            fi
+            echo "❌ Không có token Google nào để đồng bộ. Dùng: $CMD_NAME login-google"
         fi
         ;;
     logout-google)
