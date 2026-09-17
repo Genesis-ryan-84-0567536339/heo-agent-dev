@@ -511,17 +511,30 @@ def get_google_auth_info():
         )
         with urllib.request.urlopen(req, timeout=5) as r:
             code_resp = json.loads(r.read())
-            ct = code_resp.get("currentTier", {})
-            tier_id = ct.get("id", "free-tier")
-            raw_name = ct.get("name", "Antigravity")
-            if tier_id == "free-tier":
-                tier_name = "Miễn phí (Free Tier)"
-            elif "pro" in tier_id.lower() or "pro" in raw_name.lower():
-                tier_name = f"Google AI Pro ({raw_name})"
-            elif "ultra" in tier_id.lower():
-                tier_name = f"Google AI Ultra ({raw_name})"
+            pt = code_resp.get("paidTier")
+            if pt and isinstance(pt, dict) and pt.get("id"):
+                tier_id = pt.get("id", "g1-pro-tier")
+                raw_name = pt.get("name", "Google AI Pro")
+                if "pro" in tier_id.lower() or "pro" in raw_name.lower():
+                    tier_name = "Google AI Pro"
+                elif "ultra" in tier_id.lower() or "ultra" in raw_name.lower():
+                    tier_name = "Google AI Ultra"
+                else:
+                    tier_name = raw_name
             else:
-                tier_name = raw_name
+                ct = code_resp.get("currentTier", {})
+                tier_id = ct.get("id", "free-tier")
+                raw_name = ct.get("name", "Antigravity")
+                if tier_id == "free-tier":
+                    tier_name = "Miễn phí (Free Tier)"
+                elif "pro" in tier_id.lower() or "pro" in raw_name.lower():
+                    tier_name = f"Google AI Pro ({raw_name})"
+                elif "ultra" in tier_id.lower():
+                    tier_name = f"Google AI Ultra ({raw_name})"
+                elif tier_id == "standard-tier":
+                    tier_name = "Enterprise (GCP Standard)"
+                else:
+                    tier_name = raw_name
             if not email and "upgradeSubscriptionUri" in code_resp:
                 import urllib.parse as up
                 parsed = up.urlparse(code_resp["upgradeSubscriptionUri"])
