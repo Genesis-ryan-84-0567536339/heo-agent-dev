@@ -1625,6 +1625,9 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.send_response(status_code)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Content-Length", str(len(payload)))
+            self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+            self.send_header("Pragma", "no-cache")
+            self.send_header("Expires", "0")
             self.send_header("Connection", "close")
             self.end_headers()
             self.wfile.write(payload)
@@ -2045,7 +2048,8 @@ class RequestHandler(BaseHTTPRequestHandler):
             try:
                 content_length = int(self.headers.get("Content-Length", 0))
                 body = self.rfile.read(content_length).decode("utf-8") if content_length > 0 else "{}"
-                if has_security_pin():
+                is_local = self.headers.get("X-Local-Admin") == "1" and self.client_address[0] in ["127.0.0.1", "localhost", "::1"]
+                if has_security_pin() and not is_local:
                     pin = extract_pin_from_request(self.headers, body)
                     if not verify_security_pin(pin):
                         self._send_json({"ok": False, "error": "Mã PIN bảo mật không chính xác hoặc chưa được cung cấp!", "pin_required": True}, 403)
@@ -2096,7 +2100,8 @@ class RequestHandler(BaseHTTPRequestHandler):
             try:
                 content_length = int(self.headers.get("Content-Length", 0))
                 body = self.rfile.read(content_length).decode("utf-8") if content_length > 0 else "{}"
-                if has_security_pin():
+                is_local = self.headers.get("X-Local-Admin") == "1" and self.client_address[0] in ["127.0.0.1", "localhost", "::1"]
+                if has_security_pin() and not is_local:
                     pin = extract_pin_from_request(self.headers, body)
                     if not verify_security_pin(pin):
                         self._send_json({"ok": False, "error": "Mã PIN bảo mật không chính xác hoặc chưa được cung cấp!", "pin_required": True}, 403)

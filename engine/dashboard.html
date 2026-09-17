@@ -1114,10 +1114,10 @@
         });
         const data = await res.json();
         if (data.ok) {
-          closePinConfirmModal();
-          if (pendingPinAction) {
-            const action = pendingPinAction;
-            pendingPinAction = null;
+          const action = pendingPinAction;
+          pendingPinAction = null;
+          document.getElementById('pinConfirmModal').classList.add('hidden');
+          if (action) {
             action(pin);
           }
         } else {
