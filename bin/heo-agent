@@ -167,15 +167,35 @@ except Exception as e:
         if command -v secret-tool >/dev/null 2>&1; then
             HOST_TOKEN=$(secret-tool lookup service gemini username antigravity 2>/dev/null || true)
         fi
+        if [ -z "$HOST_TOKEN" ] && [ -f "$HOME/.gemini/antigravity-cli/antigravity-oauth-token" ]; then
+            HOST_TOKEN=$(cat "$HOME/.gemini/antigravity-cli/antigravity-oauth-token" 2>/dev/null || true)
+        fi
         if [ -n "$HOST_TOKEN" ]; then
             mkdir -p "$PROJECT_DIR/auth/home/.gemini/antigravity-cli"
             echo "$HOST_TOKEN" > "$PROJECT_DIR/auth/home/.gemini/antigravity-cli/antigravity-oauth-token"
             echo "✔ Đã tự động đồng bộ phiên đăng nhập Google từ máy chủ vào Heo-Agent!"
             curl -s -X POST http://127.0.0.1:5066/api/check_quota >/dev/null 2>&1 || true
         else
-            echo "🌐 Đang mở Web UI để đăng nhập Google OAuth:"
-            echo "   👉 http://localhost:5066"
-            open_web_ui
+            echo "🌐 Đang khởi chạy xác thực Google AGY qua trình duyệt máy chủ..."
+            HOST_AGY="$(which agy 2>/dev/null || echo "$HOME/.local/bin/agy")"
+            if [ -x "$HOST_AGY" ]; then
+                "$HOST_AGY" --dangerously-skip-permissions -p "ping"
+                if command -v secret-tool >/dev/null 2>&1; then
+                    HOST_TOKEN=$(secret-tool lookup service gemini username antigravity 2>/dev/null || true)
+                fi
+                if [ -z "$HOST_TOKEN" ] && [ -f "$HOME/.gemini/antigravity-cli/antigravity-oauth-token" ]; then
+                    HOST_TOKEN=$(cat "$HOME/.gemini/antigravity-cli/antigravity-oauth-token" 2>/dev/null || true)
+                fi
+                if [ -n "$HOST_TOKEN" ]; then
+                    mkdir -p "$PROJECT_DIR/auth/home/.gemini/antigravity-cli"
+                    echo "$HOST_TOKEN" > "$PROJECT_DIR/auth/home/.gemini/antigravity-cli/antigravity-oauth-token"
+                    echo "✔ Đăng nhập Google thành công và đã lưu vào Heo-Agent!"
+                    curl -s -X POST http://127.0.0.1:5066/api/check_quota >/dev/null 2>&1 || true
+                fi
+            else
+                echo "🌐 Vui lòng mở Web UI để cấu hình: http://localhost:5066"
+                open_web_ui
+            fi
         fi
         ;;
     logout-google)
@@ -187,6 +207,20 @@ except Exception as e:
     login-zalo)
         echo "📱 KHỞI CHẠY QUÉT MÃ QR ĐĂNG NHẬP ZALO..."
         rm -f "$PROJECT_DIR/data/zalo_session.json"
+        # Tự động mở ảnh QR gốc trên Desktop nếu có giao diện đồ họa
+        (
+            for i in $(seq 1 20); do
+                sleep 1
+                for qrf in "$PROJECT_DIR/workspace/zalo_qr.png" "$PROJECT_DIR/data/zalo_qr.png"; do
+                    if [ -s "$qrf" ]; then
+                        if command -v xdg-open >/dev/null 2>&1 && { [ -n "${DISPLAY:-}" ] || [ -n "${WAYLAND_DISPLAY:-}" ]; }; then
+                            xdg-open "$qrf" >/dev/null 2>&1 || true
+                        fi
+                        break 2
+                    fi
+                done
+            done
+        ) &
         $DOCKER_COMPOSE run --rm -it app node /app/bridge/bot.js --qr-only
         echo "✔ Đã lưu phiên Zalo mới! Khởi động lại dịch vụ bằng: $CMD_NAME restart"
         ;;

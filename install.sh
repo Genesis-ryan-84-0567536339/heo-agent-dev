@@ -343,6 +343,19 @@ prepare_workspace_and_dirs() {
     mkdir -p bin data workspace logs auth config auth/xdg-data auth/home/.gemini
     ln -sf home/.gemini auth/gemini_profile 2>/dev/null || true
 
+    # Tự động đồng bộ phiên xác thực Google Core Agent từ máy chủ (secret-tool hoặc ~/.gemini)
+    local host_token=""
+    if command -v secret-tool >/dev/null 2>&1; then
+        host_token=$(secret-tool lookup service gemini username antigravity 2>/dev/null || true)
+    fi
+    if [ -z "$host_token" ] && [ -f "$HOME/.gemini/antigravity-cli/antigravity-oauth-token" ]; then
+        host_token=$(cat "$HOME/.gemini/antigravity-cli/antigravity-oauth-token" 2>/dev/null || true)
+    fi
+    if [ -n "$host_token" ]; then
+        mkdir -p auth/home/.gemini/antigravity-cli
+        echo "$host_token" > auth/home/.gemini/antigravity-cli/antigravity-oauth-token
+    fi
+
     if [[ ! -f "config/config.json" ]] && [[ -f "config/config.example.json" ]]; then
         cp config/config.example.json config/config.json
     fi

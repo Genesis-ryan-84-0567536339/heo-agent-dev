@@ -128,15 +128,33 @@ def render_banner():
     console.print(banner)
 
 def step_agy_auth(agy_bin, config):
-    # Đảm bảo đồng bộ cấu hình từ host nếu có
+    # Đảm bảo đồng bộ cấu hình và token từ host nếu có
     host_cli_dir = os.path.expanduser("~/.gemini/antigravity-cli")
     target_cli_dir = os.path.join(GEMINI_DIR, "antigravity-cli")
-    if os.path.exists(host_cli_dir) and not os.path.exists(target_cli_dir):
-        os.makedirs(target_cli_dir, exist_ok=True)
-        for fname in ["settings.json", "installation_id"]:
+    os.makedirs(target_cli_dir, exist_ok=True)
+    if os.path.exists(host_cli_dir):
+        for fname in ["antigravity-oauth-token", "settings.json", "installation_id"]:
             src_f = os.path.join(host_cli_dir, fname)
-            if os.path.exists(src_f):
-                shutil.copy(src_f, os.path.join(target_cli_dir, fname))
+            dst_f = os.path.join(target_cli_dir, fname)
+            if os.path.exists(src_f) and (not os.path.exists(dst_f) or os.path.getsize(dst_f) < 20):
+                try:
+                    shutil.copy(src_f, dst_f)
+                except Exception:
+                    pass
+
+    # Nếu vẫn chưa có token, thử lấy từ secret-tool của Linux desktop
+    token_file = os.path.join(target_cli_dir, "antigravity-oauth-token")
+    if not os.path.exists(token_file) or os.path.getsize(token_file) < 20:
+        try:
+            out = subprocess.check_output(
+                ["secret-tool", "lookup", "service", "gemini", "username", "antigravity"],
+                stderr=subprocess.DEVNULL, timeout=2
+            ).decode().strip()
+            if out and len(out) > 20:
+                with open(token_file, "w", encoding="utf-8") as tf:
+                    tf.write(out)
+        except Exception:
+            pass
 
     env = os.environ.copy()
     env["XDG_DATA_HOME"] = XDG_DATA_HOME
@@ -193,7 +211,8 @@ def step_agy_auth(agy_bin, config):
                 console.print("[bold red]❌ Chưa hoàn tất đăng nhập Google AGY.[/bold red]")
                 flush_stdin()
                 if not Confirm.ask("👉 Bạn có muốn thử đăng nhập lại ngay không?", default=True):
-                    return False
+                    console.print("[yellow]ℹ Bạn có thể xác thực Google AGY sau bằng lệnh: [bold cyan]heo-agent login-google[/bold cyan] hoặc qua Web Console [bold cyan]http://localhost:5066[/bold cyan][/yellow]")
+                    return True
         except Exception as e:
             # Nếu gặp lỗi, kiểm tra lại xem token đã lưu thành công chưa
             try:
@@ -208,7 +227,8 @@ def step_agy_auth(agy_bin, config):
             console.print(f"[bold red]Lỗi khi chạy xác thực: {e}[/bold red]")
             flush_stdin()
             if not Confirm.ask("👉 Bạn có muốn thử lại không?", default=True):
-                return False
+                console.print("[yellow]ℹ Bạn có thể xác thực Google AGY sau bằng lệnh: [bold cyan]heo-agent login-google[/bold cyan] hoặc qua Web Console [bold cyan]http://localhost:5066[/bold cyan][/yellow]")
+                return True
 
 
 
@@ -255,11 +275,19 @@ def step_zalo_login():
             console.print("[bold green]✔ Đăng nhập Zalo thành công và đã lưu phiên làm việc![/bold green]")
             return True
         else:
-            console.print("[bold red]❌ Chưa lưu được phiên đăng nhập Zalo. Vui lòng thử lại.[/bold red]")
-            return False
+            console.print("[bold red]❌ Chưa lưu được phiên đăng nhập Zalo.[/bold red]")
+            flush_stdin()
+            if Confirm.ask("👉 Bạn có muốn thử quét lại ngay không?", default=True):
+                return step_zalo_login()
+            console.print("[yellow]ℹ Bạn có thể quét mã QR Zalo sau bằng lệnh: [bold cyan]heo-agent login-zalo[/bold cyan] hoặc trên Web Console [bold cyan]http://localhost:5066[/bold cyan][/yellow]")
+            return True
     except Exception as e:
         console.print(f"[bold red]Lỗi khởi chạy Zalo bridge: {e}[/bold red]")
-        return False
+        flush_stdin()
+        if Confirm.ask("👉 Bạn có muốn thử lại không?", default=True):
+            return step_zalo_login()
+        console.print("[yellow]ℹ Bạn có thể quét mã QR Zalo sau bằng lệnh: [bold cyan]heo-agent login-zalo[/bold cyan] hoặc trên Web Console [bold cyan]http://localhost:5066[/bold cyan][/yellow]")
+        return True
 
 def step_boss_config(config):
     boss_uid = config.get("boss_uid", "").strip()

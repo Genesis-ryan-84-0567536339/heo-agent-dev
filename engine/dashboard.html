@@ -235,37 +235,37 @@
 
           <!-- Tabs -->
           <div class="flex space-x-1 bg-dark-850 p-1 rounded-xl border border-slate-800 text-xs">
-            <button id="tabBtnOauth" onclick="switchGoogleTab('oauth')" class="flex-1 py-1.5 rounded-lg font-medium transition bg-cyan-600 text-white">OAuth Trực tiếp</button>
-            <button id="tabBtnHost" onclick="switchGoogleTab('host')" class="flex-1 py-1.5 rounded-lg font-medium transition text-slate-400 hover:text-white">Đồng bộ từ Máy chủ</button>
+            <button id="tabBtnHost" onclick="switchGoogleTab('host')" class="flex-1 py-1.5 rounded-lg font-medium transition bg-cyan-600 text-white">⚡ Đồng bộ Máy chủ</button>
+            <button id="tabBtnOauth" onclick="switchGoogleTab('oauth')" class="flex-1 py-1.5 rounded-lg font-medium transition text-slate-400 hover:text-white">Lệnh heo-agent</button>
             <button id="tabBtnJson" onclick="switchGoogleTab('json')" class="flex-1 py-1.5 rounded-lg font-medium transition text-slate-400 hover:text-white">Dán Token JSON</button>
           </div>
 
-          <!-- Tab Content 1: OAuth Direct -->
-          <div id="tabContentOauth" class="space-y-3">
+          <!-- Tab Content 1: Host Keyring Sync (Mặc định) -->
+          <div id="tabContentHost" class="space-y-3">
             <p class="text-xs text-slate-300 leading-relaxed">
-              Bấm nút bên dưới để mở trang đăng nhập Google chính thức. Sau khi chọn tài khoản và xác nhận, hệ thống sẽ tự động liên kết với Co-Pilot:
+              Nếu máy chủ đã đăng nhập tài khoản Google từ trước, bấm nút dưới đây để hệ thống tự động nhận diện và kích hoạt ngay:
             </p>
-            <button onclick="startGoogleOAuthFlow()" class="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white font-semibold text-xs shadow-lg flex items-center justify-center space-x-2 transition">
-              <svg class="w-4 h-4" viewBox="0 0 24 24"><path fill="currentColor" d="M21.35 11.1h-9.17v2.98h5.27c-.23 1.25-.94 2.31-2 3.01v2.5h3.24c1.89-1.74 2.98-4.3 2.98-7.39 0-.7-.06-1.37-.18-2.1z"/><path fill="currentColor" d="M12.18 21c2.7 0 4.96-.9 6.62-2.42l-3.24-2.5c-.9.6-2.05.96-3.38.96-2.6 0-4.8-1.76-5.59-4.12H3.24v2.58C4.88 18.74 8.27 21 12.18 21z"/><path fill="currentColor" d="M6.59 12.92c-.2-.6-.32-1.25-.32-1.92s.12-1.32.32-1.92V6.5H3.24C2.58 7.82 2.2 9.35 2.2 11s.38 3.18 1.04 4.5l3.35-2.58z"/><path fill="currentColor" d="M12.18 5.96c1.47 0 2.79.51 3.82 1.5l2.87-2.87C17.13 3.01 14.88 2 12.18 2 8.27 2 4.88 4.26 3.24 7.5l3.35 2.58c.79-2.36 2.99-4.12 5.59-4.12z"/></svg>
-              <span>🚀 Mở trang Đăng nhập Google</span>
+            <button onclick="syncHostGoogleAuth()" class="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-semibold text-xs shadow-lg flex items-center justify-center space-x-2 transition cursor-pointer">
+              <span>⚡ Đồng bộ ngay từ Máy chủ (1-Click)</span>
             </button>
-            <div class="pt-2 border-t border-slate-800">
-              <label class="block text-[11px] text-slate-400 mb-1">Nếu trình duyệt không tự chuyển hướng, dán mã Code hoặc URL chuyển hướng vào đây:</label>
-              <div class="flex space-x-2">
-                <input id="oauthCodeInput" type="text" placeholder="Dán mã code (4/...) hoặc URL redirect..." class="flex-1 px-3 py-1.5 text-xs bg-dark-850 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500">
-                <button onclick="submitOAuthCode()" class="px-3 py-1.5 text-xs bg-slate-800 hover:bg-cyan-600 text-white font-medium rounded-xl transition">Xác nhận</button>
-              </div>
+            <div class="p-3 rounded-xl bg-dark-850 border border-slate-800 text-[11px] text-slate-400 space-y-1">
+              <div class="font-bold text-slate-300">💡 Hoặc xác thực trên Terminal máy chủ:</div>
+              <div>Gõ lệnh: <code class="text-cyan-400 font-mono bg-dark-950 px-1.5 py-0.5 rounded border border-slate-800">heo-agent login-google</code> để tự động mở trình duyệt và đồng bộ.</div>
             </div>
           </div>
 
-          <!-- Tab Content 2: Host Keyring Sync -->
-          <div id="tabContentHost" class="space-y-3 hidden">
+          <!-- Tab Content 2: Command Guide -->
+          <div id="tabContentOauth" class="space-y-3 hidden">
             <p class="text-xs text-slate-300 leading-relaxed">
-              Nếu máy chủ Linux của bạn đã đăng nhập AGY CLI thành công từ trước, bấm nút dưới đây để đồng bộ ngay lập tức:
+              Chạy lệnh sau trên terminal máy chủ để mở trang đăng nhập Google chính thức và đồng bộ token:
             </p>
-            <button onclick="syncHostGoogleAuth()" class="w-full py-2.5 px-4 rounded-xl bg-dark-850 hover:bg-slate-800 border border-cyan-500/30 hover:border-cyan-500 text-cyan-400 font-semibold text-xs flex items-center justify-center space-x-2 transition">
-              <span>⚡ Đồng bộ từ Máy chủ (Host Keyring / Token)</span>
-            </button>
+            <div class="p-3 rounded-xl bg-dark-950 border border-slate-800 font-mono text-xs text-cyan-400 flex items-center justify-between">
+              <span>heo-agent login-google</span>
+              <button onclick="navigator.clipboard.writeText('heo-agent login-google'); showToast('Đã sao chép lệnh!');" class="text-xs text-slate-400 hover:text-white px-2 py-1 bg-slate-800 rounded cursor-pointer">Copy</button>
+            </div>
+            <p class="text-[11px] text-slate-400">
+              Trình duyệt máy chủ sẽ tự động mở trang đăng nhập Google. Sau khi xác nhận, token được đồng bộ vào Heo-Agent và tự động làm mới mỗi 45 phút.
+            </p>
           </div>
 
           <!-- Tab Content 3: Manual JSON -->
@@ -2079,7 +2079,7 @@
 
     function openGoogleLoginModal() {
       document.getElementById('googleLoginModal').classList.remove('hidden');
-      switchGoogleTab('oauth');
+      switchGoogleTab('host');
       setGoogleModalFeedback('');
     }
 

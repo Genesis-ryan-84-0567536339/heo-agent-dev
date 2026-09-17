@@ -511,17 +511,21 @@ except Exception:
             echo -e "\n${RED}⚠️ Phát hiện $COUNT_ERR lỗi cần xử lý để Heo-Agent có thể hoạt động trơn tru.${NC}"
         fi
     else
-        # Xuất JSON
+        # Xuất JSON an toàn qua sys.argv
         python3 -c "
-import json
+import json, sys
+count_ok = int(sys.argv[1])
+count_warn = int(sys.argv[2])
+count_err = int(sys.argv[3])
+issues = sys.argv[4:]
 print(json.dumps({
-    'ok_count': $COUNT_OK,
-    'warn_count': $COUNT_WARN,
-    'err_count': $COUNT_ERR,
-    'healthy': ($COUNT_ERR == 0),
-    'issues': json.loads('$([ ${#ISSUES[@]} -gt 0 ] && python3 -c 'import json, sys; print(json.dumps(sys.argv[1:]))' "${ISSUES[@]}" || echo "[]")')
-}, indent=2))
-"
+    'ok_count': count_ok,
+    'warn_count': count_warn,
+    'err_count': count_err,
+    'healthy': (count_err == 0),
+    'issues': issues
+}, indent=2, ensure_ascii=False))
+" "$COUNT_OK" "$COUNT_WARN" "$COUNT_ERR" "${ISSUES[@]}"
         exit 0
     fi
 }

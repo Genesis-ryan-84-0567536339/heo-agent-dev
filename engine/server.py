@@ -2179,6 +2179,10 @@ class RequestHandler(BaseHTTPRequestHandler):
                     except Exception:
                         pass
                 subprocess.run(["pkill", "-9", "-f", "node.*bot.js"], timeout=5)
+                time.sleep(1.0)
+                proc_check = subprocess.run(["pgrep", "-f", "node.*bot.js"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                if proc_check.returncode != 0:
+                    spawn_zalo_bridge()
                 self._send_json({"ok": True, "message": "Đang làm mới mã QR..."}, 200)
             except Exception as e:
                 self._send_json({"ok": False, "error": str(e)}, 500)
@@ -2230,19 +2234,35 @@ class RequestHandler(BaseHTTPRequestHandler):
                 self._send_json({"ok": False, "error": f"Lỗi xác thực code: {e}"}, 500)
         elif path_clean == "/api/sync_host_google_auth":
             try:
-                host_token_file = "/home/ryan/.gemini/antigravity-cli/antigravity-oauth-token"
                 token_str = ""
-                if os.path.exists(host_token_file) and os.path.getsize(host_token_file) > 20:
-                    with open(host_token_file, "r", encoding="utf-8") as f:
-                        token_str = f.read()
-                else:
+                candidate_files = [
+                    os.path.join(GEMINI_DIR, "antigravity-cli", "antigravity-oauth-token"),
+                    "/app/auth/home/.gemini/antigravity-cli/antigravity-oauth-token",
+                    "/app/host_gemini/antigravity-cli/antigravity-oauth-token",
+                    "/app/host_gemini/antigravity-oauth-token",
+                    os.path.expanduser("~/.gemini/antigravity-cli/antigravity-oauth-token"),
+                    "/home/ryan/.gemini/antigravity-cli/antigravity-oauth-token",
+                ]
+                for cf in candidate_files:
+                    if os.path.exists(cf) and os.path.getsize(cf) > 20:
+                        try:
+                            with open(cf, "r", encoding="utf-8") as f:
+                                content = f.read().strip()
+                                if content and len(content) > 20:
+                                    token_str = content
+                                    break
+                        except Exception:
+                            pass
+
+                if not token_str:
                     try:
                         token_str = subprocess.check_output(
                             ["secret-tool", "lookup", "service", "gemini", "username", "antigravity"],
-                            stderr=subprocess.DEVNULL, timeout=3
+                            stderr=subprocess.DEVNULL, timeout=2
                         ).decode().strip()
                     except Exception:
                         pass
+
                 if token_str:
                     target_dir = os.path.join(GEMINI_DIR, "antigravity-cli")
                     os.makedirs(target_dir, exist_ok=True)
@@ -2254,7 +2274,7 @@ class RequestHandler(BaseHTTPRequestHandler):
                     info = get_google_auth_info()
                     self._send_json({"ok": True, "message": "Đã đồng bộ xác thực Google từ máy chủ!", "google": info}, 200)
                 else:
-                    self._send_json({"ok": False, "error": "Không tìm thấy phiên đăng nhập Google trên máy chủ."}, 404)
+                    self._send_json({"ok": False, "error": "Chưa tìm thấy phiên đăng nhập trên máy chủ. Bạn hãy chạy lệnh: heo-agent login-google trên terminal để tự động đồng bộ!"}, 404)
             except Exception as e:
                 self._send_json({"ok": False, "error": str(e)}, 500)
         elif path_clean == "/api/save_google_token":

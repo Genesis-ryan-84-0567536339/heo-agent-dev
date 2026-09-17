@@ -478,6 +478,9 @@ async function initZaloClient() {
               const qrInfoPath = path.join(DATA_DIR, "zalo_qr_info.json");
               if (fs.existsSync(qrInfoPath)) fs.unlinkSync(qrInfoPath);
             } catch (_) {}
+            if (evt.actions && typeof evt.actions.retry === "function") {
+              try { evt.actions.retry(); } catch (_) {}
+            }
             break;
           case LoginQRCallbackEventType.QRCodeDeclined:
             log("❌ Từ chối đăng nhập trên điện thoại. Đang tạo mã QR mới...");
@@ -489,6 +492,9 @@ async function initZaloClient() {
                 created_at: Date.now()
               }), "utf-8");
             } catch (_) {}
+            if (evt.actions && typeof evt.actions.retry === "function") {
+              try { evt.actions.retry(); } catch (_) {}
+            }
             break;
         }
       });
