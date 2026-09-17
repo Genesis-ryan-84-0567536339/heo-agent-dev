@@ -45,7 +45,7 @@ _auto_update_bg() {
     if [ -z "$LOCAL" ] || [ -z "$REMOTE" ] || [ "$LOCAL" = "$REMOTE" ]; then return 0; fi
 
     # Có update mới → pull
-    git -C "$PROJECT_DIR" pull origin main --quiet 2>/dev/null && \
+    (git -C "$PROJECT_DIR" pull --ff-only origin main --quiet 2>/dev/null || git -C "$PROJECT_DIR" pull --rebase origin main --quiet 2>/dev/null) && \
         echo "updated" > "$_HEO_UPDATE_LOG" || true
 }
 
@@ -129,6 +129,8 @@ case "${1:-}" in
             echo "✅ Heo-Agent đang dùng phiên bản mới nhất ($(git -C "$PROJECT_DIR" log -1 --format='%h %s' 2>/dev/null))."
         else
             echo "⬆️  Phát hiện phiên bản mới! Đang cập nhật..."
+            git -C "$PROJECT_DIR" pull --ff-only origin main 2>/dev/null || \
+            git -C "$PROJECT_DIR" pull --rebase origin main 2>/dev/null || \
             git -C "$PROJECT_DIR" pull origin main
             echo ""
             echo "✅ Đã cập nhật thành công!"
