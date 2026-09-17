@@ -367,16 +367,38 @@ async function initZaloClient() {
                 fs.copyFileSync(QR_PATH, dataQrPath);
               }
               const qrInfoPath = path.join(DATA_DIR, "zalo_qr_info.json");
-              fs.writeFileSync(qrInfoPath, JSON.stringify({ created_at: Date.now(), expires_in: 120 }), "utf-8");
+              fs.writeFileSync(qrInfoPath, JSON.stringify({
+                created_at: Date.now(),
+                expires_in: 100,
+                scanned: false,
+                declined: false,
+                user_name: ""
+              }), "utf-8");
             } catch (_) {}
 
             console.log(`\n🖼️ Ảnh QR gốc đã được lưu tại: ${QR_PATH}`);
             console.log("   (Sếp cũng có thể mở trực tiếp file ảnh này để quét nếu terminal bị vỡ dòng!)\n");
             break;
           }
-          case LoginQRCallbackEventType.QRCodeScanned:
-            log("👁️ Sếp đã quét mã QR! Đang chờ xác nhận trên điện thoại...");
+          case LoginQRCallbackEventType.QRCodeScanned: {
+            const userName = evt.data?.display_name || evt.data?.name || "";
+            log(`👁️ Sếp${userName ? " (" + userName + ")" : ""} đã quét mã QR! Vui lòng bấm 'ĐĂNG NHẬP' trên điện thoại để hoàn tất...`);
+            try {
+              const qrInfoPath = path.join(DATA_DIR, "zalo_qr_info.json");
+              let currentInfo = {};
+              if (fs.existsSync(qrInfoPath)) {
+                try { currentInfo = JSON.parse(fs.readFileSync(qrInfoPath, "utf-8")); } catch (_) {}
+              }
+              fs.writeFileSync(qrInfoPath, JSON.stringify({
+                ...currentInfo,
+                scanned: true,
+                scanned_at: Date.now(),
+                user_name: userName,
+                avatar: evt.data?.avatar || ""
+              }), "utf-8");
+            } catch (_) {}
             break;
+          }
           case LoginQRCallbackEventType.GotLoginInfo: {
             log("🎉 NHẬN THÔNG TIN XÁC THỰC ZALO THÀNH CÔNG!");
             fs.writeFileSync(SESSION_FILE, JSON.stringify(evt.data, null, 2), "utf-8");
@@ -396,9 +418,21 @@ async function initZaloClient() {
           }
           case LoginQRCallbackEventType.QRCodeExpired:
             log("⏳ Mã QR hết hạn trên Zalo. Đang tự động làm mới mã QR mới...");
+            try {
+              const qrInfoPath = path.join(DATA_DIR, "zalo_qr_info.json");
+              if (fs.existsSync(qrInfoPath)) fs.unlinkSync(qrInfoPath);
+            } catch (_) {}
             break;
           case LoginQRCallbackEventType.QRCodeDeclined:
             log("❌ Từ chối đăng nhập trên điện thoại. Đang tạo mã QR mới...");
+            try {
+              const qrInfoPath = path.join(DATA_DIR, "zalo_qr_info.json");
+              fs.writeFileSync(qrInfoPath, JSON.stringify({
+                scanned: false,
+                declined: true,
+                created_at: Date.now()
+              }), "utf-8");
+            } catch (_) {}
             break;
         }
       });

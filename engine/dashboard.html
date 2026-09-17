@@ -463,17 +463,35 @@
       <h3 class="font-bold text-white text-lg">Quét Mã Đăng Nhập Zalo</h3>
       <p class="text-xs text-slate-400">Mở app <strong>Zalo trên điện thoại</strong> &rarr; Chọn biểu tượng <strong>[ -|- ] Quét mã QR</strong> ở góc trên bên phải &rarr; Bấm <strong>Đăng nhập</strong>.</p>
       
+      <!-- Hộp thông báo khi điện thoại đã quét QR thành công và đang chờ bấm Xác nhận -->
+      <div id="qrScannedBox" class="p-3.5 rounded-2xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 text-xs text-left hidden shadow-lg animate-pulse">
+        <div class="flex items-center space-x-3">
+          <div class="w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-300 flex items-center justify-center text-base shrink-0">
+            ✓
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="font-bold text-emerald-200 text-sm flex items-center space-x-1.5 truncate">
+              <span>Đã nhận diện quét mã!</span>
+              <span id="qrScannedUser" class="text-white font-medium text-xs bg-emerald-900/60 px-2 py-0.5 rounded-md truncate hidden"></span>
+            </div>
+            <div class="mt-0.5 text-xs text-slate-300">
+              Vui lòng bấm nút <strong class="text-emerald-400 font-bold underline">"ĐĂNG NHẬP"</strong> trên điện thoại để hoàn tất.
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Khung hiển thị QR / Spinner / Expired Overlay -->
       <div id="qrContainer" class="p-4 bg-white rounded-2xl flex flex-col items-center justify-center min-h-[240px] relative overflow-hidden">
         <div id="qrLoadingSpinner" class="flex flex-col items-center justify-center space-y-2 text-slate-700 py-8">
           <div class="w-8 h-8 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin"></div>
           <span class="text-xs font-semibold text-slate-600">Đang tạo mã QR mới từ Zalo...</span>
         </div>
-        <img id="modalQrImg" src="" alt="Mã QR Zalo" class="w-56 h-56 object-contain hidden">
+        <img id="modalQrImg" src="" alt="Mã QR Zalo" class="w-56 h-56 object-contain hidden transition-opacity duration-300">
         <div id="qrExpiredOverlay" class="absolute inset-0 bg-white/95 rounded-2xl flex flex-col items-center justify-center space-y-3 p-4 hidden">
           <span class="text-3xl">⏳</span>
           <span class="text-xs font-bold text-red-600">Mã QR đã hết hạn</span>
-          <p class="text-[11px] text-slate-500 max-w-[200px]">Mã QR Zalo chỉ có hiệu lực trong 2 phút vì lý do bảo mật.</p>
+          <p class="text-[11px] text-slate-500 max-w-[200px]">Mã QR Zalo hết hạn sau ~95 giây vì lý do bảo mật.</p>
           <button onclick="refreshZaloQR()" class="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl text-xs font-semibold transition shadow-md">🔄 Tạo mã QR mới</button>
         </div>
       </div>
@@ -1120,12 +1138,14 @@
 
     let qrPollInterval = null;
     let qrExpireCountdown = null;
-    let qrSecondsLeft = 120;
+    let qrSecondsLeft = 95;
+    let currentLoadedQrMtime = 0;
 
     async function openZaloQRModal() {
       const modal = document.getElementById('qrModal');
       modal.classList.remove('hidden');
-      loadZaloQR();
+      currentLoadedQrMtime = 0;
+      await loadZaloQR();
       startQrPolling();
     }
 
@@ -1146,26 +1166,66 @@
       const img = document.getElementById('modalQrImg');
       const expiredOverlay = document.getElementById('qrExpiredOverlay');
       const timerText = document.getElementById('qrTimerText');
+      const scannedBox = document.getElementById('qrScannedBox');
 
+      if (scannedBox) scannedBox.classList.add('hidden');
       spinner.classList.remove('hidden');
       img.classList.add('hidden');
       expiredOverlay.classList.add('hidden');
-      timerText.textContent = 'Đang khởi tạo...';
+      timerText.textContent = 'Đang kiểm tra trạng thái...';
 
       try {
         const res = await fetch('/api/qr_status');
         const data = await res.json();
+        handleQrStatusResponse(data);
+      } catch (e) {
+        timerText.textContent = 'Chờ kết nối...';
+      }
+    }
 
-        // Nếu đã đăng nhập thành công
-        if (data.logged_in && data.connected) {
-          closeZaloQRModal();
-          showToast('🎉 Đăng nhập Zalo thành công!');
-          refreshData();
-          return;
+    function handleQrStatusResponse(data) {
+      const spinner = document.getElementById('qrLoadingSpinner');
+      const img = document.getElementById('modalQrImg');
+      const expiredOverlay = document.getElementById('qrExpiredOverlay');
+      const timerText = document.getElementById('qrTimerText');
+      const scannedBox = document.getElementById('qrScannedBox');
+      const scannedUser = document.getElementById('qrScannedUser');
+
+      // 1. Nếu đã đăng nhập thành công
+      if (data.logged_in && data.connected) {
+        closeZaloQRModal();
+        showToast('🎉 Đăng nhập Zalo thành công!');
+        refreshData();
+        return;
+      }
+
+      // 2. Trạng thái đã quét mã: Chờ bấm xác nhận trên điện thoại
+      if (data.scanned) {
+        if (scannedBox) scannedBox.classList.remove('hidden');
+        if (scannedUser) {
+          if (data.user_name) {
+            scannedUser.textContent = data.user_name;
+            scannedUser.classList.remove('hidden');
+          } else {
+            scannedUser.classList.add('hidden');
+          }
         }
+        timerText.textContent = '📱 Đang chờ sếp bấm ĐĂNG NHẬP trên điện thoại...';
+        if (qrExpireCountdown) clearInterval(qrExpireCountdown);
+      } else {
+        if (scannedBox) scannedBox.classList.add('hidden');
+      }
 
-        if (data.has_qr && !data.qr_expired) {
-          img.src = '/api/qr?t=' + Date.now();
+      // 3. Nếu người dùng từ chối trên điện thoại
+      if (data.declined) {
+        timerText.textContent = '❌ Đã từ chối trên ĐT. Đang tạo mã mới...';
+      }
+
+      // 4. Trạng thái có QR hợp lệ
+      if (data.has_qr && !data.qr_expired) {
+        if (data.qr_mtime && data.qr_mtime !== currentLoadedQrMtime) {
+          currentLoadedQrMtime = data.qr_mtime;
+          img.src = '/api/qr?t=' + data.qr_mtime;
           img.onload = () => {
             spinner.classList.add('hidden');
             img.classList.remove('hidden');
@@ -1174,18 +1234,29 @@
             spinner.classList.add('hidden');
             expiredOverlay.classList.remove('hidden');
           };
-          qrSecondsLeft = Math.max(10, 120 - (data.qr_age_seconds || 0));
-          startCountdown();
-        } else {
-          // Chưa có QR hoặc QR đã hết hạn, tự động gọi refresh
-          if (data.qr_expired) {
-            refreshZaloQR();
-          } else {
-            timerText.textContent = 'Đang tạo mã QR...';
-          }
+        } else if (img.classList.contains('hidden') && img.src) {
+          spinner.classList.add('hidden');
+          img.classList.remove('hidden');
         }
-      } catch (e) {
-        timerText.textContent = 'Chờ kết nối...';
+
+        expiredOverlay.classList.add('hidden');
+
+        if (!data.scanned) {
+          qrSecondsLeft = Math.max(5, 95 - (data.qr_age_seconds || 0));
+          startCountdown();
+        }
+      } else if (data.qr_expired) {
+        spinner.classList.add('hidden');
+        img.classList.add('hidden');
+        expiredOverlay.classList.remove('hidden');
+        timerText.textContent = 'Mã QR đã hết hạn';
+        if (qrExpireCountdown) clearInterval(qrExpireCountdown);
+      } else {
+        // Chưa có file QR hoặc đang sinh
+        spinner.classList.remove('hidden');
+        img.classList.add('hidden');
+        expiredOverlay.classList.add('hidden');
+        timerText.textContent = 'Đang tạo mã QR mới...';
       }
     }
 
@@ -1194,6 +1265,7 @@
       const timerText = document.getElementById('qrTimerText');
       const expiredOverlay = document.getElementById('qrExpiredOverlay');
 
+      timerText.textContent = `Hết hạn sau: ${qrSecondsLeft}s`;
       qrExpireCountdown = setInterval(() => {
         qrSecondsLeft--;
         if (qrSecondsLeft <= 0) {
@@ -1211,11 +1283,14 @@
       const img = document.getElementById('modalQrImg');
       const expiredOverlay = document.getElementById('qrExpiredOverlay');
       const timerText = document.getElementById('qrTimerText');
+      const scannedBox = document.getElementById('qrScannedBox');
 
+      if (scannedBox) scannedBox.classList.add('hidden');
       spinner.classList.remove('hidden');
       img.classList.add('hidden');
       expiredOverlay.classList.add('hidden');
-      timerText.textContent = 'Đang tạo mã mới...';
+      timerText.textContent = 'Đang tạo mã QR mới...';
+      currentLoadedQrMtime = 0;
 
       try {
         await fetch('/api/refresh_qr', { method: 'POST' });
@@ -1227,13 +1302,13 @@
             const data = await res.json();
             if (data.has_qr && data.qr_age_seconds < 15) {
               clearInterval(checkNewQr);
-              loadZaloQR();
+              handleQrStatusResponse(data);
             } else if (attempts > 12) {
               clearInterval(checkNewQr);
-              loadZaloQR();
+              handleQrStatusResponse(data);
             }
           } catch (_) {}
-        }, 1500);
+        }, 1200);
       } catch (e) {
         showToast('Lỗi yêu cầu làm mới mã QR', true);
       }
@@ -1245,15 +1320,9 @@
         try {
           const res = await fetch('/api/qr_status');
           const data = await res.json();
-          if (data.logged_in && data.connected) {
-            closeZaloQRModal();
-            showToast('🎉 Đăng nhập Zalo thành công!');
-            refreshData();
-          } else if (data.has_qr && document.getElementById('modalQrImg').classList.contains('hidden')) {
-            loadZaloQR();
-          }
+          handleQrStatusResponse(data);
         } catch (_) {}
-      }, 2500);
+      }, 1500);
     }
 
     function switchLogTab(tab) {

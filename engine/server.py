@@ -1714,10 +1714,28 @@ class RequestHandler(BaseHTTPRequestHandler):
             zalo_info = get_zalo_info()
             qr_age = -1
             qr_expired = False
+            qr_mtime = 0
             if qr_f:
+                qr_mtime = int(os.path.getmtime(qr_f) * 1000)
                 qr_age = int(time.time() - os.path.getmtime(qr_f))
-                if qr_age > 120:  # QR Zalo hết hạn sau 2 phút
+                if qr_age > 95:  # QR Zalo hết hạn sau ~95 giây
                     qr_expired = True
+
+            scanned = False
+            scanned_user = ""
+            scanned_avatar = ""
+            declined = False
+            info_f = os.path.join(DATA_DIR, "zalo_qr_info.json")
+            if os.path.exists(info_f):
+                try:
+                    with open(info_f, "r", encoding="utf-8") as jf:
+                        jdata = json.load(jf)
+                        scanned = bool(jdata.get("scanned", False))
+                        scanned_user = str(jdata.get("user_name", "") or "")
+                        scanned_avatar = str(jdata.get("avatar", "") or "")
+                        declined = bool(jdata.get("declined", False))
+                except Exception:
+                    pass
 
             # Đảm bảo nếu chưa đăng nhập thì tiến trình bot.js phải đang chạy để sinh QR
             if not zalo_info.get("logged_in"):
@@ -1728,8 +1746,13 @@ class RequestHandler(BaseHTTPRequestHandler):
             self._send_json({
                 "ok": True,
                 "has_qr": (qr_f is not None and not qr_expired),
+                "qr_mtime": qr_mtime,
                 "qr_age_seconds": qr_age,
                 "qr_expired": qr_expired,
+                "scanned": scanned,
+                "user_name": scanned_user,
+                "user_avatar": scanned_avatar,
+                "declined": declined,
                 "logged_in": zalo_info.get("logged_in", False),
                 "connected": zalo_info.get("connected", False),
                 "user_id": zalo_info.get("user_id", "")
@@ -1738,7 +1761,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             qr_f = None
             for candidate in [os.path.join(DATA_DIR, "zalo_qr.png"), os.path.join(WORKSPACE_DIR, "zalo_qr.png")]:
                 if os.path.exists(candidate) and os.path.getsize(candidate) > 100:
-                    if (time.time() - os.path.getmtime(candidate)) <= 120:
+                    if (time.time() - os.path.getmtime(candidate)) <= 100:
                         qr_f = candidate
                         break
             if qr_f:
