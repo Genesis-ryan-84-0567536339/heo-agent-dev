@@ -1704,23 +1704,49 @@ class RequestHandler(BaseHTTPRequestHandler):
                 "engine_logs": get_last_lines(os.path.join(LOG_DIR, "engine.log")),
                 "zalo_logs": get_last_lines(os.path.join(LOG_DIR, "zalo.log"))
             }, 200)
+        elif path_clean == "/api/qr_status":
+            qr_f = None
+            for candidate in [os.path.join(DATA_DIR, "zalo_qr.png"), os.path.join(WORKSPACE_DIR, "zalo_qr.png")]:
+                if os.path.exists(candidate) and os.path.getsize(candidate) > 100:
+                    qr_f = candidate
+                    break
+
+            zalo_info = get_zalo_info()
+            qr_age = -1
+            qr_expired = False
+            if qr_f:
+                qr_age = int(time.time() - os.path.getmtime(qr_f))
+                if qr_age > 120:  # QR Zalo hết hạn sau 2 phút
+                    qr_expired = True
+
+            self._send_json({
+                "ok": True,
+                "has_qr": (qr_f is not None and not qr_expired),
+                "qr_age_seconds": qr_age,
+                "qr_expired": qr_expired,
+                "logged_in": zalo_info.get("logged_in", False),
+                "connected": zalo_info.get("connected", False),
+                "user_id": zalo_info.get("user_id", "")
+            }, 200)
         elif path_clean == "/api/qr":
             qr_f = None
             for candidate in [os.path.join(DATA_DIR, "zalo_qr.png"), os.path.join(WORKSPACE_DIR, "zalo_qr.png")]:
-                if os.path.exists(candidate):
-                    qr_f = candidate
-                    break
+                if os.path.exists(candidate) and os.path.getsize(candidate) > 100:
+                    if (time.time() - os.path.getmtime(candidate)) <= 120:
+                        qr_f = candidate
+                        break
             if qr_f:
                 with open(qr_f, "rb") as f:
                     data = f.read()
                 self.send_response(200)
                 self.send_header("Content-Type", "image/png")
+                self.send_header("Cache-Control", "no-store, no-cache, must-revalidate")
                 self.send_header("Content-Length", str(len(data)))
                 self.send_header("Connection", "close")
                 self.end_headers()
                 self.wfile.write(data)
             else:
-                self._send_json({"error": "QR image not found"}, 404)
+                self._send_json({"error": "Mã QR chưa sẵn sàng hoặc đã hết hạn"}, 404)
         else:
             try:
                 self.send_response(404)
@@ -1852,13 +1878,49 @@ class RequestHandler(BaseHTTPRequestHandler):
             except Exception as e:
                 self._send_json({"ok": False, "error": str(e)}, 500)
         elif path_clean == "/api/logout_zalo":
-            zalo_session_file = os.path.join(DATA_DIR, "zalo_session.json")
-            if os.path.exists(zalo_session_file):
-                try:
-                    os.remove(zalo_session_file)
-                except Exception:
-                    pass
-            self._send_json({"ok": True, "message": "Đã xóa phiên Zalo thành công. Khởi động lại container để quét mã mới."}, 200)
+            try:
+                # 1. Xóa toàn bộ file session, profile, và mã QR cũ
+                for f in ["zalo_session.json", "zalo_profile.json", "zalo_qr.png", "zalo_qr_info.json"]:
+                    p = os.path.join(DATA_DIR, f)
+                    if os.path.exists(p):
+                        try:
+                            os.remove(p)
+                        except Exception:
+                            pass
+                wp_qr = os.path.join(WORKSPACE_DIR, "zalo_qr.png")
+                if os.path.exists(wp_qr):
+                    try:
+                        os.remove(wp_qr)
+                    except Exception:
+                        pass
+
+                # 2. Ngắt kết nối ngay lập tức bằng cách diệt tiến trình node bot.js
+                subprocess.run(["pkill", "-9", "-f", "node.*bot.js"], timeout=5)
+                log_event("🚪 [Zalo Auth] Đã đăng xuất Zalo và ngắt kết nối trực tiếp.")
+
+                # Supervisor sẽ tự động khởi động lại node bot.js sau 2s và tự sinh mã QR mới
+                self._send_json({"ok": True, "message": "Đã đăng xuất Zalo và ngắt kết nối trực tiếp thành công. Đang tạo mã QR mới..."}, 200)
+            except Exception as e:
+                self._send_json({"ok": False, "error": str(e)}, 500)
+        elif path_clean == "/api/refresh_qr":
+            try:
+                for f in ["zalo_qr.png", "zalo_qr_info.json"]:
+                    p = os.path.join(DATA_DIR, f)
+                    if os.path.exists(p):
+                        try:
+                            os.remove(p)
+                        except Exception:
+                            pass
+                wp_qr = os.path.join(WORKSPACE_DIR, "zalo_qr.png")
+                if os.path.exists(wp_qr):
+                    try:
+                        os.remove(wp_qr)
+                    except Exception:
+                        pass
+                subprocess.run(["pkill", "-9", "-f", "node.*bot.js"], timeout=5)
+                self._send_json({"ok": True, "message": "Đang làm mới mã QR..."}, 200)
+            except Exception as e:
+                self._send_json({"ok": False, "error": str(e)}, 500)
         elif path_clean == "/api/logout_google":
             try:
                 for token_file in glob.glob(os.path.join(GEMINI_DIR, "*token*")) + glob.glob(os.path.join(GEMINI_DIR, "antigravity-cli", "*token*")):

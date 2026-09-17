@@ -364,6 +364,8 @@ async function initZaloClient() {
           if (fs.existsSync(QR_PATH)) {
             fs.copyFileSync(QR_PATH, dataQrPath);
           }
+          const qrInfoPath = path.join(DATA_DIR, "zalo_qr_info.json");
+          fs.writeFileSync(qrInfoPath, JSON.stringify({ created_at: Date.now(), expires_in: 120 }), "utf-8");
         } catch (_) {}
 
         console.log(`\n🖼️ Ảnh QR gốc đã được lưu tại: ${QR_PATH}`);
@@ -377,6 +379,13 @@ async function initZaloClient() {
         log("🎉 NHẬN THÔNG TIN XÁC THỰC ZALO THÀNH CÔNG!");
         fs.writeFileSync(SESSION_FILE, JSON.stringify(evt.data, null, 2), "utf-8");
         log(`Đã lưu phiên làm việc vào: ${SESSION_FILE}`);
+        try {
+          if (fs.existsSync(QR_PATH)) fs.unlinkSync(QR_PATH);
+          const dataQrPath = path.join(DATA_DIR, "zalo_qr.png");
+          if (fs.existsSync(dataQrPath)) fs.unlinkSync(dataQrPath);
+          const qrInfoPath = path.join(DATA_DIR, "zalo_qr_info.json");
+          if (fs.existsSync(qrInfoPath)) fs.unlinkSync(qrInfoPath);
+        } catch (_) {}
         if (QR_ONLY) {
           log("✅ [QR Setup] Đã xác thực Zalo thành công! Thoát chế độ thiết lập QR.");
           setTimeout(() => process.exit(0), 1000);
@@ -384,10 +393,26 @@ async function initZaloClient() {
         break;
       }
       case LoginQRCallbackEventType.QRCodeExpired:
-        log("⏳ Mã QR hết hạn.");
+        log("⏳ Mã QR hết hạn. Đang tự động làm mới mã QR mới sau 2s...");
+        try {
+          if (fs.existsSync(QR_PATH)) fs.unlinkSync(QR_PATH);
+          const dataQrPath = path.join(DATA_DIR, "zalo_qr.png");
+          if (fs.existsSync(dataQrPath)) fs.unlinkSync(dataQrPath);
+          const qrInfoPath = path.join(DATA_DIR, "zalo_qr_info.json");
+          if (fs.existsSync(qrInfoPath)) fs.unlinkSync(qrInfoPath);
+        } catch (_) {}
+        setTimeout(() => process.exit(1), 2000);
         break;
       case LoginQRCallbackEventType.QRCodeDeclined:
-        log("❌ Từ chối đăng nhập trên điện thoại.");
+        log("❌ Từ chối đăng nhập trên điện thoại. Đang tạo mã QR mới...");
+        try {
+          if (fs.existsSync(QR_PATH)) fs.unlinkSync(QR_PATH);
+          const dataQrPath = path.join(DATA_DIR, "zalo_qr.png");
+          if (fs.existsSync(dataQrPath)) fs.unlinkSync(dataQrPath);
+          const qrInfoPath = path.join(DATA_DIR, "zalo_qr_info.json");
+          if (fs.existsSync(qrInfoPath)) fs.unlinkSync(qrInfoPath);
+        } catch (_) {}
+        setTimeout(() => process.exit(1), 2000);
         break;
     }
   });
