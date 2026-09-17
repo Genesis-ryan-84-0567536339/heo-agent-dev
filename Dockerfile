@@ -43,6 +43,7 @@ COPY data/beats/ ./data/beats/
 COPY entrypoint.sh ./
 COPY start.sh ./
 COPY stop.sh ./
+COPY DISCLAIMER.md ./
 
 # Cấp quyền thực thi cho các script
 RUN chmod +x entrypoint.sh start.sh stop.sh engine/agy_exec.sh scripts/*.py cli/tui.py

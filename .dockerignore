@@ -5,10 +5,10 @@ __pycache__/
 *.pyc
 *.pyo
 logs/
+data/*.json
 data/*.jsonl
-data/zalo_session.json
-data/active_groups.json
-data/model_state.json
+data/*.png
+!data/beats/
 auth/
 workspace/*.xlsx
 workspace/*.docx

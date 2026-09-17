@@ -180,7 +180,7 @@ except Exception as e:
     logout-zalo)
         echo "🛑 Đang đăng xuất tài khoản Zalo..."
         curl -s -X POST http://127.0.0.1:5066/api/logout_zalo -H "X-Local-Admin: 1" 2>/dev/null || true
-        podman exec zalo-agy-copilot pkill -9 -f "node.*bot.js" 2>/dev/null || true
+        docker exec zalo-agy-copilot pkill -9 -f "node.*bot.js" 2>/dev/null || podman exec zalo-agy-copilot pkill -9 -f "node.*bot.js" 2>/dev/null || true
         rm -f "$PROJECT_DIR/data/zalo_session.json"
         rm -f "$PROJECT_DIR/data/zalo_profile.json"
         rm -f "$PROJECT_DIR/data/zalo_qr.png"

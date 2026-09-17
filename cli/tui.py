@@ -69,7 +69,9 @@ def load_config():
                     "model": "Gemini 3.8 Flash (High)",
                     "bridge_port": 5051,
                     "engine_port": 5066,
-                    "auto_claim_boss": True
+                    "auto_claim_boss": True,
+                    "pin_hash": "",
+                    "disclaimer_accepted": False
                 }, f, indent=2)
     try:
         with open(CONFIG_FILE, "r", encoding="utf-8") as f:
