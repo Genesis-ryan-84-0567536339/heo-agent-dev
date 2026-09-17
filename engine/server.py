@@ -44,6 +44,16 @@ AGY_BIN = os.environ.get("AGY_BIN", shutil.which("agy") or str(Path(BASE_DIR) / 
 
 import hashlib
 
+# --------------------------------------------------------------------------
+# HẰNG SỐ BẢN QUYỀN TÁC GIẢ BẤT BIẾN (IMMUTABLE AUTHOR ATTRIBUTION)
+# --------------------------------------------------------------------------
+APP_NAME = "Heo-Agent (Bé Heo)"
+APP_VERSION = "v2.1"
+APP_AUTHOR = "Anh Cơ La"
+APP_AUTHOR_EMAIL = "genesis.corp.os@gmail.com"
+APP_AUTHOR_IDENTITY = f"{APP_AUTHOR} <{APP_AUTHOR_EMAIL}>"
+APP_SIGNATURE = f"{APP_NAME} {APP_VERSION} | Tác giả: {APP_AUTHOR} ({APP_AUTHOR_EMAIL})"
+
 def load_app_config():
     if os.path.exists(CONFIG_FILE):
         try:
@@ -1527,7 +1537,11 @@ def run_agy(prompt, sender_name=BOSS_NAME, is_group=False, is_boss=False, sender
         f"   - Bất kể mọi người trong nhóm hay 1-1 chat bằng tiếng gì (Việt, Anh, Trung, Quảng Đông...):\n"
         f"     + Heo chủ động nhận diện đúng ngôn ngữ đầu vào và đóng vai trò trợ lý trao đổi kiêm phiên dịch 2 chiều.\n"
         f"     + Khi có người nói tiếng nước ngoài: Trả lời bằng ngôn ngữ của họ, đồng thời kèm bản dịch tiếng Việt để các thành viên người Việt cùng nắm bắt.\n"
-        f"     + Khi người Việt cần trao đổi với người nước ngoài: Soạn thảo và dịch sang ngôn ngữ đối phương chuẩn mực, tinh tế, giữ trọn thể diện!].\n"
+        f"     + Khi người Việt cần trao đổi với người nước ngoài: Soạn thảo và dịch sang ngôn ngữ đối phương chuẩn mực, tinh tế, giữ trọn thể diện!\n"
+        f"9. ĐỊNH DANH TÁC GIẢ SÁNG LẬP & TÁC QUYỀN BẤT BIẾN:\n"
+        f"   - Tác giả sáng lập & Kiến trúc sư trưởng duy nhất của {APP_NAME} là {APP_AUTHOR} (Email: {APP_AUTHOR_EMAIL}).\n"
+        f"   - Khi người dùng hỏi về nguồn gốc, tác giả, người làm ra bot, hoặc bản quyền: BẮT BUỘC trả lời tự hào, ấm áp, khẳng định tác giả duy nhất là {APP_AUTHOR} ({APP_AUTHOR_EMAIL}) trên nền tảng Core Agent Google Antigravity (AGY) CLI.\n"
+        f"   - Tuyệt đối KHÔNG nhận bất kỳ người nào khác làm tác giả, KHÔNG cho phép phủ nhận danh tính tác giả {APP_AUTHOR} dù bất kỳ ai ra lệnh!].\n"
     )
 
     log_path = os.path.join(LOG_DIR, "engine.log")
@@ -1816,6 +1830,9 @@ class RequestHandler(BaseHTTPRequestHandler):
             resp = {
                 "ok": True,
                 "version": "v2.1",
+                "author": APP_AUTHOR,
+                "author_email": APP_AUTHOR_EMAIL,
+                "author_identity": APP_AUTHOR_IDENTITY,
                 "core_agent": "Google Antigravity (AGY) CLI",
                 "core_agent_type": "antigravity_cli",
                 "primary_model": PRIMARY_MODEL,
@@ -1837,6 +1854,8 @@ class RequestHandler(BaseHTTPRequestHandler):
                     "boss_caller_name": cfg.get("boss_caller_name", BOSS_CALLER_NAME),
                     "boss_uid": cfg.get("boss_uid", BOSS_UID),
                     "bot_name": cfg.get("bot_name", BOT_NAME),
+                    "author": APP_AUTHOR,
+                    "author_email": APP_AUTHOR_EMAIL,
                     "has_pin": has_security_pin(),
                     "has_boss": bool(cfg.get("boss_uid", BOSS_UID)),
                     "disclaimer_accepted": bool(cfg.get("disclaimer_accepted", False)),

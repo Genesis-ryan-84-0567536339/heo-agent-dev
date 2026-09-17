@@ -2,7 +2,7 @@
 ### (DISCLAIMER OF WARRANTIES & LIMITATION OF LIABILITY)
 
 **Dự án:** Heo-Agent (Bé Heo) — Executive AI Co-Pilot  
-**Tác giả sáng lập & phát triển:** Ryan  
+**Tác giả sáng lập & phát triển:** Anh Cơ La (Ryan)  
 **Email liên hệ:** [genesis.corp.os@gmail.com](mailto:genesis.corp.os@gmail.com)  
 **Số điện thoại / Zalo:** [(+84)090.919.8823](tel:+84909198823)  
 **Mã nguồn chính thức:** [https://github.com/Genesis-ryan-84-0567536339/Heo-Agent](https://github.com/Genesis-ryan-84-0567536339/Heo-Agent)  
@@ -11,7 +11,7 @@
 ---
 
 ### 1. Thông Tin Tác Giả & Quyền Sở Hữu Trí Tuệ
-Phần mềm **Heo-Agent (Bé Heo)** và các tài liệu, công cụ đi kèm được nghiên cứu, phát triển và phát hành bởi tác giả **Ryan** (`genesis.corp.os@gmail.com` | `(+84)090.919.8823`). Phần mềm được cung cấp công khai dưới hình thức mã nguồn mở phục vụ cộng đồng.
+Phần mềm **Heo-Agent (Bé Heo)** và các tài liệu, công cụ đi kèm được nghiên cứu, phát triển và phát hành bởi tác giả **Anh Cơ La (Ryan)** (`genesis.corp.os@gmail.com` | `(+84)090.919.8823`). Phần mềm được cung cấp công khai dưới hình thức mã nguồn mở phục vụ cộng đồng.
 
 ---
 
@@ -30,8 +30,8 @@ Khi tải về, cài đặt, sao chép hoặc vận hành bất kỳ phần nào
 1. **Cung cấp nguyên trạng ("AS IS"):**  
    Phần mềm được cung cấp trên cơ sở nguyên trạng, sẵn có ("as is", "as available"), không đi kèm bất kỳ sự bảo đảm nào, dù rõ ràng hay ngụ ý, bao gồm nhưng không giới hạn ở tính thương mại, tính sẵn sàng phục vụ, sự tương thích hoàn toàn hoặc tính không vi phạm.
 
-2. **Miễn trừ hoàn toàn trách nhiệm của Tác giả (Ryan):**  
-   Tác giả **Ryan hoàn toàn không chịu bất kỳ trách nhiệm pháp lý, trách nhiệm dân sự, hình sự hay nghĩa vụ tài chính nào** đối với bất kỳ khiếu nại, tổn thất, thiệt hại trực tiếp, gián tiếp, ngẫu nhiên, hệ quả hoặc trừng phạt nào phát sinh từ hoặc có liên quan đến việc:
+2. **Miễn trừ hoàn toàn trách nhiệm của Tác giả (Anh Cơ La - Ryan):**  
+   Tác giả **Anh Cơ La (Ryan) hoàn toàn không chịu bất kỳ trách nhiệm pháp lý, trách nhiệm dân sự, hình sự hay nghĩa vụ tài chính nào** đối với bất kỳ khiếu nại, tổn thất, thiệt hại trực tiếp, gián tiếp, ngẫu nhiên, hệ quả hoặc trừng phạt nào phát sinh từ hoặc có liên quan đến việc:
    - Tải xuống, cài đặt, biên dịch, cấu hình hoặc vận hành phần mềm trên máy tính cá nhân, máy chủ nội bộ hoặc hạ tầng đám mây.
    - Bất kỳ tác động tiêu cực nào đối với tài khoản Zalo, tài khoản Google hoặc tài khoản dịch vụ của bên thứ ba (bao gồm nhưng không giới hạn ở việc tài khoản bị khóa, tạm ngưng, giới hạn tính năng, mất phiên đăng nhập cookie, hoặc phát sinh chi phí dịch vụ bên ngoài).
    - Mọi nội dung, văn bản, bảng tính, hình ảnh, bài hát, tin nhắn hoặc quyết định do các mô hình trí tuệ nhân tạo (AI Models) tự động khởi tạo, đề xuất hoặc gửi đi.

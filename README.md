@@ -9,7 +9,7 @@
 [![Community](https://img.shields.io/badge/community-heo--agent--free-pink.svg)](https://github.com/Genesis-ryan-84-0567536339/heo-agent-free)
 [![License](https://img.shields.io/badge/license-MIT-orange.svg)](LICENSE)
 [![Docker](https://img.shields.io/badge/docker-ready-2496ED.svg)](docker-compose.yml)
-[![Tác giả](https://img.shields.io/badge/tác_giả-Ryan-purple.svg)](mailto:genesis.corp.os@gmail.com)
+[![Tác giả](https://img.shields.io/badge/tác_giả-Anh_Cơ_La-purple.svg)](mailto:genesis.corp.os@gmail.com)
 
 > **Heo-Agent Executive AI Assistant Suite — Zalo Edition (Phiên bản v2.1)**  
 > Trợ lý Điều hành Cấp cao (Executive Assistant / Chief of Staff) độc lập, tự trị, kết nối trực tiếp tài khoản cá nhân & nhóm chat Zalo với **Google Antigravity (AGY) CLI**.  
@@ -68,7 +68,7 @@ Hệ thống **Heo-Agent (Bé Heo)** được xây dựng trên kiến trúc **M
 ### 5 Trụ Cột Của Core Agent (Google Antigravity CLI):
 1. **Trí tuệ suy luận đa mô hình (Multi-Model Intelligence):** Khai thác tối đa sức mạnh tính toán từ các mô hình AI tiên tiến (*Gemini 3.8 Flash, Gemini 3.1 Pro, Claude Sonnet 4.6, Claude Opus 4.6, GPT-OSS 120B*).
 2. **Quyền năng tự trị (Autonomous Tool Execution):** Core Agent tự phân tích yêu cầu, tự lựa chọn script cần thực thi (`create_song.py`, `generate_image.py`, `corporate_sheet_builder.py`), tự viết mã và tự kiểm tra kết quả mà không cần can thiệp thủ công.
-3. **Cơ chế nạp kỹ năng tiến trình (Progressive Skills Discovery):** Tự động phát hiện và nạp động 7 kỹ năng điều hành tại thư mục `skills/` theo nhu cầu thực tế.
+3. **Cơ chế nạp kỹ năng tiến trình (Progressive Skills Discovery):** Tự động phát hiện và nạp động 8 kỹ năng điều hành tại thư mục `skills/` theo nhu cầu thực tế.
 4. **Hệ thống quy chuẩn phân tầng (Hierarchical Rules):** Tuân thủ tuyệt đối quy tắc ứng xử con người (`workspace/AGENTS.md`) và bảo mật thông tin nội bộ của Sếp.
 5. **Tính mở & Độc lập kiến trúc (Modular Extensibility):** Tầng kết nối Zalo và Web HCS hoàn toàn tách biệt với Core Agent. Thiết kế này giúp hệ thống dễ dàng nâng cấp Core Agent hoặc mở rộng kết nối sang các kênh tương tác khác trong tương lai.
 
@@ -451,7 +451,8 @@ heo-agent/
 ├── workspace/                  # Thư mục sinh tài liệu, ảnh, bài hát và prompt
 │   ├── AGENTS.md               # Quy chuẩn cốt lõi hành vi & tác phong Trợ lý
 │   ├── GEMINI.md / CLAUDE.md   # Bản sao đồng bộ prompt cho các model
-├── skills/                     # 7 Kỹ năng nghiệp vụ điều hành cấp cao
+├── skills/                     # 8 Kỹ năng nghiệp vụ điều hành cấp cao
+│   ├── heo-agent-guide/        # Kỹ năng cẩm nang & hướng dẫn viên sử dụng toàn diện theo README v2.1
 │   ├── corporate-documentation/
 │   ├── corporate-navy-sheets/
 │   ├── executive-reporting/
@@ -477,9 +478,9 @@ heo-agent/
 
 > [!IMPORTANT]
 > **THÔNG TIN TÁC GIẢ & TUYÊN BỐ MIỄN TRỪ TRÁCH NHIỆM:**  
-> Phần mềm này được phát triển độc lập bởi tác giả **Ryan** ([genesis.corp.os@gmail.com](mailto:genesis.corp.os@gmail.com) • [(+84)090.919.8823](tel:+84909198823)) cho mục đích nghiên cứu, học tập và trải nghiệm công nghệ AI mã nguồn mở.
+> Phần mềm này được phát triển độc lập bởi tác giả **Anh Cơ La (Ryan)** ([genesis.corp.os@gmail.com](mailto:genesis.corp.os@gmail.com) • [(+84)090.919.8823](tel:+84909198823)) cho mục đích nghiên cứu, học tập và trải nghiệm công nghệ AI mã nguồn mở.
 > 
-> * **Cung cấp nguyên trạng ("AS IS")**: Tác giả **Ryan hoàn toàn không chịu bất kỳ trách nhiệm pháp lý, trách nhiệm dân sự hay tài chính nào** đối với bất kỳ rủi ro, thiệt hại hoặc tổn thất nào phát sinh từ việc cài đặt, vận hành hoặc sử dụng phần mềm này (bao gồm các vấn đề liên quan đến tài khoản Zalo, tài khoản Google, dữ liệu cá nhân hoặc nội dung do AI tạo ra).
+> * **Cung cấp nguyên trạng ("AS IS")**: Tác giả **Anh Cơ La (Ryan) hoàn toàn không chịu bất kỳ trách nhiệm pháp lý, trách nhiệm dân sự hay tài chính nào** đối với bất kỳ rủi ro, thiệt hại hoặc tổn thất nào phát sinh từ việc cài đặt, vận hành hoặc sử dụng phần mềm này (bao gồm các vấn đề liên quan đến tài khoản Zalo, tài khoản Google, dữ liệu cá nhân hoặc nội dung do AI tạo ra).
 > * **Trách nhiệm của người dùng**: Người dùng tự chịu trách nhiệm 100% trong việc tuân thủ pháp luật và Điều khoản dịch vụ của bên thứ ba (Google ToS, Zalo ToS).
 > 
 > 👉 Xem toàn văn chi tiết tại tài liệu chính thức: **[`DISCLAIMER.md`](DISCLAIMER.md)** (có sẵn trong mã nguồn tải về và trên giao diện Heo Console). Khi khởi động lần đầu, người dùng bắt buộc phải đọc và bấm chấp thuận điều khoản thì mới có thể bắt đầu sử dụng.
@@ -497,7 +498,7 @@ heo-agent/
 
 ## 📜 Giấy Phép & Bản Quyền
 
-Tác giả sáng lập & phát triển: **Ryan** — `genesis.corp.os@gmail.com` • `(+84)090.919.8823`.  
+Tác giả sáng lập & phát triển: **Anh Cơ La (Ryan)** — `genesis.corp.os@gmail.com` • `(+84)090.919.8823`.  
 Dự án: **Genesis** — Phục vụ cộng đồng tự động hóa điều hành và ứng dụng AI thực chiến.  
 Giấy phép: MIT License.
 

@@ -25,6 +25,12 @@ const QR_PATH = path.join(WORKSPACE_DIR, "zalo_qr.png");
 const AGY_ENGINE_URL = process.env.AGY_ENGINE_URL || "http://127.0.0.1:5066";
 const OUTBOUND_PORT = parseInt(process.env.BRIDGE_PORT || "5051", 10);
 
+// Hằng số nhận diện & tác giả cố định không thể sửa đổi
+const APP_NAME = "Heo-Agent (Bé Heo)";
+const APP_VERSION = "v2.1";
+const APP_AUTHOR = "Anh Cơ La";
+const APP_AUTHOR_EMAIL = "genesis.corp.os@gmail.com";
+
 let config = {};
 let BOSS_UID = process.env.BOSS_UID || "";
 let BOSS_NAME = process.env.BOSS_NAME || "Sếp";
@@ -1023,6 +1029,19 @@ async function startBridge() {
         });
         await api.sendTypingEvent(threadId, ThreadType.User).catch(() => {});
 
+        // 0. Lệnh tra cứu tác giả & bản quyền sáng lập
+        if (/^\/(author|tacgia|tac_gia|creator|info|about)\s*$/i.test(userPrompt.trim())) {
+          const authorMsg = (
+            `🐷 [HEO-AGENT (BÉ HEO) ${APP_VERSION}]\n\n` +
+            `👤 Tác giả sáng lập: ${APP_AUTHOR}\n` +
+            `📧 Email liên hệ: ${APP_AUTHOR_EMAIL}\n` +
+            `🧠 Core Agent: Google Antigravity (AGY) CLI\n` +
+            `🌐 Bảng điều khiển HCS: http://localhost:5066`
+          );
+          await sendSafeMessage(api, { msg: authorMsg, quote: msg.data }, threadId, ThreadType.User);
+          return;
+        }
+
         // 1. Lệnh tra cứu trạng thái mô hình & cấu hình nhanh
         if (/^\/(model|status)\s*$/i.test(userPrompt.trim())) {
           try {
@@ -1030,6 +1049,8 @@ async function startBridge() {
             const st = stResp.data;
             const statusMsg = (
               `📊 [BÁO CÁO HẠ TẦNG AI - TRẠNG THÁI MODEL]\n\n` +
+              `🔹 Phiên bản: ${APP_NAME} ${APP_VERSION}\n` +
+              `🔹 Tác giả: ${APP_AUTHOR} (${APP_AUTHOR_EMAIL})\n` +
               `🔹 Mô hình hiện tại: ${st.active_model}\n` +
               `🔹 Mức suy luận (Effort): ${(st.effort || 'medium').toUpperCase()}\n` +
               `🔹 Chế độ: ${st.is_fallback ? '⚠️ Fallback do quota' : '✅ Bình thường'}\n` +

@@ -108,7 +108,7 @@ print_banner() {
     echo -e "${YELLOW}   [ Bé Heo 3D ]                                    ${CYAN}|___/                    ${NC}"
     echo -e ""
     echo -e " 🩺 ${BOLD}${MAGENTA}HEO-AGENT DOCTOR — HỆ THỐNG CHẨN ĐOÁN & TỰ ĐỘNG PHỤC HỒI${NC}"
-    echo -e "    Kiểm tra toàn diện 10 tiêu chuẩn vận hành • Sửa chữa lỗi 1-Click"
+    echo -e "    Kiểm tra toàn diện 11 tiêu chuẩn vận hành • Sửa chữa lỗi 1-Click"
     echo -e " ${DIM}──────────────────────────────────────────────────────────────────────────────${NC}"
 }
 
@@ -209,7 +209,7 @@ run_diagnostics() {
         echo -e "\n${BOLD}${CYAN}3. Cấu Trúc Thư Mục & Quyền Hạn Dữ Liệu:${NC}"
     fi
 
-    REQUIRED_DIRS=("bin" "bridge" "engine" "data" "data/beats" "config" "logs" "auth" "auth/xdg-data" "auth/home/.gemini" "workspace")
+    REQUIRED_DIRS=("bin" "bridge" "engine" "data" "data/beats" "config" "logs" "auth" "auth/xdg-data" "auth/home/.gemini" "workspace" "skills")
     MISSING_DIRS=()
     for d in "${REQUIRED_DIRS[@]}"; do
         if [ ! -d "$BASE_DIR/$d" ]; then
@@ -534,6 +534,39 @@ except Exception:
     check_internet "https://api.github.com" "Máy chủ GitHub Release"
 
     # --------------------------------------------------------------------------
+    # 11. BẢN QUYỀN TÁC GIẢ & TÍNH TOÀN VẸN HỆ THỐNG
+    # --------------------------------------------------------------------------
+    if [ "$JSON_OUTPUT" -eq 0 ]; then
+        echo -e "\n${BOLD}${CYAN}11. Bản Quyền Tác Giả & Tính Toàn Vẹn Hệ Thống:${NC}"
+    fi
+
+    REQUIRED_AUTHOR="Anh Cơ La"
+    REQUIRED_EMAIL="genesis.corp.os@gmail.com"
+    AUTHOR_INTEGRITY=1
+
+    if [ -f "$BASE_DIR/engine/server.py" ]; then
+        if grep -q "APP_AUTHOR = \"$REQUIRED_AUTHOR\"" "$BASE_DIR/engine/server.py" 2>/dev/null && grep -q "$REQUIRED_EMAIL" "$BASE_DIR/engine/server.py" 2>/dev/null; then
+            log_ok "Định danh tác giả trong AI Engine: $REQUIRED_AUTHOR ($REQUIRED_EMAIL)"
+        else
+            log_warn "Phát hiện sai lệch định danh tác giả trong engine/server.py." "Chạy 'heo-agent doctor --fix' để tự động khôi phục"
+            AUTHOR_INTEGRITY=0
+        fi
+    fi
+
+    if [ -f "$BASE_DIR/DISCLAIMER.md" ]; then
+        if grep -q "$REQUIRED_AUTHOR" "$BASE_DIR/DISCLAIMER.md" 2>/dev/null && grep -q "$REQUIRED_EMAIL" "$BASE_DIR/DISCLAIMER.md" 2>/dev/null; then
+            log_ok "Tuyên bố quyền tác giả trong DISCLAIMER.md: Hợp lệ 100%"
+        else
+            log_warn "Tệp DISCLAIMER.md thiếu thông tin tác giả gốc $REQUIRED_AUTHOR." "Khôi phục lại tệp điều khoản chính thức"
+            AUTHOR_INTEGRITY=0
+        fi
+    fi
+
+    if [ "$AUTHOR_INTEGRITY" -eq 1 ]; then
+        log_ok "Bảo chứng sở hữu trí tuệ: Hợp lệ theo tiêu chuẩn Genesis"
+    fi
+
+    # --------------------------------------------------------------------------
     # TỔNG KẾT BÁO CÁO
     # --------------------------------------------------------------------------
     if [ "$JSON_OUTPUT" -eq 0 ]; then
@@ -592,7 +625,7 @@ run_auto_repair() {
 
     # 2. Khôi phục cấu trúc thư mục & sửa broken symlink
     echo -e "\n${CYAN}>>> Bước 2/7: Tự động tạo lại thư mục thiếu & sửa broken symlink...${NC}"
-    mkdir -p bin bridge engine data data/beats config logs auth auth/xdg-data auth/home/.gemini workspace
+    mkdir -p bin bridge engine data data/beats config logs auth auth/xdg-data auth/home/.gemini workspace skills
     touch data/.gitkeep data/beats/.gitkeep logs/.gitkeep auth/.gitkeep
     rm -f auth/gemini_profile 2>/dev/null || true
     ln -sf home/.gemini auth/gemini_profile 2>/dev/null || true

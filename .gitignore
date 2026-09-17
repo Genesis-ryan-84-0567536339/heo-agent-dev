@@ -36,6 +36,7 @@ workspace/*
 !workspace/AGENTS.md
 !workspace/GEMINI.md
 !workspace/CLAUDE.md
+!workspace/cam_nang_su_dung_heo_agent_v2_1.md
 
 # OS / IDE
 .DS_Store

@@ -1051,7 +1051,7 @@
         </div>
         <h3 class="font-bold text-white text-base md:text-lg">Tuyên Bố Miễn Trừ Trách Nhiệm & Điều Khoản Sử Dụng</h3>
         <p class="text-xs text-slate-400">
-          Tác giả: <strong class="text-white">Ryan</strong> • <a href="mailto:genesis.corp.os@gmail.com" class="text-cyan-400 hover:underline">genesis.corp.os@gmail.com</a> • <a href="tel:+84909198823" class="text-cyan-400 hover:underline">(+84)090.919.8823</a>
+          Tác giả: <strong class="text-white">Anh Cơ La</strong> • <a href="mailto:genesis.corp.os@gmail.com" class="text-cyan-400 hover:underline">genesis.corp.os@gmail.com</a> • <a href="tel:+84909198823" class="text-cyan-400 hover:underline">(+84)090.919.8823</a>
         </p>
       </div>
 
@@ -1097,12 +1097,7 @@
       <span class="font-medium text-slate-300">Heo-Agent (HCS)</span>
       <span class="px-2 py-0.5 rounded-full bg-cyan-950/90 text-cyan-400 font-mono text-[11px] border border-cyan-800/60 font-semibold shadow-sm">v2.1</span>
       <span>•</span>
-      <span>Tác giả: <strong class="text-white font-semibold">Ryan</strong></span>
-      <span>•</span>
-      <a href="mailto:genesis.corp.os@gmail.com" class="text-cyan-400 hover:underline inline-flex items-center space-x-1">
-        <span>✉️</span>
-        <span>genesis.corp.os@gmail.com</span>
-      </a>
+      <span id="author-branding">Tác giả: <strong class="text-white font-semibold">Anh Cơ La</strong> • <a href="mailto:genesis.corp.os@gmail.com" class="text-cyan-400 hover:underline inline-flex items-center space-x-1"><span>✉️</span><span>genesis.corp.os@gmail.com</span></a></span>
       <span>•</span>
       <a href="tel:+84909198823" class="text-cyan-400 hover:underline inline-flex items-center space-x-1">
         <span>📞</span>
@@ -3165,6 +3160,25 @@
         if (hasAcceptedDisclaimer) closeDisclaimerModal();
       }
     });
+
+    // Tự động kiểm tra & bảo vệ định danh tác giả bất biến Anh Cơ La
+    (function protectAuthorBranding() {
+      const REQUIRED_AUTHOR = "Anh Cơ La";
+      const REQUIRED_EMAIL = "genesis.corp.os@gmail.com";
+      function verify() {
+        const el = document.getElementById("author-branding");
+        if (el) {
+          if (!el.textContent.includes(REQUIRED_AUTHOR) || !el.textContent.includes(REQUIRED_EMAIL)) {
+            el.innerHTML = `Tác giả: <strong class="text-white font-semibold">${REQUIRED_AUTHOR}</strong> • <a href="mailto:${REQUIRED_EMAIL}" class="text-cyan-400 hover:underline inline-flex items-center space-x-1"><span>✉️</span><span>${REQUIRED_EMAIL}</span></a>`;
+          }
+          el.style.display = "";
+          el.style.visibility = "visible";
+          el.style.opacity = "1";
+        }
+      }
+      setInterval(verify, 3000);
+      verify();
+    })();
   </script>
 </body>
 </html>

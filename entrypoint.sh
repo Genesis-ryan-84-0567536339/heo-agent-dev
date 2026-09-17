@@ -3,8 +3,14 @@ set -e
 
 git config --system --add safe.directory '*' 2>/dev/null || git config --global --add safe.directory '*' 2>/dev/null || true
 
-# Đảm bảo các thư mục dữ liệu và profile người dùng tồn tại
-mkdir -p /app/data /app/workspace /app/logs /app/auth/xdg-data /app/auth/home/.gemini /app/bin
+# Đảm bảo các thư mục dữ liệu, profile người dùng và liên kết skills tồn tại
+mkdir -p /app/data /app/workspace /app/logs /app/auth/xdg-data /app/auth/home/.gemini /app/bin /app/skills /app/workspace/.agents
+if [ ! -e /app/workspace/skills ]; then
+    ln -sf ../skills /app/workspace/skills 2>/dev/null || true
+fi
+if [ ! -e /app/workspace/.agents/skills ]; then
+    ln -sf ../../skills /app/workspace/.agents/skills 2>/dev/null || true
+fi
 if [ -L /app/auth/gemini_profile ] && [ ! -e /app/auth/gemini_profile ]; then
     rm -f /app/auth/gemini_profile
 fi

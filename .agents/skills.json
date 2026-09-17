@@ -1,0 +1,13 @@
+{
+  "entries": [
+    {
+      "path": "/app/skills"
+    },
+    {
+      "path": "skills"
+    },
+    {
+      "path": "../skills"
+    }
+  ]
+}
